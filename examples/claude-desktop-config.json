@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "mina-docs": {
+      "command": "node",
+      "args": ["/path/to/mina-docs-mcp/packages/server/dist/index.js"],
+      "env": {
+        "OPENAI_API_KEY": "sk-your-api-key",
+        "QDRANT_URL": "http://localhost:6333",
+        "SQLITE_PATH": "/path/to/mina-docs-mcp/data/mina_docs.db"
+      }
+    }
+  }
+}
