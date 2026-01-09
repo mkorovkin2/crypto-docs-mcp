@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { getToolDefinitions, handleToolCall, type ToolContext } from './tools/index.js';
 import { getResourceDefinitions, handleResourceRead } from './resources/index.js';
-import type { HybridSearch, FullTextDB } from '@mina-docs/shared';
+import type { HybridSearch, FullTextDB, LLMClient } from '@mina-docs/shared';
 
 interface JSONRPCRequest {
   jsonrpc: '2.0';
@@ -24,6 +24,7 @@ interface JSONRPCResponse {
 export interface TransportContext {
   search: HybridSearch;
   ftsDb: FullTextDB;
+  llmClient: LLMClient;
 }
 
 export async function createHttpTransport(
@@ -50,8 +51,9 @@ export async function createHttpTransport(
   app.get('/health', (req, res) => {
     res.json({
       status: 'ok',
-      server: 'mina-docs-mcp',
-      version: '0.1.0',
+      server: 'crypto-docs-mcp',
+      version: '2.0.0',
+      features: ['llm-synthesis', 'reranking'],
       endpoints: {
         mcp: '/mcp',
         health: '/health'
@@ -121,7 +123,11 @@ async function handleMCPRequest(
   request: JSONRPCRequest
 ): Promise<JSONRPCResponse> {
   const { method, params, id } = request;
-  const toolContext: ToolContext = { search: context.search, ftsDb: context.ftsDb };
+  const toolContext: ToolContext = {
+    search: context.search,
+    ftsDb: context.ftsDb,
+    llmClient: context.llmClient
+  };
 
   switch (method) {
     case 'initialize':
@@ -134,8 +140,8 @@ async function handleMCPRequest(
             resources: {}
           },
           serverInfo: {
-            name: 'mina-docs-mcp',
-            version: '0.1.0'
+            name: 'crypto-docs-mcp',
+            version: '2.0.0'
           }
         },
         id: id ?? null

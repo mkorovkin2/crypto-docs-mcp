@@ -2,11 +2,13 @@ import type { DocumentChunk, SearchResult } from './types.js';
 import { VectorDB } from './db/vector.js';
 import { FullTextDB } from './db/fts.js';
 import { generateSingleEmbedding } from './embeddings.js';
+import type { Reranker } from './reranker.js';
 
 export interface HybridSearchOptions {
   vectorDb: VectorDB;
   ftsDb: FullTextDB;
   openaiApiKey: string;
+  reranker?: Reranker;
 }
 
 export interface SearchOptions {
@@ -14,30 +16,49 @@ export interface SearchOptions {
   contentType?: 'prose' | 'code' | 'api-reference';
   project?: string;
   mode?: 'hybrid' | 'vector' | 'fts';
+  rerank?: boolean;
+  rerankTopK?: number;
 }
 
 export class HybridSearch {
   constructor(private options: HybridSearchOptions) {}
 
   async search(query: string, options: SearchOptions = {}): Promise<SearchResult[]> {
-    const { limit = 10, contentType, project, mode = 'hybrid' } = options;
+    const {
+      limit = 10,
+      contentType,
+      project,
+      mode = 'hybrid',
+      rerank = false,
+      rerankTopK = 10
+    } = options;
+
+    // Fetch more candidates if reranking
+    const fetchLimit = rerank ? Math.max(limit * 3, 30) : limit;
+
+    let results: SearchResult[];
 
     if (mode === 'fts') {
-      return this.ftsSearch(query, { limit, contentType, project });
+      results = await this.ftsSearch(query, { limit: fetchLimit, contentType, project });
+    } else if (mode === 'vector') {
+      results = await this.vectorSearch(query, { limit: fetchLimit, contentType, project });
+    } else {
+      // Hybrid: combine vector and FTS results
+      const [vectorResults, ftsResults] = await Promise.all([
+        this.vectorSearch(query, { limit: fetchLimit, contentType, project }),
+        this.ftsSearch(query, { limit: fetchLimit, contentType, project })
+      ]);
+
+      // Merge and deduplicate results using reciprocal rank fusion
+      results = this.reciprocalRankFusion(vectorResults, ftsResults, fetchLimit);
     }
 
-    if (mode === 'vector') {
-      return this.vectorSearch(query, { limit, contentType, project });
+    // Apply reranking if enabled and reranker is available
+    if (rerank && this.options.reranker && results.length > rerankTopK) {
+      results = await this.options.reranker.rerank(query, results, { topK: rerankTopK });
     }
 
-    // Hybrid: combine vector and FTS results
-    const [vectorResults, ftsResults] = await Promise.all([
-      this.vectorSearch(query, { limit: limit * 2, contentType, project }),
-      this.ftsSearch(query, { limit: limit * 2, contentType, project })
-    ]);
-
-    // Merge and deduplicate results using reciprocal rank fusion
-    return this.reciprocalRankFusion(vectorResults, ftsResults, limit);
+    return results.slice(0, limit);
   }
 
   private async vectorSearch(

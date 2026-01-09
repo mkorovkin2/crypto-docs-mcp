@@ -15,6 +15,13 @@ export const config = {
 
   openai: {
     apiKey: process.env.OPENAI_API_KEY || ''
+  },
+
+  // LLM synthesis configuration
+  llm: {
+    model: process.env.LLM_MODEL || 'gpt-4o',
+    maxTokens: parseInt(process.env.LLM_MAX_TOKENS || '4000'),
+    temperature: parseFloat(process.env.LLM_TEMPERATURE || '0.3')
   }
 };
 

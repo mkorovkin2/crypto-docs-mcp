@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 
 import 'dotenv/config';
-import { VectorDB, FullTextDB, HybridSearch, listProjects } from '@mina-docs/shared';
+import { VectorDB, FullTextDB, HybridSearch, Reranker, LLMClient, listProjects } from '@mina-docs/shared';
 import { config, validateConfig } from './config.js';
 import { createHttpTransport } from './transport.js';
 
 async function main() {
   console.error('='.repeat(60));
-  console.error('Crypto Documentation MCP Server');
+  console.error('Crypto Documentation MCP Server v2.0');
+  console.error('(LLM-Synthesized Responses)');
   console.error('='.repeat(60));
 
   // Validate configuration
@@ -24,6 +25,8 @@ async function main() {
   console.error(`  Host: ${config.host}`);
   console.error(`  Qdrant: ${config.qdrant.url}`);
   console.error(`  SQLite: ${config.sqlite.path}`);
+  console.error(`  LLM Model: ${config.llm.model}`);
+  console.error(`  LLM Max Tokens: ${config.llm.maxTokens}`);
 
   // List available projects
   const projects = listProjects();
@@ -62,19 +65,34 @@ async function main() {
     process.exit(1);
   }
 
-  // Initialize hybrid search
+  // Initialize reranker
+  const reranker = new Reranker({
+    apiKey: config.openai.apiKey
+  });
+  console.error('  ✓ Reranker initialized');
+
+  // Initialize LLM client for synthesis
+  const llmClient = new LLMClient({
+    apiKey: config.openai.apiKey,
+    model: config.llm.model,
+    maxTokens: config.llm.maxTokens,
+    temperature: config.llm.temperature
+  });
+  console.error('  ✓ LLM client initialized');
+
+  // Initialize hybrid search with reranker
   const search = new HybridSearch({
     vectorDb,
     ftsDb,
-    openaiApiKey: config.openai.apiKey
+    openaiApiKey: config.openai.apiKey,
+    reranker
   });
-
-  console.error('  ✓ Hybrid search initialized');
+  console.error('  ✓ Hybrid search initialized (with reranking)');
 
   // Start HTTP server
   try {
     await createHttpTransport(
-      { search, ftsDb },
+      { search, ftsDb, llmClient },
       config.port,
       config.host
     );
@@ -86,13 +104,10 @@ async function main() {
   console.error('\n' + '='.repeat(60));
   console.error('Server ready! Available MCP tools:');
   console.error('  - list_projects: List available documentation projects');
-  console.error('  - search_documentation: Search project docs');
-  console.error('  - get_code_examples: Find code examples');
-  console.error('  - explain_concept: Explain concepts');
-  console.error('  - debug_helper: Debug common errors');
-  console.error('  - get_api_signature: Look up API documentation');
-  console.error('  - resolve_import: Find import statements');
-  console.error('  - get_pattern: Get code patterns and recipes');
+  console.error('  - ask_docs: Ask questions, get synthesized answers');
+  console.error('  - get_working_example: Get complete code examples');
+  console.error('  - explain_error: Debug errors with explanations');
+  console.error('  - search_docs: Raw documentation search');
   console.error('='.repeat(60));
 
   // Graceful shutdown

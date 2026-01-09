@@ -1,12 +1,11 @@
 /**
- * Crypto Docs MCP Server Demo
+ * Crypto Docs MCP Server v2.0 Demo
  *
- * Simulates how a coding agent would use this MCP server to build smart contracts.
- * Demonstrates all 8 tools in a realistic workflow.
+ * Simulates how a coding agent would use the LLM-synthesized MCP server.
+ * Demonstrates all 5 tools with actual responses.
  *
  * Usage: npx ts-node scripts/demo.ts [project]
  *        npm run demo -- mina
- *        npm run demo -- solana
  */
 
 import 'dotenv/config';
@@ -50,21 +49,29 @@ function agentThinks(text: string) {
 }
 
 function agentAction(tool: string, args: any) {
-  log(colors.yellow, `  → Calling ${tool}(${JSON.stringify(args).slice(0, 60)}${JSON.stringify(args).length > 60 ? '...' : ''})`);
+  log(colors.yellow, `  → Calling ${tool}(${JSON.stringify(args).slice(0, 80)}${JSON.stringify(args).length > 80 ? '...' : ''})`);
 }
 
-function showResult(text: string, maxLines = 20) {
+function showResult(text: string, maxLines = 30) {
   const lines = text.split('\n').slice(0, maxLines);
   console.log();
-  log(colors.green, '  ┌' + '─'.repeat(66) + '┐');
+  log(colors.green, '  ┌' + '─'.repeat(76) + '┐');
   for (const line of lines) {
-    const truncated = line.length > 64 ? line.slice(0, 61) + '...' : line;
-    log(colors.green, `  │ ${truncated.padEnd(64)} │`);
+    const truncated = line.length > 74 ? line.slice(0, 71) + '...' : line;
+    log(colors.green, `  │ ${truncated.padEnd(74)} │`);
   }
   if (text.split('\n').length > maxLines) {
-    log(colors.green, `  │ ${'... (truncated)'.padEnd(64)} │`);
+    log(colors.green, `  │ ${'... (truncated)'.padEnd(74)} │`);
   }
-  log(colors.green, '  └' + '─'.repeat(66) + '┘');
+  log(colors.green, '  └' + '─'.repeat(76) + '┘');
+  console.log();
+}
+
+function showFullResult(text: string) {
+  console.log();
+  console.log(colors.green + '─'.repeat(78) + colors.reset);
+  console.log(text);
+  console.log(colors.green + '─'.repeat(78) + colors.reset);
   console.log();
 }
 
@@ -89,7 +96,10 @@ async function callMCP(method: string, params: any = {}): Promise<any> {
 
 async function callTool(name: string, args: any): Promise<string> {
   agentAction(name, args);
+  const startTime = Date.now();
   const result = await callMCP('tools/call', { name, arguments: args });
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+  log(colors.dim, `  ⏱  Completed in ${elapsed}s`);
   return result.content?.[0]?.text || '';
 }
 
@@ -98,19 +108,21 @@ async function sleep(ms: number) {
 }
 
 async function main() {
-  header('Crypto Docs MCP Server - Agent Simulation Demo');
+  header('Crypto Docs MCP Server v2.0 - LLM Synthesis Demo');
 
   log(colors.dim, `  Target: ${MCP_URL}`);
   log(colors.dim, `  Project: ${PROJECT}`);
-  log(colors.dim, `  This demo simulates a coding agent building a smart contract.`);
+  log(colors.dim, `  This demo shows LLM-synthesized answers (not raw chunks!)`);
   console.log();
 
   // Check server health
   subheader('Step 0: Checking Server');
   try {
-    const health = await fetch(`${MCP_URL}/health`);
-    if (!health.ok) throw new Error('Server not responding');
-    log(colors.green, '  ✓ Server is running');
+    const healthResp = await fetch(`${MCP_URL}/health`);
+    if (!healthResp.ok) throw new Error('Server not responding');
+    const health = await healthResp.json();
+    log(colors.green, `  ✓ Server is running (v${health.version})`);
+    log(colors.green, `  ✓ Features: ${health.features?.join(', ') || 'basic'}`);
   } catch (e) {
     log(colors.red, '  ✗ Server not responding. Start it with: npm run server');
     process.exit(1);
@@ -120,13 +132,16 @@ async function main() {
   await callMCP('initialize', {
     protocolVersion: '2024-11-05',
     capabilities: {},
-    clientInfo: { name: 'demo-agent', version: '1.0.0' }
+    clientInfo: { name: 'demo-agent', version: '2.0.0' }
   });
   log(colors.green, '  ✓ MCP connection initialized');
 
   // List tools
   const toolsResult = await callMCP('tools/list');
-  log(colors.green, `  ✓ ${toolsResult.tools.length} tools available`);
+  log(colors.green, `  ✓ ${toolsResult.tools.length} tools available:`);
+  for (const tool of toolsResult.tools) {
+    log(colors.dim, `      - ${tool.name}`);
+  }
 
   await sleep(1000);
 
@@ -140,120 +155,97 @@ async function main() {
   const projectsResult = await callTool('list_projects', {});
   showResult(projectsResult, 15);
 
-  await sleep(1500);
+  await sleep(1000);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SCENARIO: Agent is asked to build a smart contract
+  // SCENARIO: Build a smart contract
   // ═══════════════════════════════════════════════════════════════════════════
 
   header(`Scenario: Build a Smart Contract (${PROJECT})`);
-  log(colors.dim, `  User: "Build me a smart contract on ${PROJECT}"`);
+  log(colors.magenta, `  User: "Help me build a smart contract on ${PROJECT}"`);
 
-  await sleep(1500);
+  await sleep(1000);
 
-  // Step 2: Search for how to build a contract
-  subheader('Step 2: Research Contract Structure');
-  agentThinks(`I need to understand how smart contracts work in ${PROJECT}...`);
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Step 2: ask_docs - Get synthesized answer about smart contracts
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  const searchResult = await callTool('search_documentation', {
-    query: 'how to create a smart contract',
+  subheader('Step 2: ask_docs - Ask How Smart Contracts Work');
+  agentThinks(`Let me ask the docs how smart contracts work in ${PROJECT}...`);
+  log(colors.dim, `  (This will synthesize an answer from multiple docs!)`);
+
+  const askResult = await callTool('ask_docs', {
+    question: `How do smart contracts work in ${PROJECT}? What are the key concepts I need to understand?`,
+    project: PROJECT
+  });
+  showFullResult(askResult);
+
+  await sleep(2000);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Step 3: get_working_example - Get complete code example
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  subheader('Step 3: get_working_example - Get Complete Code');
+  agentThinks("Now I need a complete, runnable code example...");
+  log(colors.dim, `  (This will create a full example with ALL imports!)`);
+
+  const exampleResult = await callTool('get_working_example', {
+    task: 'create a simple counter smart contract',
+    project: PROJECT
+  });
+  showFullResult(exampleResult);
+
+  await sleep(2000);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Step 4: explain_error - Debug an error
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  subheader('Step 4: explain_error - Debug an Error');
+  agentThinks("I'm getting an error when trying to deploy...");
+  log(colors.dim, `  (This will diagnose the error and suggest fixes!)`);
+
+  const errorResult = await callTool('explain_error', {
+    error: 'transaction verification failed',
+    project: PROJECT,
+    context: 'deploying a smart contract to devnet'
+  });
+  showFullResult(errorResult);
+
+  await sleep(2000);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Step 5: search_docs - Raw search for specific info
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  subheader('Step 5: search_docs - Raw Search');
+  agentThinks("Let me search for specific info about deployment...");
+  log(colors.dim, `  (This returns raw chunks for browsing)`);
+
+  const searchResult = await callTool('search_docs', {
+    query: 'deploy contract network',
     project: PROJECT,
     limit: 3
   });
-  showResult(searchResult, 15);
-
-  await sleep(1500);
-
-  // Step 3: Get the pattern for a basic contract
-  subheader('Step 3: Get Contract Pattern');
-  agentThinks("Let me get a working pattern to start from...");
-
-  const patternResult = await callTool('get_pattern', {
-    task: 'basic contract',
-    project: PROJECT,
-    includeVariations: false
-  });
-  showResult(patternResult, 25);
-
-  await sleep(1500);
-
-  // Step 4: Figure out imports
-  subheader('Step 4: Resolve Imports');
-  agentThinks("What do I need to import?");
-
-  const importResult = await callTool('resolve_import', {
-    symbol: 'Contract',
-    project: PROJECT,
-    includeRelated: true
-  });
-  showResult(importResult, 15);
-
-  await sleep(1500);
-
-  // Step 5: Get API signature for specific methods
-  subheader('Step 5: Check API Signatures');
-  agentThinks("How do I interact with state or storage?");
-
-  const apiResult = await callTool('get_api_signature', {
-    className: 'State',
-    project: PROJECT
-  });
-  showResult(apiResult, 12);
-
-  await sleep(1500);
-
-  // Step 6: Agent encounters an error, uses debug helper
-  subheader('Step 6: Debug an Error');
-  agentThinks("I'm getting an error when deploying...");
-
-  const debugResult = await callTool('debug_helper', {
-    error: 'transaction failed',
-    project: PROJECT,
-    context: 'deploying contract'
-  });
-  showResult(debugResult, 20);
-
-  await sleep(1500);
-
-  // Step 7: Get code examples for events
-  subheader('Step 7: Add Events');
-  agentThinks("I want to emit events from my contract...");
-
-  const eventsResult = await callTool('get_code_examples', {
-    topic: 'events',
-    project: PROJECT,
-    limit: 2
-  });
-  showResult(eventsResult, 20);
-
-  await sleep(1500);
-
-  // Step 8: Understand a concept
-  subheader('Step 8: Understand a Concept');
-  agentThinks("Let me understand how accounts/programs work...");
-
-  const conceptResult = await callTool('explain_concept', {
-    concept: 'account',
-    project: PROJECT,
-    depth: 'detailed'
-  });
-  showResult(conceptResult, 20);
+  showResult(searchResult, 25);
 
   // Summary
   header('Demo Complete!');
 
-  console.log('  This demo showed how a coding agent uses the MCP server to:');
+  console.log('  This demo showed the NEW LLM-synthesized MCP server:');
   console.log();
-  log(colors.green, '  1. list_projects         → See available documentation');
-  log(colors.green, '  2. search_documentation  → Research how contracts work');
-  log(colors.green, '  3. get_pattern           → Get working code templates');
-  log(colors.green, '  4. resolve_import        → Find correct imports');
-  log(colors.green, '  5. get_api_signature     → Get exact method signatures');
-  log(colors.green, '  6. debug_helper          → Troubleshoot errors');
-  log(colors.green, '  7. get_code_examples     → Find implementation examples');
-  log(colors.green, '  8. explain_concept       → Understand concepts');
+  log(colors.green, '  OLD WAY: Return raw chunks → Agent pieces together answer');
+  log(colors.cyan, '  NEW WAY: Server synthesizes complete, actionable answers!');
   console.log();
-  log(colors.cyan, `  The agent queries ${PROJECT} docs and writes correct code!`);
+  console.log('  New tools demonstrated:');
+  log(colors.green, '  1. list_projects       → See available documentation');
+  log(colors.green, '  2. ask_docs            → Ask questions, get SYNTHESIZED answers');
+  log(colors.green, '  3. get_working_example → Get COMPLETE code with all imports');
+  log(colors.green, '  4. explain_error       → Debug errors with specific fixes');
+  log(colors.green, '  5. search_docs         → Raw search when needed');
+  console.log();
+  log(colors.cyan, `  The agent gets actionable answers, not raw chunks!`);
   console.log();
   log(colors.dim, '  Try with different projects:');
   log(colors.dim, '    npx ts-node scripts/demo.ts mina');
@@ -264,5 +256,6 @@ async function main() {
 
 main().catch(err => {
   log(colors.red, 'Error:', err.message);
+  console.error(err);
   process.exit(1);
 });
