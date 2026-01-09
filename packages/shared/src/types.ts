@@ -9,6 +9,14 @@ export interface DocumentChunk {
     headings: string[];
     codeLanguage?: string;
     lastScraped: string;
+    // GitHub source metadata (optional)
+    sourceType?: 'docs' | 'github';
+    className?: string;
+    methodName?: string;
+    functionName?: string;
+    typeName?: string;
+    isStatic?: boolean;
+    filePath?: string;
   };
 }
 

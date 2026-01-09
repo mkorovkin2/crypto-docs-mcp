@@ -2,6 +2,10 @@ import { searchDocumentation, SearchDocumentationSchema } from './search.js';
 import { getCodeExamples, GetCodeExamplesSchema } from './examples.js';
 import { explainConcept, ExplainConceptSchema } from './explain.js';
 import { debugHelper, DebugHelperSchema } from './debug.js';
+import { getApiSignature, GetApiSignatureSchema } from './api-signatures.js';
+import { resolveImport, ResolveImportSchema } from './imports.js';
+import { validateZkAppCode, ValidateZkAppCodeSchema } from './validate.js';
+import { getPattern, GetPatternSchema } from './patterns.js';
 import type { HybridSearch, FullTextDB } from '@mina-docs/shared';
 
 export interface ToolContext {
@@ -88,6 +92,79 @@ export function getToolDefinitions() {
         },
         required: ['error']
       }
+    },
+    {
+      name: 'get_api_signature',
+      description: 'Get exact method signatures, parameters, and return types for o1js classes and functions. Use this to get accurate API information for Field, Bool, SmartContract, Poseidon, MerkleTree, etc.',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          className: {
+            type: 'string',
+            description: 'Class name (e.g., "Field", "SmartContract", "MerkleTree", "Poseidon")'
+          },
+          methodName: {
+            type: 'string',
+            description: 'Specific method name (optional - omit to get class overview)'
+          }
+        },
+        required: ['className']
+      }
+    },
+    {
+      name: 'resolve_import',
+      description: 'Get the correct import statement for o1js symbols. Use when you need to know what to import and from where.',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          symbol: {
+            type: 'string',
+            description: 'Symbol to import (e.g., "MerkleTree", "Poseidon", "SmartContract") or category (e.g., "core", "contract", "merkle")'
+          },
+          includeRelated: {
+            type: 'boolean',
+            description: 'Include related symbols you might also need (default: true)'
+          }
+        },
+        required: ['symbol']
+      }
+    },
+    {
+      name: 'validate_zkapp_code',
+      description: 'Validate zkApp code for common mistakes and anti-patterns. Checks for non-provable operations, missing initializations, incorrect conditionals, and more.',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          code: {
+            type: 'string',
+            description: 'TypeScript/o1js code to validate'
+          },
+          checkLevel: {
+            type: 'string',
+            enum: ['errors', 'warnings', 'all'],
+            description: 'What to check: "errors" (critical only), "warnings" (potential problems), "all" (comprehensive, default)'
+          }
+        },
+        required: ['code']
+      }
+    },
+    {
+      name: 'get_pattern',
+      description: 'Get recommended code patterns and recipes for common zkApp tasks. Returns complete, working examples with explanations and pitfalls to avoid.',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          task: {
+            type: 'string',
+            description: 'Task or pattern (e.g., "merkle membership", "deploy contract", "emit events", "signature verification", "conditional logic")'
+          },
+          includeVariations: {
+            type: 'boolean',
+            description: 'Include alternative approaches (default: true)'
+          }
+        },
+        required: ['task']
+      }
     }
   ];
 }
@@ -122,6 +199,30 @@ export async function handleToolCall(
       case 'debug_helper':
         return await debugHelper(
           DebugHelperSchema.parse(parsedArgs),
+          context
+        );
+
+      case 'get_api_signature':
+        return await getApiSignature(
+          GetApiSignatureSchema.parse(parsedArgs),
+          context
+        );
+
+      case 'resolve_import':
+        return await resolveImport(
+          ResolveImportSchema.parse(parsedArgs),
+          context
+        );
+
+      case 'validate_zkapp_code':
+        return await validateZkAppCode(
+          ValidateZkAppCodeSchema.parse(parsedArgs),
+          context
+        );
+
+      case 'get_pattern':
+        return await getPattern(
+          GetPatternSchema.parse(parsedArgs),
           context
         );
 

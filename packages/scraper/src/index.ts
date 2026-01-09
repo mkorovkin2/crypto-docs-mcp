@@ -4,6 +4,7 @@ import 'dotenv/config';
 import { Crawler } from './crawler.js';
 import { parseDocumentation } from './parser.js';
 import { chunkContent } from './chunker.js';
+import { scrapeGitHubSource } from './github-source.js';
 import {
   VectorDB,
   FullTextDB,
@@ -19,7 +20,12 @@ const config = {
   baseUrl: process.env.SCRAPER_BASE_URL || 'https://docs.minaprotocol.com',
   concurrency: parseInt(process.env.SCRAPER_CONCURRENCY || '3'),
   delayMs: parseInt(process.env.SCRAPER_DELAY_MS || '1000'),
-  maxPages: parseInt(process.env.SCRAPER_MAX_PAGES || '200')
+  maxPages: parseInt(process.env.SCRAPER_MAX_PAGES || '200'),
+  // GitHub source scraping
+  scrapeGitHub: process.env.SCRAPE_GITHUB !== 'false',
+  githubRepo: process.env.GITHUB_REPO || 'o1-labs/o1js',
+  githubBranch: process.env.GITHUB_BRANCH || 'main',
+  githubToken: process.env.GITHUB_TOKEN
 };
 
 async function main() {
@@ -151,6 +157,46 @@ async function main() {
   // Process remaining chunks
   await processBatch();
 
+  // Scrape o1js GitHub source (optional but recommended)
+  if (config.scrapeGitHub) {
+    console.log('\n' + '='.repeat(60));
+    console.log('Scraping o1js Source Code from GitHub');
+    console.log('='.repeat(60));
+
+    try {
+      const sourceChunks = await scrapeGitHubSource({
+        repo: config.githubRepo,
+        branch: config.githubBranch,
+        token: config.githubToken
+      });
+
+      if (sourceChunks.length > 0) {
+        console.log(`\nIndexing ${sourceChunks.length} source code chunks...`);
+
+        // Process in batches
+        for (let i = 0; i < sourceChunks.length; i += EMBEDDING_BATCH_SIZE) {
+          const batch = sourceChunks.slice(i, i + EMBEDDING_BATCH_SIZE);
+
+          const embeddings = await generateEmbeddings(
+            batch.map(c => c.content),
+            config.openaiApiKey!
+          );
+
+          await vectorDb.upsert(batch, embeddings);
+          await ftsDb.upsert(batch);
+
+          totalChunks += batch.length;
+          console.log(`  Indexed source batch ${Math.floor(i / EMBEDDING_BATCH_SIZE) + 1}/${Math.ceil(sourceChunks.length / EMBEDDING_BATCH_SIZE)}`);
+        }
+
+        console.log(`  ✓ Source code indexing complete`);
+      }
+    } catch (error) {
+      console.error('  ⚠ GitHub source scraping failed:', error instanceof Error ? error.message : error);
+      console.error('  Continuing without source code...');
+    }
+  }
+
   // Summary
   const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
 
@@ -160,6 +206,7 @@ async function main() {
   console.log(`  Pages processed: ${processedPages}`);
   console.log(`  Pages failed: ${failedPages}`);
   console.log(`  Total chunks indexed: ${totalChunks}`);
+  console.log(`  GitHub source: ${config.scrapeGitHub ? 'enabled' : 'disabled'}`);
   console.log(`  Total time: ${totalTime}s`);
   console.log('='.repeat(60));
 
