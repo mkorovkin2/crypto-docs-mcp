@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import 'dotenv/config';
+import { parseArgs } from 'util';
 import { Crawler } from './crawler.js';
 import { parseDocumentation } from './parser.js';
 import { chunkContent } from './chunker.js';
@@ -8,29 +9,94 @@ import { scrapeGitHubSource } from './github-source.js';
 import {
   VectorDB,
   FullTextDB,
-  generateEmbeddings
+  generateEmbeddings,
+  loadProjectConfig,
+  listProjects,
+  type ProjectConfig
 } from '@mina-docs/shared';
 
-// Configuration with defaults
+// Parse CLI arguments
+const { values: args } = parseArgs({
+  options: {
+    project: { type: 'string', short: 'p' },
+    list: { type: 'boolean', short: 'l' },
+    help: { type: 'boolean', short: 'h' }
+  }
+});
+
+if (args.help) {
+  console.log(`
+Usage: scrape [options]
+
+Options:
+  -p, --project <id>  Project to scrape (required)
+  -l, --list          List available projects
+  -h, --help          Show this help
+
+Examples:
+  npm run scrape -- --project mina
+  npm run scrape -- -p solana
+  npm run scrape -- --list
+  `);
+  process.exit(0);
+}
+
+if (args.list) {
+  console.log('Available projects:');
+  const projects = listProjects();
+  if (projects.length === 0) {
+    console.log('  (none found - check config/projects/ directory)');
+  } else {
+    projects.forEach(p => {
+      try {
+        const cfg = loadProjectConfig(p);
+        console.log(`  - ${p}: ${cfg.name} (${cfg.docs.baseUrl})`);
+      } catch {
+        console.log(`  - ${p}: (config error)`);
+      }
+    });
+  }
+  process.exit(0);
+}
+
+if (!args.project) {
+  console.error('Error: --project is required');
+  console.error('Run with --list to see available projects, or --help for usage');
+  process.exit(1);
+}
+
+// Load project configuration
+let projectConfig: ProjectConfig;
+try {
+  projectConfig = loadProjectConfig(args.project);
+} catch (error) {
+  console.error(`Error loading project config: ${error instanceof Error ? error.message : error}`);
+  process.exit(1);
+}
+
+// Configuration with project config + env overrides
 const config = {
+  project: projectConfig.id,
+  projectName: projectConfig.name,
   qdrantUrl: process.env.QDRANT_URL || 'http://localhost:6333',
-  qdrantCollection: process.env.QDRANT_COLLECTION || 'mina_docs',
-  sqlitePath: process.env.SQLITE_PATH || './data/mina_docs.db',
+  qdrantCollection: process.env.QDRANT_COLLECTION || 'crypto_docs',
+  sqlitePath: process.env.SQLITE_PATH || './data/crypto_docs.db',
   openaiApiKey: process.env.OPENAI_API_KEY,
-  baseUrl: process.env.SCRAPER_BASE_URL || 'https://docs.minaprotocol.com',
-  concurrency: parseInt(process.env.SCRAPER_CONCURRENCY || '3'),
-  delayMs: parseInt(process.env.SCRAPER_DELAY_MS || '1000'),
-  maxPages: parseInt(process.env.SCRAPER_MAX_PAGES || '200'),
-  // GitHub source scraping
-  scrapeGitHub: process.env.SCRAPE_GITHUB !== 'false',
-  githubRepo: process.env.GITHUB_REPO || 'o1-labs/o1js',
-  githubBranch: process.env.GITHUB_BRANCH || 'main',
+  // From project config
+  baseUrl: projectConfig.docs.baseUrl,
+  excludePatterns: projectConfig.docs.excludePatterns,
+  maxPages: projectConfig.docs.maxPages,
+  concurrency: projectConfig.crawler.concurrency,
+  delayMs: projectConfig.crawler.delayMs,
+  userAgent: projectConfig.crawler.userAgent,
+  // GitHub config
+  github: projectConfig.github,
   githubToken: process.env.GITHUB_TOKEN
 };
 
 async function main() {
   console.log('='.repeat(60));
-  console.log('Mina Documentation Scraper');
+  console.log(`Documentation Scraper - ${config.projectName}`);
   console.log('='.repeat(60));
 
   // Validate required config
@@ -41,12 +107,16 @@ async function main() {
   }
 
   console.log(`\nConfiguration:`);
+  console.log(`  Project: ${config.project}`);
   console.log(`  Base URL: ${config.baseUrl}`);
   console.log(`  Max Pages: ${config.maxPages}`);
   console.log(`  Concurrency: ${config.concurrency}`);
   console.log(`  Delay: ${config.delayMs}ms`);
   console.log(`  Qdrant: ${config.qdrantUrl}`);
   console.log(`  SQLite: ${config.sqlitePath}`);
+  if (config.github) {
+    console.log(`  GitHub: ${config.github.repo}@${config.github.branch}`);
+  }
 
   // Initialize databases
   console.log('\nInitializing databases...');
@@ -82,7 +152,9 @@ async function main() {
     baseUrl: config.baseUrl,
     concurrency: config.concurrency,
     delayMs: config.delayMs,
-    maxPages: config.maxPages
+    maxPages: config.maxPages,
+    excludePatterns: config.excludePatterns,
+    userAgent: config.userAgent
   });
 
   console.log('\nStarting crawl...\n');
@@ -129,8 +201,8 @@ async function main() {
     console.log(`[${elapsed}s] Processing (${processedPages}/${config.maxPages}): ${page.url}`);
 
     try {
-      // Parse HTML into chunks
-      const rawChunks = parseDocumentation(page.url, page.html);
+      // Parse HTML into chunks with project identifier
+      const rawChunks = parseDocumentation(page.url, page.html, config.project);
 
       if (rawChunks.length === 0) {
         console.log(`  ⚠ No content extracted, skipping`);
@@ -157,17 +229,17 @@ async function main() {
   // Process remaining chunks
   await processBatch();
 
-  // Scrape o1js GitHub source (optional but recommended)
-  if (config.scrapeGitHub) {
+  // Scrape GitHub source (if configured)
+  if (config.github) {
     console.log('\n' + '='.repeat(60));
-    console.log('Scraping o1js Source Code from GitHub');
+    console.log(`Scraping Source Code from GitHub: ${config.github.repo}`);
     console.log('='.repeat(60));
 
     try {
       const sourceChunks = await scrapeGitHubSource({
-        repo: config.githubRepo,
-        branch: config.githubBranch,
-        token: config.githubToken
+        config: config.github,
+        token: config.githubToken,
+        project: config.project
       });
 
       if (sourceChunks.length > 0) {
@@ -203,10 +275,11 @@ async function main() {
   console.log('\n' + '='.repeat(60));
   console.log('Scraping Complete!');
   console.log('='.repeat(60));
+  console.log(`  Project: ${config.project} (${config.projectName})`);
   console.log(`  Pages processed: ${processedPages}`);
   console.log(`  Pages failed: ${failedPages}`);
   console.log(`  Total chunks indexed: ${totalChunks}`);
-  console.log(`  GitHub source: ${config.scrapeGitHub ? 'enabled' : 'disabled'}`);
+  console.log(`  GitHub source: ${config.github ? 'enabled' : 'disabled'}`);
   console.log(`  Total time: ${totalTime}s`);
   console.log('='.repeat(60));
 

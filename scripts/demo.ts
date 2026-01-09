@@ -1,15 +1,18 @@
 /**
- * Mina Docs MCP Server Demo
+ * Crypto Docs MCP Server Demo
  *
- * Simulates how a coding agent would use this MCP server to build a zkApp.
+ * Simulates how a coding agent would use this MCP server to build smart contracts.
  * Demonstrates all 8 tools in a realistic workflow.
  *
- * Usage: npm run demo
+ * Usage: npx ts-node scripts/demo.ts [project]
+ *        npm run demo -- mina
+ *        npm run demo -- solana
  */
 
 import 'dotenv/config';
 
 const MCP_URL = process.env.MCP_URL || 'http://localhost:3000';
+const PROJECT = process.argv[2] || 'mina';
 
 // ANSI colors
 const colors = {
@@ -95,10 +98,11 @@ async function sleep(ms: number) {
 }
 
 async function main() {
-  header('Mina Docs MCP Server - Agent Simulation Demo');
+  header('Crypto Docs MCP Server - Agent Simulation Demo');
 
   log(colors.dim, `  Target: ${MCP_URL}`);
-  log(colors.dim, `  This demo simulates a coding agent building a zkApp voting contract.`);
+  log(colors.dim, `  Project: ${PROJECT}`);
+  log(colors.dim, `  This demo simulates a coding agent building a smart contract.`);
   console.log();
 
   // Check server health
@@ -127,183 +131,110 @@ async function main() {
   await sleep(1000);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SCENARIO: Agent is asked to build a voting zkApp with Merkle tree whitelist
+  // Step 1: List available projects
   // ═══════════════════════════════════════════════════════════════════════════
 
-  header('Scenario: Build a Voting zkApp with Whitelist');
-  log(colors.dim, '  User: "Build me a voting zkApp where only whitelisted addresses can vote"');
+  subheader('Step 1: List Available Projects');
+  agentThinks("First, let me see what documentation projects are available...");
+
+  const projectsResult = await callTool('list_projects', {});
+  showResult(projectsResult, 15);
 
   await sleep(1500);
 
-  // Step 1: Search for how to build a zkApp
-  subheader('Step 1: Research zkApp Structure');
-  agentThinks("I need to understand how zkApps work in Mina...");
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SCENARIO: Agent is asked to build a smart contract
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  header(`Scenario: Build a Smart Contract (${PROJECT})`);
+  log(colors.dim, `  User: "Build me a smart contract on ${PROJECT}"`);
+
+  await sleep(1500);
+
+  // Step 2: Search for how to build a contract
+  subheader('Step 2: Research Contract Structure');
+  agentThinks(`I need to understand how smart contracts work in ${PROJECT}...`);
 
   const searchResult = await callTool('search_documentation', {
-    query: 'how to create a zkApp smart contract',
+    query: 'how to create a smart contract',
+    project: PROJECT,
     limit: 3
   });
   showResult(searchResult, 15);
 
   await sleep(1500);
 
-  // Step 2: Get the pattern for a basic contract
-  subheader('Step 2: Get Contract Pattern');
+  // Step 3: Get the pattern for a basic contract
+  subheader('Step 3: Get Contract Pattern');
   agentThinks("Let me get a working pattern to start from...");
 
   const patternResult = await callTool('get_pattern', {
     task: 'basic contract',
+    project: PROJECT,
     includeVariations: false
   });
   showResult(patternResult, 25);
 
   await sleep(1500);
 
-  // Step 3: Figure out imports
-  subheader('Step 3: Resolve Imports');
-  agentThinks("What do I need to import for a SmartContract with Merkle proofs?");
+  // Step 4: Figure out imports
+  subheader('Step 4: Resolve Imports');
+  agentThinks("What do I need to import?");
 
   const importResult = await callTool('resolve_import', {
-    symbol: 'SmartContract',
+    symbol: 'Contract',
+    project: PROJECT,
     includeRelated: true
   });
   showResult(importResult, 15);
 
-  await sleep(1000);
-
-  // Also get Merkle imports
-  agentThinks("And for the whitelist I'll need MerkleTree...");
-
-  const merkleImportResult = await callTool('resolve_import', {
-    symbol: 'MerkleTree',
-    includeRelated: true
-  });
-  showResult(merkleImportResult, 12);
-
   await sleep(1500);
 
-  // Step 4: Get API signature for specific methods
-  subheader('Step 4: Check API Signatures');
-  agentThinks("How exactly does MerkleWitness.calculateRoot work?");
+  // Step 5: Get API signature for specific methods
+  subheader('Step 5: Check API Signatures');
+  agentThinks("How do I interact with state or storage?");
 
   const apiResult = await callTool('get_api_signature', {
-    className: 'MerkleWitness',
-    methodName: 'calculateRoot'
+    className: 'State',
+    project: PROJECT
   });
   showResult(apiResult, 12);
 
-  await sleep(1000);
-
-  // Check Field methods too
-  agentThinks("And I need to compare Fields... let me check assertEquals");
-
-  const fieldApiResult = await callTool('get_api_signature', {
-    className: 'Field',
-    methodName: 'assertEquals'
-  });
-  showResult(fieldApiResult, 10);
-
   await sleep(1500);
 
-  // Step 5: Get the Merkle membership pattern
-  subheader('Step 5: Get Merkle Proof Pattern');
-  agentThinks("How do I actually implement Merkle membership verification?");
-
-  const merklePatternResult = await callTool('get_pattern', {
-    task: 'merkle membership',
-    includeVariations: false
-  });
-  showResult(merklePatternResult, 30);
-
-  await sleep(1500);
-
-  // Step 6: Agent writes some code, then validates it
-  subheader('Step 6: Validate Generated Code');
-  agentThinks("Let me write the contract and validate it...");
-
-  const sampleCode = `
-import { SmartContract, state, State, method, Field, MerkleWitness, Poseidon, PublicKey } from 'o1js';
-
-class VoterWitness extends MerkleWitness(8) {}
-
-class VotingContract extends SmartContract {
-  @state(Field) voterRoot = State<Field>();
-  @state(Field) yesVotes = State<Field>();
-  @state(Field) noVotes = State<Field>();
-
-  init() {
-    super.init();
-    this.yesVotes.set(Field(0));
-    this.noVotes.set(Field(0));
-  }
-
-  @method async vote(voteYes: Bool, witness: VoterWitness) {
-    const root = this.voterRoot.get();
-    const voter = this.sender.getAndRequireSignature();
-
-    // Verify voter is in whitelist
-    const leaf = Poseidon.hash(voter.toFields());
-    const calculatedRoot = witness.calculateRoot(leaf);
-    calculatedRoot.assertEquals(root);
-
-    // Count vote using if/else
-    if (voteYes) {
-      const current = this.yesVotes.get();
-      this.yesVotes.set(current.add(1));
-    } else {
-      const current = this.noVotes.get();
-      this.noVotes.set(current.add(1));
-    }
-  }
-}`;
-
-  log(colors.dim, '  Code to validate:');
-  log(colors.dim, '  ```typescript');
-  sampleCode.split('\n').slice(0, 15).forEach(line => {
-    log(colors.dim, `  ${line}`);
-  });
-  log(colors.dim, '  ... (35 lines total)');
-  log(colors.dim, '  ```');
-  console.log();
-
-  const validateResult = await callTool('validate_zkapp_code', {
-    code: sampleCode,
-    checkLevel: 'all'
-  });
-  showResult(validateResult, 25);
-
-  await sleep(1500);
-
-  // Step 7: Agent encounters an error, uses debug helper
-  subheader('Step 7: Debug an Error');
-  agentThinks("After fixing the if/else, I got a proof verification error...");
+  // Step 6: Agent encounters an error, uses debug helper
+  subheader('Step 6: Debug an Error');
+  agentThinks("I'm getting an error when deploying...");
 
   const debugResult = await callTool('debug_helper', {
-    error: 'proof verification failed',
-    context: 'calling vote() method after deployment'
+    error: 'transaction failed',
+    project: PROJECT,
+    context: 'deploying contract'
   });
   showResult(debugResult, 20);
 
   await sleep(1500);
 
-  // Step 8: Get code examples for emitting events
-  subheader('Step 8: Add Vote Events');
-  agentThinks("I want to emit events when votes are cast...");
+  // Step 7: Get code examples for events
+  subheader('Step 7: Add Events');
+  agentThinks("I want to emit events from my contract...");
 
   const eventsResult = await callTool('get_code_examples', {
-    topic: 'emit events',
+    topic: 'events',
+    project: PROJECT,
     limit: 2
   });
   showResult(eventsResult, 20);
 
   await sleep(1500);
 
-  // Step 9: Understand a concept
-  subheader('Step 9: Understand Circuit Constraints');
-  agentThinks("User is asking why if/else doesn't work. Let me explain...");
+  // Step 8: Understand a concept
+  subheader('Step 8: Understand a Concept');
+  agentThinks("Let me understand how accounts/programs work...");
 
   const conceptResult = await callTool('explain_concept', {
-    concept: 'provable',
+    concept: 'account',
+    project: PROJECT,
     depth: 'detailed'
   });
   showResult(conceptResult, 20);
@@ -313,16 +244,21 @@ class VotingContract extends SmartContract {
 
   console.log('  This demo showed how a coding agent uses the MCP server to:');
   console.log();
-  log(colors.green, '  1. search_documentation  → Research how zkApps work');
-  log(colors.green, '  2. get_pattern           → Get working code templates');
-  log(colors.green, '  3. resolve_import        → Find correct imports');
-  log(colors.green, '  4. get_api_signature     → Get exact method signatures');
-  log(colors.green, '  5. validate_zkapp_code   → Check code for mistakes');
+  log(colors.green, '  1. list_projects         → See available documentation');
+  log(colors.green, '  2. search_documentation  → Research how contracts work');
+  log(colors.green, '  3. get_pattern           → Get working code templates');
+  log(colors.green, '  4. resolve_import        → Find correct imports');
+  log(colors.green, '  5. get_api_signature     → Get exact method signatures');
   log(colors.green, '  6. debug_helper          → Troubleshoot errors');
   log(colors.green, '  7. get_code_examples     → Find implementation examples');
-  log(colors.green, '  8. explain_concept       → Understand ZK concepts');
+  log(colors.green, '  8. explain_concept       → Understand concepts');
   console.log();
-  log(colors.cyan, '  The agent avoids hallucinating APIs and writes correct o1js code!');
+  log(colors.cyan, `  The agent queries ${PROJECT} docs and writes correct code!`);
+  console.log();
+  log(colors.dim, '  Try with different projects:');
+  log(colors.dim, '    npx ts-node scripts/demo.ts mina');
+  log(colors.dim, '    npx ts-node scripts/demo.ts solana');
+  log(colors.dim, '    npx ts-node scripts/demo.ts cosmos');
   console.log();
 }
 

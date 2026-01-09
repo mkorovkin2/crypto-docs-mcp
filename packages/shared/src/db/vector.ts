@@ -32,6 +32,12 @@ export class VectorDB {
         field_name: 'contentType',
         field_schema: 'keyword'
       });
+
+      // Create project index for filtering
+      await this.client.createPayloadIndex(this.collection, {
+        field_name: 'project',
+        field_schema: 'keyword'
+      });
     }
   }
 
@@ -45,6 +51,7 @@ export class VectorDB {
         section: chunk.section,
         content: chunk.content,
         contentType: chunk.contentType,
+        project: chunk.project,
         metadata: chunk.metadata
       }
     }));
@@ -87,6 +94,7 @@ export class VectorDB {
         section: result.payload!.section as string,
         content: result.payload!.content as string,
         contentType: result.payload!.contentType as DocumentChunk['contentType'],
+        project: result.payload!.project as string,
         metadata: result.payload!.metadata as DocumentChunk['metadata']
       },
       score: result.score

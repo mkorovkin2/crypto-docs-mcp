@@ -11,6 +11,7 @@
     "@mina-docs/shared": "*",
     "cheerio": "^1.0.0-rc.12",
     "dotenv": "^16.3.1",
+    "minimatch": "^10.1.1",
     "p-limit": "^5.0.0"
   }
 }

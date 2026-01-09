@@ -17,7 +17,7 @@ export class FullTextDB {
   }
 
   async initialize(): Promise<void> {
-    // Create main table
+    // Create main table with project column
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS chunks (
         id TEXT PRIMARY KEY,
@@ -26,9 +26,15 @@ export class FullTextDB {
         section TEXT NOT NULL,
         content TEXT NOT NULL,
         content_type TEXT NOT NULL,
+        project TEXT NOT NULL,
         metadata TEXT NOT NULL,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
       )
+    `);
+
+    // Create index for project filtering
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_chunks_project ON chunks(project)
     `);
 
     // Create FTS5 virtual table
@@ -45,8 +51,8 @@ export class FullTextDB {
 
   async upsert(chunks: DocumentChunk[]): Promise<void> {
     const insertChunk = this.db.prepare(`
-      INSERT OR REPLACE INTO chunks (id, url, title, section, content, content_type, metadata)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT OR REPLACE INTO chunks (id, url, title, section, content, content_type, project, metadata)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const deleteFts = this.db.prepare(`
@@ -67,6 +73,7 @@ export class FullTextDB {
           chunk.section,
           chunk.content,
           chunk.contentType,
+          chunk.project,
           JSON.stringify(chunk.metadata)
         );
 
@@ -81,9 +88,9 @@ export class FullTextDB {
 
   async search(
     query: string,
-    options: { limit?: number; contentType?: string } = {}
+    options: { limit?: number; contentType?: string; project?: string } = {}
   ): Promise<Array<{ chunk: DocumentChunk; score: number }>> {
-    const { limit = 10, contentType } = options;
+    const { limit = 10, contentType, project } = options;
 
     // Escape special FTS5 characters and format query
     const escapedQuery = query
@@ -113,6 +120,11 @@ export class FullTextDB {
       params.push(contentType);
     }
 
+    if (project) {
+      sql += ` AND c.project = ?`;
+      params.push(project);
+    }
+
     sql += ` ORDER BY score LIMIT ?`;
     params.push(limit);
 
@@ -127,6 +139,7 @@ export class FullTextDB {
           section: row.section,
           content: row.content,
           contentType: row.content_type,
+          project: row.project,
           metadata: JSON.parse(row.metadata)
         },
         score: Math.abs(row.score) // BM25 returns negative scores

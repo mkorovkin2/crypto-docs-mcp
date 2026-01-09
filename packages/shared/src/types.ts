@@ -5,6 +5,7 @@ export interface DocumentChunk {
   section: string;
   content: string;
   contentType: 'prose' | 'code' | 'api-reference';
+  project: string; // Project identifier (e.g., "mina", "solana", "cosmos")
   metadata: {
     headings: string[];
     codeLanguage?: string;

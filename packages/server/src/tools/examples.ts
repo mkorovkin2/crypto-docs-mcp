@@ -3,6 +3,7 @@ import type { ToolContext } from './index.js';
 
 export const GetCodeExamplesSchema = z.object({
   topic: z.string(),
+  project: z.string(),
   limit: z.number().optional().default(3)
 });
 
@@ -15,13 +16,14 @@ export async function getCodeExamples(
   // Search specifically for code content
   const codeResults = await context.search.search(args.topic, {
     limit: args.limit * 2,
-    contentType: 'code'
+    contentType: 'code',
+    project: args.project
   });
 
   // Also search prose for context
   const proseResults = await context.search.search(
     `${args.topic} example`,
-    { limit: 2, contentType: 'prose' }
+    { limit: 2, contentType: 'prose', project: args.project }
   );
 
   const codeExamples = codeResults.slice(0, args.limit);
@@ -29,7 +31,8 @@ export async function getCodeExamples(
   if (codeExamples.length === 0) {
     // Try broader search
     const broadResults = await context.search.search(args.topic, {
-      limit: args.limit
+      limit: args.limit,
+      project: args.project
     });
 
     const anyCode = broadResults.filter(r =>
@@ -42,7 +45,7 @@ export async function getCodeExamples(
       return {
         content: [{
           type: 'text' as const,
-          text: `No code examples found for "${args.topic}". Try searching for a more specific o1js feature like "SmartContract", "Field", "Poseidon", or "deploy zkApp".`
+          text: `No code examples found for "${args.topic}" in ${args.project} docs. Try searching for a more specific feature or API.`
         }]
       };
     }
@@ -83,7 +86,7 @@ export async function getCodeExamples(
     content: [{
       type: 'text' as const,
       text: [
-        `# Code Examples: ${args.topic}`,
+        `# Code Examples: ${args.topic} (${args.project})`,
         '',
         ...formattedExamples,
         contextSection

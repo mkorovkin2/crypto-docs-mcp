@@ -1,0 +1,40 @@
+{
+  "id": "mina",
+  "name": "Mina Protocol",
+  "docs": {
+    "baseUrl": "https://docs.minaprotocol.com",
+    "excludePatterns": ["/api/", "/external", "/redirect"],
+    "maxPages": 200
+  },
+  "github": {
+    "repo": "o1-labs/o1js",
+    "branch": "main",
+    "include": [
+      "src/lib/provable/field.ts",
+      "src/lib/provable/bool.ts",
+      "src/lib/provable/int.ts",
+      "src/lib/provable/string.ts",
+      "src/lib/provable/group.ts",
+      "src/lib/provable/scalar.ts",
+      "src/lib/provable/bytes.ts",
+      "src/lib/provable/merkle-tree.ts",
+      "src/lib/provable/merkle-map.ts",
+      "src/lib/provable/merkle-list.ts",
+      "src/lib/provable/crypto/poseidon.ts",
+      "src/lib/provable/crypto/signature.ts",
+      "src/lib/mina/zkapp.ts",
+      "src/lib/mina/state.ts",
+      "src/lib/mina/account-update.ts",
+      "src/lib/mina/transaction.ts",
+      "src/lib/mina/mina.ts",
+      "src/lib/mina/token.ts",
+      "src/lib/proof-system/zkprogram.ts",
+      "src/lib/proof-system/proof.ts"
+    ],
+    "exclude": ["**/*.test.ts", "**/*.spec.ts"]
+  },
+  "crawler": {
+    "concurrency": 3,
+    "delayMs": 1000
+  }
+}

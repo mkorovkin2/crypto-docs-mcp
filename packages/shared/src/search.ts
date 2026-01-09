@@ -12,6 +12,7 @@ export interface HybridSearchOptions {
 export interface SearchOptions {
   limit?: number;
   contentType?: 'prose' | 'code' | 'api-reference';
+  project?: string;
   mode?: 'hybrid' | 'vector' | 'fts';
 }
 
@@ -19,20 +20,20 @@ export class HybridSearch {
   constructor(private options: HybridSearchOptions) {}
 
   async search(query: string, options: SearchOptions = {}): Promise<SearchResult[]> {
-    const { limit = 10, contentType, mode = 'hybrid' } = options;
+    const { limit = 10, contentType, project, mode = 'hybrid' } = options;
 
     if (mode === 'fts') {
-      return this.ftsSearch(query, { limit, contentType });
+      return this.ftsSearch(query, { limit, contentType, project });
     }
 
     if (mode === 'vector') {
-      return this.vectorSearch(query, { limit, contentType });
+      return this.vectorSearch(query, { limit, contentType, project });
     }
 
     // Hybrid: combine vector and FTS results
     const [vectorResults, ftsResults] = await Promise.all([
-      this.vectorSearch(query, { limit: limit * 2, contentType }),
-      this.ftsSearch(query, { limit: limit * 2, contentType })
+      this.vectorSearch(query, { limit: limit * 2, contentType, project }),
+      this.ftsSearch(query, { limit: limit * 2, contentType, project })
     ]);
 
     // Merge and deduplicate results using reciprocal rank fusion
@@ -41,20 +42,20 @@ export class HybridSearch {
 
   private async vectorSearch(
     query: string,
-    options: { limit: number; contentType?: string }
+    options: { limit: number; contentType?: string; project?: string }
   ): Promise<SearchResult[]> {
     const embedding = await generateSingleEmbedding(
       query,
       this.options.openaiApiKey
     );
 
-    const filter = options.contentType
-      ? { contentType: options.contentType }
-      : undefined;
+    const filter: Record<string, string> = {};
+    if (options.contentType) filter.contentType = options.contentType;
+    if (options.project) filter.project = options.project;
 
     const results = await this.options.vectorDb.search(embedding, {
       limit: options.limit,
-      filter
+      filter: Object.keys(filter).length > 0 ? filter : undefined
     });
 
     return results.map(r => ({
@@ -66,11 +67,12 @@ export class HybridSearch {
 
   private async ftsSearch(
     query: string,
-    options: { limit: number; contentType?: string }
+    options: { limit: number; contentType?: string; project?: string }
   ): Promise<SearchResult[]> {
     const results = await this.options.ftsDb.search(query, {
       limit: options.limit,
-      contentType: options.contentType
+      contentType: options.contentType,
+      project: options.project
     });
 
     return results.map(r => ({

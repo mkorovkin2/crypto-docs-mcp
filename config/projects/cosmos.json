@@ -1,0 +1,25 @@
+{
+  "id": "cosmos",
+  "name": "Cosmos SDK",
+  "docs": {
+    "baseUrl": "https://docs.cosmos.network",
+    "excludePatterns": ["/api/"],
+    "maxPages": 400
+  },
+  "github": {
+    "repo": "cosmos/cosmos-sdk",
+    "branch": "main",
+    "include": [
+      "x/bank/**/*.go",
+      "x/staking/**/*.go",
+      "x/gov/**/*.go",
+      "x/auth/**/*.go",
+      "x/distribution/**/*.go"
+    ],
+    "exclude": ["**/*_test.go", "**/testutil/**"]
+  },
+  "crawler": {
+    "concurrency": 2,
+    "delayMs": 1000
+  }
+}

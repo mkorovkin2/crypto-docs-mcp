@@ -13,6 +13,8 @@ export interface CrawlerOptions {
   concurrency: number;
   delayMs: number;
   maxPages?: number;
+  excludePatterns?: string[];
+  userAgent?: string;
 }
 
 export class Crawler {
@@ -60,7 +62,7 @@ export class Crawler {
   private async fetchPage(url: string): Promise<CrawlResult> {
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'MinaDocsMCP/1.0 (Documentation Indexer)',
+        'User-Agent': this.options.userAgent || 'CryptoDocsMCP/1.0 (Documentation Indexer)',
         'Accept': 'text/html,application/xhtml+xml'
       }
     });
@@ -123,14 +125,11 @@ export class Crawler {
         return false;
       }
 
-      // Skip API endpoints that aren't documentation
-      if (pathname.startsWith('/api/') && !pathname.includes('/zkapps/')) {
-        return false;
-      }
-
-      // Skip external link pages
-      if (pathname.includes('/external') || pathname.includes('/redirect')) {
-        return false;
+      // Check configurable exclusion patterns
+      for (const pattern of this.options.excludePatterns || []) {
+        if (pathname.includes(pattern)) {
+          return false;
+        }
       }
 
       return true;

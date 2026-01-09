@@ -1,15 +1,16 @@
 /**
  * GitHub Source Scraper
  *
- * Fetches and parses o1js source code from GitHub to extract:
+ * Fetches and parses source code from GitHub to extract:
  * - Class definitions and methods
  * - Type signatures
  * - JSDoc comments
- * - Example code from tests
+ * - Function definitions
  */
 
 import { randomUUID } from 'crypto';
-import type { DocumentChunk } from '@mina-docs/shared';
+import type { DocumentChunk, GitHubSourceConfig } from '@mina-docs/shared';
+import { minimatch } from 'minimatch';
 
 interface GitHubFile {
   name: string;
@@ -27,84 +28,41 @@ interface GitHubContent {
   encoding: string;
 }
 
-// Files to prioritize for scraping (most useful for API reference)
-const PRIORITY_FILES = [
-  // Core types
-  'src/lib/provable/field.ts',
-  'src/lib/provable/bool.ts',
-  'src/lib/provable/int.ts',
-  'src/lib/provable/string.ts',
-  'src/lib/provable/group.ts',
-  'src/lib/provable/scalar.ts',
-  'src/lib/provable/bytes.ts',
+interface GitHubTreeItem {
+  path: string;
+  mode: string;
+  type: 'blob' | 'tree';
+  sha: string;
+  size?: number;
+  url: string;
+}
 
-  // Data structures
-  'src/lib/provable/merkle-tree.ts',
-  'src/lib/provable/merkle-map.ts',
-  'src/lib/provable/merkle-list.ts',
+interface GitHubTreeResponse {
+  sha: string;
+  url: string;
+  tree: GitHubTreeItem[];
+  truncated: boolean;
+}
 
-  // Crypto
-  'src/lib/provable/crypto/poseidon.ts',
-  'src/lib/provable/crypto/signature.ts',
-  'src/lib/provable/crypto/encryption.ts',
-
-  // Smart contracts
-  'src/lib/mina/zkapp.ts',
-  'src/lib/mina/state.ts',
-  'src/lib/mina/account-update.ts',
-  'src/lib/mina/transaction.ts',
-  'src/lib/mina/mina.ts',
-  'src/lib/mina/token.ts',
-
-  // Keys
-  'src/lib/provable/crypto/signature.ts',
-  'src/lib/mina/account.ts',
-
-  // Provable utilities
-  'src/lib/provable/provable.ts',
-  'src/lib/provable/types/struct.ts',
-  'src/lib/provable/types/witness.ts',
-
-  // ZkProgram
-  'src/lib/proof-system/zkprogram.ts',
-  'src/lib/proof-system/proof.ts',
-
-  // Actions/Reducer
-  'src/lib/mina/actions/reducer.ts',
-  'src/lib/mina/actions/offchain-state.ts',
-
-  // Foreign field/curve (ECDSA)
-  'src/lib/provable/foreign-field.ts',
-  'src/lib/provable/foreign-curve.ts',
-  'src/lib/provable/crypto/foreign-ecdsa.ts',
-
-  // Gadgets
-  'src/lib/provable/gadgets/gadgets.ts',
-  'src/lib/provable/gadgets/sha256.ts',
-  'src/lib/provable/gadgets/bitwise.ts'
-];
-
-// Test files to extract examples from
-const TEST_FILES = [
-  'src/examples/',
-  'src/tests/vk-regression/'
-];
-
-export interface GitHubSourceOptions {
-  repo: string;  // e.g., 'o1-labs/o1js'
-  branch: string;
-  token?: string;  // GitHub token for higher rate limits
+export interface GitHubScraperOptions {
+  config: GitHubSourceConfig;
+  token?: string;
+  project: string;
 }
 
 export class GitHubSourceScraper {
   private baseApiUrl: string;
   private headers: Record<string, string>;
+  private config: GitHubSourceConfig;
+  private project: string;
 
-  constructor(private options: GitHubSourceOptions) {
-    this.baseApiUrl = `https://api.github.com/repos/${options.repo}`;
+  constructor(private options: GitHubScraperOptions) {
+    this.config = options.config;
+    this.project = options.project;
+    this.baseApiUrl = `https://api.github.com/repos/${this.config.repo}`;
     this.headers = {
       'Accept': 'application/vnd.github.v3+json',
-      'User-Agent': 'mina-docs-scraper'
+      'User-Agent': 'crypto-docs-scraper'
     };
 
     if (options.token) {
@@ -113,11 +71,55 @@ export class GitHubSourceScraper {
   }
 
   /**
+   * List all files in the repository using the Git Tree API
+   */
+  async listAllFiles(): Promise<string[]> {
+    try {
+      const url = `${this.baseApiUrl}/git/trees/${this.config.branch}?recursive=1`;
+      const response = await fetch(url, { headers: this.headers });
+
+      if (!response.ok) {
+        console.error(`  Failed to list files: ${response.status}`);
+        return [];
+      }
+
+      const data = await response.json() as GitHubTreeResponse;
+
+      // Filter to only files (not directories)
+      return data.tree
+        .filter(item => item.type === 'blob')
+        .map(item => item.path);
+    } catch (error) {
+      console.error('  Error listing files:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Check if a file path matches the include/exclude patterns
+   */
+  matchesPatterns(path: string): boolean {
+    // Check if path matches any include pattern
+    const included = this.config.include.some(pattern =>
+      minimatch(path, pattern, { matchBase: true })
+    );
+
+    if (!included) return false;
+
+    // Check if path matches any exclude pattern
+    const excluded = this.config.exclude.some(pattern =>
+      minimatch(path, pattern, { matchBase: true })
+    );
+
+    return !excluded;
+  }
+
+  /**
    * Fetch file content from GitHub
    */
   async fetchFile(path: string): Promise<string | null> {
     try {
-      const url = `${this.baseApiUrl}/contents/${path}?ref=${this.options.branch}`;
+      const url = `${this.baseApiUrl}/contents/${path}?ref=${this.config.branch}`;
       const response = await fetch(url, { headers: this.headers });
 
       if (!response.ok) {
@@ -139,32 +141,78 @@ export class GitHubSourceScraper {
   }
 
   /**
-   * List files in a directory
+   * Detect language from file extension
    */
-  async listDirectory(path: string): Promise<GitHubFile[]> {
-    try {
-      const url = `${this.baseApiUrl}/contents/${path}?ref=${this.options.branch}`;
-      const response = await fetch(url, { headers: this.headers });
-
-      if (!response.ok) {
-        return [];
-      }
-
-      return await response.json() as GitHubFile[];
-    } catch (error) {
-      return [];
-    }
+  detectLanguage(path: string): string {
+    const ext = path.split('.').pop()?.toLowerCase() || '';
+    const langMap: Record<string, string> = {
+      'ts': 'typescript',
+      'tsx': 'typescript',
+      'js': 'javascript',
+      'jsx': 'javascript',
+      'rs': 'rust',
+      'go': 'go',
+      'py': 'python',
+      'sol': 'solidity',
+      'move': 'move',
+    };
+    return langMap[ext] || ext;
   }
 
   /**
-   * Parse TypeScript source file into chunks
+   * Parse source file into chunks (generic, works with multiple languages)
    */
   parseSourceFile(path: string, content: string): DocumentChunk[] {
     const chunks: DocumentChunk[] = [];
-    const lines = content.split('\n');
+    const fileName = path.split('/').pop() || path;
+    const language = this.detectLanguage(path);
+    const repoName = this.config.repo.split('/').pop() || this.config.repo;
+
+    // For TypeScript/JavaScript, extract classes, functions, types
+    if (language === 'typescript' || language === 'javascript') {
+      chunks.push(...this.parseTypeScriptFile(path, content, repoName));
+    }
+    // For Rust, extract structs, impls, functions
+    else if (language === 'rust') {
+      chunks.push(...this.parseRustFile(path, content, repoName));
+    }
+    // For Go, extract types and functions
+    else if (language === 'go') {
+      chunks.push(...this.parseGoFile(path, content, repoName));
+    }
+    // For other languages, just store the whole file as a chunk
+    else {
+      if (content.length > 100) {
+        chunks.push({
+          id: randomUUID(),
+          url: `https://github.com/${this.config.repo}/blob/${this.config.branch}/${path}`,
+          title: `${repoName}: ${fileName}`,
+          section: fileName,
+          content: content.slice(0, 5000), // Limit size
+          contentType: 'code',
+          project: this.project,
+          metadata: {
+            headings: [repoName, 'Source Code', fileName],
+            codeLanguage: language,
+            sourceType: 'github',
+            filePath: path,
+            lastScraped: new Date().toISOString()
+          }
+        });
+      }
+    }
+
+    return chunks;
+  }
+
+  /**
+   * Parse TypeScript/JavaScript file
+   */
+  private parseTypeScriptFile(path: string, content: string, repoName: string): DocumentChunk[] {
+    const chunks: DocumentChunk[] = [];
     const fileName = path.split('/').pop() || path;
 
-    // Extract class definitions with their methods
+    // Extract class definitions
     const classRegex = /(?:\/\*\*[\s\S]*?\*\/\s*)?(export\s+)?class\s+(\w+)(?:\s+extends\s+[\w<>,\s]+)?(?:\s+implements\s+[\w<>,\s]+)?\s*\{/g;
 
     let match;
@@ -172,12 +220,12 @@ export class GitHubSourceScraper {
       const className = match[2];
       const classStart = match.index;
 
-      // Find the JSDoc comment before the class
+      // Find JSDoc
       const beforeClass = content.slice(0, classStart);
       const jsDocMatch = beforeClass.match(/\/\*\*[\s\S]*?\*\/\s*$/);
       const jsDoc = jsDocMatch ? jsDocMatch[0].trim() : '';
 
-      // Find class end (matching braces)
+      // Find class end
       let braceCount = 0;
       let classEnd = classStart;
       let foundFirstBrace = false;
@@ -197,16 +245,16 @@ export class GitHubSourceScraper {
 
       const classBody = content.slice(classStart, classEnd);
 
-      // Create chunk for the class
       chunks.push({
         id: randomUUID(),
-        url: `https://github.com/${this.options.repo}/blob/${this.options.branch}/${path}`,
-        title: `o1js Source: ${className}`,
+        url: `https://github.com/${this.config.repo}/blob/${this.config.branch}/${path}`,
+        title: `${repoName} Source: ${className}`,
         section: fileName,
         content: this.formatClassContent(className, jsDoc, classBody),
         contentType: 'code',
+        project: this.project,
         metadata: {
-          headings: ['o1js', 'Source Code', className],
+          headings: [repoName, 'Source Code', className],
           codeLanguage: 'typescript',
           sourceType: 'github',
           className,
@@ -215,8 +263,8 @@ export class GitHubSourceScraper {
         }
       });
 
-      // Extract method signatures from the class
-      const methodChunks = this.extractMethods(className, classBody, path);
+      // Extract methods
+      const methodChunks = this.extractTypeScriptMethods(className, classBody, path, repoName);
       chunks.push(...methodChunks);
     }
 
@@ -227,41 +275,22 @@ export class GitHubSourceScraper {
       const funcName = match[3];
       const funcStart = match.index;
 
-      // Find JSDoc
       const beforeFunc = content.slice(0, funcStart);
       const jsDocMatch = beforeFunc.match(/\/\*\*[\s\S]*?\*\/\s*$/);
       const jsDoc = jsDocMatch ? jsDocMatch[0].trim() : '';
 
-      // Find function end
-      let braceCount = 0;
-      let funcEnd = funcStart;
-      let foundFirstBrace = false;
-
-      for (let i = funcStart; i < content.length; i++) {
-        if (content[i] === '{') {
-          braceCount++;
-          foundFirstBrace = true;
-        } else if (content[i] === '}') {
-          braceCount--;
-          if (foundFirstBrace && braceCount === 0) {
-            funcEnd = i + 1;
-            break;
-          }
-        }
-      }
-
-      // Just get the signature, not full body
       const signatureLine = content.slice(funcStart, content.indexOf('{', funcStart));
 
       chunks.push({
         id: randomUUID(),
-        url: `https://github.com/${this.options.repo}/blob/${this.options.branch}/${path}`,
-        title: `o1js Function: ${funcName}`,
+        url: `https://github.com/${this.config.repo}/blob/${this.config.branch}/${path}`,
+        title: `${repoName} Function: ${funcName}`,
         section: fileName,
         content: this.formatFunctionContent(funcName, jsDoc, signatureLine),
         contentType: 'api-reference',
+        project: this.project,
         metadata: {
-          headings: ['o1js', 'Functions', funcName],
+          headings: [repoName, 'Functions', funcName],
           sourceType: 'github',
           functionName: funcName,
           filePath: path,
@@ -279,13 +308,14 @@ export class GitHubSourceScraper {
 
       chunks.push({
         id: randomUUID(),
-        url: `https://github.com/${this.options.repo}/blob/${this.options.branch}/${path}`,
-        title: `o1js Type: ${typeName}`,
+        url: `https://github.com/${this.config.repo}/blob/${this.config.branch}/${path}`,
+        title: `${repoName} Type: ${typeName}`,
         section: fileName,
         content: typeContent,
         contentType: 'api-reference',
+        project: this.project,
         metadata: {
-          headings: ['o1js', 'Types', typeName],
+          headings: [repoName, 'Types', typeName],
           codeLanguage: 'typescript',
           sourceType: 'github',
           typeName,
@@ -299,13 +329,130 @@ export class GitHubSourceScraper {
   }
 
   /**
-   * Extract method definitions from a class body
+   * Parse Rust file
    */
-  private extractMethods(className: string, classBody: string, path: string): DocumentChunk[] {
+  private parseRustFile(path: string, content: string, repoName: string): DocumentChunk[] {
     const chunks: DocumentChunk[] = [];
     const fileName = path.split('/').pop() || path;
 
-    // Match method definitions
+    // Extract struct definitions
+    const structRegex = /(?:\/\/\/[^\n]*\n)*(?:#\[[\s\S]*?\]\s*)*pub\s+struct\s+(\w+)(?:<[\s\S]*?>)?\s*(?:\{[\s\S]*?\}|;)/g;
+
+    let match;
+    while ((match = structRegex.exec(content)) !== null) {
+      const structName = match[1];
+      chunks.push({
+        id: randomUUID(),
+        url: `https://github.com/${this.config.repo}/blob/${this.config.branch}/${path}`,
+        title: `${repoName} Struct: ${structName}`,
+        section: fileName,
+        content: match[0],
+        contentType: 'api-reference',
+        project: this.project,
+        metadata: {
+          headings: [repoName, 'Structs', structName],
+          codeLanguage: 'rust',
+          sourceType: 'github',
+          typeName: structName,
+          filePath: path,
+          lastScraped: new Date().toISOString()
+        }
+      });
+    }
+
+    // Extract pub fn definitions
+    const fnRegex = /(?:\/\/\/[^\n]*\n)*pub\s+(?:async\s+)?fn\s+(\w+)(?:<[\s\S]*?>)?\s*\([^)]*\)(?:\s*->\s*[\w<>\[\],\s&']+)?/g;
+
+    while ((match = fnRegex.exec(content)) !== null) {
+      const fnName = match[1];
+      chunks.push({
+        id: randomUUID(),
+        url: `https://github.com/${this.config.repo}/blob/${this.config.branch}/${path}`,
+        title: `${repoName} Function: ${fnName}`,
+        section: fileName,
+        content: match[0],
+        contentType: 'api-reference',
+        project: this.project,
+        metadata: {
+          headings: [repoName, 'Functions', fnName],
+          codeLanguage: 'rust',
+          sourceType: 'github',
+          functionName: fnName,
+          filePath: path,
+          lastScraped: new Date().toISOString()
+        }
+      });
+    }
+
+    return chunks;
+  }
+
+  /**
+   * Parse Go file
+   */
+  private parseGoFile(path: string, content: string, repoName: string): DocumentChunk[] {
+    const chunks: DocumentChunk[] = [];
+    const fileName = path.split('/').pop() || path;
+
+    // Extract type definitions
+    const typeRegex = /(?:\/\/[^\n]*\n)*type\s+(\w+)\s+(?:struct|interface)\s*\{[\s\S]*?\n\}/g;
+
+    let match;
+    while ((match = typeRegex.exec(content)) !== null) {
+      const typeName = match[1];
+      chunks.push({
+        id: randomUUID(),
+        url: `https://github.com/${this.config.repo}/blob/${this.config.branch}/${path}`,
+        title: `${repoName} Type: ${typeName}`,
+        section: fileName,
+        content: match[0],
+        contentType: 'api-reference',
+        project: this.project,
+        metadata: {
+          headings: [repoName, 'Types', typeName],
+          codeLanguage: 'go',
+          sourceType: 'github',
+          typeName,
+          filePath: path,
+          lastScraped: new Date().toISOString()
+        }
+      });
+    }
+
+    // Extract exported functions
+    const fnRegex = /(?:\/\/[^\n]*\n)*func\s+(?:\([^)]+\)\s+)?([A-Z]\w*)\s*\([^)]*\)(?:\s*(?:\([^)]*\)|[\w*]+))?/g;
+
+    while ((match = fnRegex.exec(content)) !== null) {
+      const fnName = match[1];
+      chunks.push({
+        id: randomUUID(),
+        url: `https://github.com/${this.config.repo}/blob/${this.config.branch}/${path}`,
+        title: `${repoName} Function: ${fnName}`,
+        section: fileName,
+        content: match[0],
+        contentType: 'api-reference',
+        project: this.project,
+        metadata: {
+          headings: [repoName, 'Functions', fnName],
+          codeLanguage: 'go',
+          sourceType: 'github',
+          functionName: fnName,
+          filePath: path,
+          lastScraped: new Date().toISOString()
+        }
+      });
+    }
+
+    return chunks;
+  }
+
+  /**
+   * Extract methods from a TypeScript class body
+   */
+  private extractTypeScriptMethods(className: string, classBody: string, path: string, repoName: string): DocumentChunk[] {
+    const chunks: DocumentChunk[] = [];
+    const fileName = path.split('/').pop() || path;
+
     const methodRegex = /(?:\/\*\*[\s\S]*?\*\/\s*)?(static\s+)?(async\s+)?(\w+)\s*(<[\s\S]*?>)?\s*\([^)]*\)(?:\s*:\s*[\w<>\[\],\s|]+)?(?:\s*\{)/g;
 
     let match;
@@ -314,18 +461,15 @@ export class GitHubSourceScraper {
       const isAsync = !!match[2];
       const methodName = match[3];
 
-      // Skip constructor and private methods
       if (methodName === 'constructor' || methodName.startsWith('_')) {
         continue;
       }
 
-      // Find JSDoc before method
       const beforeMethod = classBody.slice(0, match.index);
       const jsDocMatch = beforeMethod.match(/\/\*\*[\s\S]*?\*\/\s*$/);
       const jsDoc = jsDocMatch ? this.parseJsDoc(jsDocMatch[0]) : '';
 
-      // Get the signature line
-      const signatureLine = match[0].slice(0, -1).trim(); // Remove opening brace
+      const signatureLine = match[0].slice(0, -1).trim();
 
       const content = [
         `## ${className}.${methodName}`,
@@ -342,13 +486,14 @@ export class GitHubSourceScraper {
 
       chunks.push({
         id: randomUUID(),
-        url: `https://github.com/${this.options.repo}/blob/${this.options.branch}/${path}`,
+        url: `https://github.com/${this.config.repo}/blob/${this.config.branch}/${path}`,
         title: `${className}.${methodName}`,
         section: `${className} methods`,
         content: content.join('\n'),
         contentType: 'api-reference',
+        project: this.project,
         metadata: {
-          headings: ['o1js', className, methodName],
+          headings: [repoName, className, methodName],
           sourceType: 'github',
           className,
           methodName,
@@ -366,14 +511,12 @@ export class GitHubSourceScraper {
    * Parse JSDoc comment into readable text
    */
   private parseJsDoc(jsDoc: string): string {
-    // Remove comment delimiters
     let text = jsDoc
       .replace(/\/\*\*/, '')
       .replace(/\*\//, '')
       .replace(/^\s*\*\s?/gm, '')
       .trim();
 
-    // Parse @param tags
     const params: string[] = [];
     const paramRegex = /@param\s+(?:\{([^}]+)\}\s+)?(\w+)\s*-?\s*(.*)/g;
     let paramMatch;
@@ -385,22 +528,18 @@ export class GitHubSourceScraper {
       params.push(`- \`${name}\`${type ? ` (${type})` : ''}: ${desc}`);
     }
 
-    // Parse @returns tag
     const returnsMatch = text.match(/@returns?\s+(?:\{([^}]+)\}\s*)?(.*)/);
     const returns = returnsMatch
       ? `**Returns:** ${returnsMatch[2]}${returnsMatch[1] ? ` (${returnsMatch[1]})` : ''}`
       : '';
 
-    // Parse @example tag
     const exampleMatch = text.match(/@example\s*([\s\S]*?)(?=@|$)/);
     const example = exampleMatch
       ? '**Example:**\n```typescript\n' + exampleMatch[1].trim() + '\n```'
       : '';
 
-    // Get main description (before any @ tags)
     const mainDesc = text.split(/@\w+/)[0].trim();
 
-    // Build final text
     const parts = [mainDesc];
     if (params.length > 0) {
       parts.push('', '**Parameters:**', ...params);
@@ -425,7 +564,6 @@ export class GitHubSourceScraper {
       sections.push(this.parseJsDoc(jsDoc), '');
     }
 
-    // Get first ~100 lines of class body for overview
     const bodyLines = classBody.split('\n').slice(0, 100);
     sections.push('```typescript', ...bodyLines, '```');
 
@@ -448,12 +586,17 @@ export class GitHubSourceScraper {
   }
 
   /**
-   * Scrape all priority source files
+   * Scrape source files matching the patterns
    */
   async *scrape(): AsyncGenerator<{ path: string; chunks: DocumentChunk[] }> {
-    console.log(`\nScraping o1js source from ${this.options.repo}...`);
+    console.log(`\nFetching file list from ${this.config.repo}...`);
 
-    for (const filePath of PRIORITY_FILES) {
+    const allFiles = await this.listAllFiles();
+    const matchingFiles = allFiles.filter(f => this.matchesPatterns(f));
+
+    console.log(`  Found ${matchingFiles.length} files matching patterns`);
+
+    for (const filePath of matchingFiles) {
       console.log(`  Fetching: ${filePath}`);
 
       const content = await this.fetchFile(filePath);
@@ -475,7 +618,7 @@ export class GitHubSourceScraper {
 
 // Export for use in main scraper
 export async function scrapeGitHubSource(
-  options: GitHubSourceOptions
+  options: GitHubScraperOptions
 ): Promise<DocumentChunk[]> {
   const scraper = new GitHubSourceScraper(options);
   const allChunks: DocumentChunk[] = [];

@@ -2,7 +2,7 @@ import * as cheerio from 'cheerio';
 import type { DocumentChunk } from '@mina-docs/shared';
 import { randomUUID } from 'crypto';
 
-export function parseDocumentation(url: string, html: string): DocumentChunk[] {
+export function parseDocumentation(url: string, html: string, project: string): DocumentChunk[] {
   const $ = cheerio.load(html);
   const chunks: DocumentChunk[] = [];
 
@@ -32,7 +32,7 @@ export function parseDocumentation(url: string, html: string): DocumentChunk[] {
     if (tagName === 'h1' || tagName === 'h2' || tagName === 'h3') {
       // Save previous section if has content
       if (currentContent.trim().length > 50) {
-        chunks.push(createProseChunk(url, pageTitle, currentHeading, currentContent, headings));
+        chunks.push(createProseChunk(url, pageTitle, currentHeading, currentContent, headings, project));
       }
 
       currentHeading = $el.text().trim();
@@ -48,7 +48,7 @@ export function parseDocumentation(url: string, html: string): DocumentChunk[] {
       if (code.length > 30) {
         // Save any pending prose content first
         if (currentContent.trim().length > 50) {
-          chunks.push(createProseChunk(url, pageTitle, currentHeading, currentContent, headings));
+          chunks.push(createProseChunk(url, pageTitle, currentHeading, currentContent, headings, project));
           currentContent = '';
         }
 
@@ -59,6 +59,7 @@ export function parseDocumentation(url: string, html: string): DocumentChunk[] {
           section: currentHeading,
           content: code,
           contentType: 'code',
+          project,
           metadata: {
             headings: [...headings],
             codeLanguage: language,
@@ -83,7 +84,7 @@ export function parseDocumentation(url: string, html: string): DocumentChunk[] {
 
   // Don't forget the last section
   if (currentContent.trim().length > 50) {
-    chunks.push(createProseChunk(url, pageTitle, currentHeading, currentContent, headings));
+    chunks.push(createProseChunk(url, pageTitle, currentHeading, currentContent, headings, project));
   }
 
   return chunks;
@@ -94,9 +95,10 @@ function createProseChunk(
   title: string,
   section: string,
   content: string,
-  headings: string[]
+  headings: string[],
+  project: string
 ): DocumentChunk {
-  const isApiRef = url.includes('/reference') || url.includes('/api') || url.includes('o1js-reference');
+  const isApiRef = url.includes('/reference') || url.includes('/api');
 
   return {
     id: randomUUID(),
@@ -105,6 +107,7 @@ function createProseChunk(
     section,
     content: cleanContent(content),
     contentType: isApiRef ? 'api-reference' : 'prose',
+    project,
     metadata: {
       headings: [...headings],
       lastScraped: new Date().toISOString()

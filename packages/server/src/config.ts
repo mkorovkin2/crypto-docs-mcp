@@ -6,11 +6,11 @@ export const config = {
 
   qdrant: {
     url: process.env.QDRANT_URL || 'http://localhost:6333',
-    collection: process.env.QDRANT_COLLECTION || 'mina_docs'
+    collection: process.env.QDRANT_COLLECTION || 'crypto_docs'
   },
 
   sqlite: {
-    path: process.env.SQLITE_PATH || './data/mina_docs.db'
+    path: process.env.SQLITE_PATH || './data/crypto_docs.db'
   },
 
   openai: {

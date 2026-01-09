@@ -1,11 +1,12 @@
 #!/bin/bash
 
-# Demo script for Mina Docs MCP Server
-# Usage: ./scripts/demo.sh
+# Demo script for Crypto Docs MCP Server
+# Usage: ./scripts/demo.sh [project]
 #
 # Make sure the server is running first: npm run server
 
 BASE_URL="${MCP_URL:-http://localhost:3000}"
+PROJECT="${1:-mina}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -15,14 +16,15 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}============================================================${NC}"
-echo -e "${BLUE}    Mina Docs MCP Server - Interactive Demo${NC}"
+echo -e "${BLUE}    Crypto Docs MCP Server - Interactive Demo${NC}"
 echo -e "${BLUE}============================================================${NC}"
 echo ""
 echo -e "Target: ${YELLOW}$BASE_URL${NC}"
+echo -e "Project: ${YELLOW}$PROJECT${NC}"
 echo ""
 
 # Check if server is running
-echo -e "${YELLOW}[1/6] Checking server health...${NC}"
+echo -e "${YELLOW}[1/7] Checking server health...${NC}"
 HEALTH=$(curl -s "$BASE_URL/health" 2>/dev/null)
 if [ -z "$HEALTH" ]; then
     echo -e "${RED}Error: Server not responding at $BASE_URL${NC}"
@@ -34,7 +36,7 @@ echo "$HEALTH" | python3 -m json.tool 2>/dev/null || echo "$HEALTH"
 echo ""
 
 # Initialize connection
-echo -e "${YELLOW}[2/6] Initializing MCP connection...${NC}"
+echo -e "${YELLOW}[2/7] Initializing MCP connection...${NC}"
 curl -s -X POST "$BASE_URL/mcp" \
   -H "Content-Type: application/json" \
   -d '{
@@ -49,11 +51,24 @@ curl -s -X POST "$BASE_URL/mcp" \
   }' | python3 -m json.tool 2>/dev/null
 echo ""
 
-# List available tools
-echo -e "${YELLOW}[3/6] Listing available tools...${NC}"
+# List available projects
+echo -e "${YELLOW}[3/7] Listing available projects...${NC}"
 curl -s -X POST "$BASE_URL/mcp" \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc": "2.0", "method": "tools/list", "id": 2}' \
+  -d '{"jsonrpc": "2.0", "method": "tools/call", "params": {"name": "list_projects", "arguments": {}}, "id": 2}' \
+  | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+content = data.get('result', {}).get('content', [{}])[0].get('text', '')
+print(content[:500])
+" 2>/dev/null
+echo ""
+
+# List available tools
+echo -e "${YELLOW}[4/7] Listing available tools...${NC}"
+curl -s -X POST "$BASE_URL/mcp" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "method": "tools/list", "id": 3}' \
   | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
@@ -64,23 +79,24 @@ for t in tools:
 echo ""
 
 # Demo: search_documentation
-echo -e "${YELLOW}[4/6] Demo: search_documentation${NC}"
-echo -e "Query: ${GREEN}\"how to create a zkApp\"${NC}"
+echo -e "${YELLOW}[5/7] Demo: search_documentation${NC}"
+echo -e "Query: ${GREEN}\"how to create a smart contract\"${NC} (project: $PROJECT)"
 echo ""
 curl -s -X POST "$BASE_URL/mcp" \
   -H "Content-Type: application/json" \
-  -d '{
-    "jsonrpc": "2.0",
-    "method": "tools/call",
-    "params": {
-      "name": "search_documentation",
-      "arguments": {
-        "query": "how to create a zkApp",
-        "limit": 2
+  -d "{
+    \"jsonrpc\": \"2.0\",
+    \"method\": \"tools/call\",
+    \"params\": {
+      \"name\": \"search_documentation\",
+      \"arguments\": {
+        \"query\": \"how to create a smart contract\",
+        \"project\": \"$PROJECT\",
+        \"limit\": 2
       }
     },
-    "id": 3
-  }' | python3 -c "
+    \"id\": 4
+  }" | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
 content = data.get('result', {}).get('content', [{}])[0].get('text', '')
@@ -92,23 +108,24 @@ if len(content) > 1000:
 echo ""
 
 # Demo: explain_concept
-echo -e "${YELLOW}[5/6] Demo: explain_concept${NC}"
-echo -e "Concept: ${GREEN}\"zkSNARK\"${NC} (brief)"
+echo -e "${YELLOW}[6/7] Demo: explain_concept${NC}"
+echo -e "Concept: ${GREEN}\"state management\"${NC} (project: $PROJECT)"
 echo ""
 curl -s -X POST "$BASE_URL/mcp" \
   -H "Content-Type: application/json" \
-  -d '{
-    "jsonrpc": "2.0",
-    "method": "tools/call",
-    "params": {
-      "name": "explain_concept",
-      "arguments": {
-        "concept": "zkSNARK",
-        "depth": "brief"
+  -d "{
+    \"jsonrpc\": \"2.0\",
+    \"method\": \"tools/call\",
+    \"params\": {
+      \"name\": \"explain_concept\",
+      \"arguments\": {
+        \"concept\": \"state management\",
+        \"project\": \"$PROJECT\",
+        \"depth\": \"brief\"
       }
     },
-    "id": 4
-  }' | python3 -c "
+    \"id\": 5
+  }" | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
 content = data.get('result', {}).get('content', [{}])[0].get('text', '')
@@ -118,24 +135,25 @@ if len(content) > 800:
 " 2>/dev/null
 echo ""
 
-# Demo: debug_helper
-echo -e "${YELLOW}[6/6] Demo: debug_helper${NC}"
-echo -e "Error: ${GREEN}\"proof verification failed\"${NC}"
+# Demo: get_code_examples
+echo -e "${YELLOW}[7/7] Demo: get_code_examples${NC}"
+echo -e "Topic: ${GREEN}\"deploy\"${NC} (project: $PROJECT)"
 echo ""
 curl -s -X POST "$BASE_URL/mcp" \
   -H "Content-Type: application/json" \
-  -d '{
-    "jsonrpc": "2.0",
-    "method": "tools/call",
-    "params": {
-      "name": "debug_helper",
-      "arguments": {
-        "error": "proof verification failed",
-        "context": "deploying my first zkApp"
+  -d "{
+    \"jsonrpc\": \"2.0\",
+    \"method\": \"tools/call\",
+    \"params\": {
+      \"name\": \"get_code_examples\",
+      \"arguments\": {
+        \"topic\": \"deploy\",
+        \"project\": \"$PROJECT\",
+        \"limit\": 2
       }
     },
-    "id": 5
-  }' | python3 -c "
+    \"id\": 6
+  }" | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
 content = data.get('result', {}).get('content', [{}])[0].get('text', '')
@@ -151,13 +169,20 @@ echo -e "${BLUE}============================================================${NC
 echo ""
 echo "Try your own queries:"
 echo ""
-echo "  # Search documentation"
+echo "  # List projects"
 echo "  curl -X POST $BASE_URL/mcp \\"
 echo "    -H 'Content-Type: application/json' \\"
-echo "    -d '{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"search_documentation\",\"arguments\":{\"query\":\"YOUR QUERY\"}},\"id\":1}'"
+echo "    -d '{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_projects\",\"arguments\":{}},\"id\":1}'"
 echo ""
-echo "  # Get code examples"
+echo "  # Search documentation (with project)"
 echo "  curl -X POST $BASE_URL/mcp \\"
 echo "    -H 'Content-Type: application/json' \\"
-echo "    -d '{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_code_examples\",\"arguments\":{\"topic\":\"SmartContract\"}},\"id\":1}'"
+echo "    -d '{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"search_documentation\",\"arguments\":{\"query\":\"YOUR QUERY\",\"project\":\"mina\"}},\"id\":1}'"
+echo ""
+echo "  # Get code examples (with project)"
+echo "  curl -X POST $BASE_URL/mcp \\"
+echo "    -H 'Content-Type: application/json' \\"
+echo "    -d '{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_code_examples\",\"arguments\":{\"topic\":\"SmartContract\",\"project\":\"mina\"}},\"id\":1}'"
+echo ""
+echo "Run with different project: ./scripts/demo.sh solana"
 echo ""

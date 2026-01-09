@@ -1,0 +1,23 @@
+{
+  "id": "solana",
+  "name": "Solana",
+  "docs": {
+    "baseUrl": "https://solana.com/docs",
+    "excludePatterns": ["/api/", "/cookbook/"],
+    "maxPages": 300
+  },
+  "github": {
+    "repo": "solana-labs/solana-program-library",
+    "branch": "master",
+    "include": [
+      "token/program/src/**/*.rs",
+      "associated-token-account/program/src/**/*.rs",
+      "token/program-2022/src/**/*.rs"
+    ],
+    "exclude": ["**/tests/**", "**/*_test.rs"]
+  },
+  "crawler": {
+    "concurrency": 2,
+    "delayMs": 1500
+  }
+}

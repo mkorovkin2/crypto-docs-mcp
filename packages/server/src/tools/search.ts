@@ -3,6 +3,7 @@ import type { ToolContext } from './index.js';
 
 export const SearchDocumentationSchema = z.object({
   query: z.string(),
+  project: z.string(),
   contentType: z.enum(['prose', 'code', 'api-reference']).optional(),
   limit: z.number().optional().default(5)
 });
@@ -15,14 +16,15 @@ export async function searchDocumentation(
 ) {
   const results = await context.search.search(args.query, {
     limit: args.limit,
-    contentType: args.contentType
+    contentType: args.contentType,
+    project: args.project
   });
 
   if (results.length === 0) {
     return {
       content: [{
         type: 'text' as const,
-        text: `No documentation found for "${args.query}". Try rephrasing your query or using different keywords.`
+        text: `No documentation found for "${args.query}" in ${args.project} docs. Try rephrasing your query or using different keywords.`
       }]
     };
   }
@@ -47,7 +49,7 @@ export async function searchDocumentation(
     content: [{
       type: 'text' as const,
       text: [
-        `# Search Results for "${args.query}"`,
+        `# Search Results for "${args.query}" (${args.project})`,
         `Found ${results.length} relevant sections:`,
         '',
         ...formattedResults

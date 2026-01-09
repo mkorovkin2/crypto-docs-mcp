@@ -1,13 +1,27 @@
-# Mina Protocol Documentation MCP Server
+# Crypto Documentation MCP Server
 
-A Model Context Protocol (MCP) server that provides Mina Protocol developer documentation to AI coding agents like Claude Code and Cursor. This enables web3 developers to get contextual documentation, code examples, and debugging assistance while building zkApps.
+A Model Context Protocol (MCP) server that provides blockchain developer documentation to AI coding agents like Claude Code and Cursor. Supports multiple crypto projects including Mina Protocol, Solana, and Cosmos SDK, enabling web3 developers to get contextual documentation, code examples, and debugging assistance.
 
 ## Features
 
+- **Multi-Project Support**: Query documentation from Mina, Solana, Cosmos, and more
 - **Semantic Search**: Find relevant documentation using natural language queries with hybrid vector + full-text search
-- **Code Examples**: Retrieve o1js/zkApp TypeScript code snippets by topic
-- **Concept Explanations**: Understand ZK and Mina-specific terminology (zkSNARK, Provable types, etc.)
-- **Debug Helper**: Get troubleshooting guidance for common Mina/o1js errors
+- **Code Examples**: Retrieve code snippets by topic from documentation and source code
+- **Concept Explanations**: Understand project-specific terminology and concepts
+- **Debug Helper**: Get troubleshooting guidance for common errors
+- **API Signatures**: Look up class and method documentation
+- **Import Resolution**: Find import statements and module paths
+- **Code Patterns**: Get recommended patterns and recipes for common tasks
+
+## Supported Projects
+
+| Project | Documentation | Source Code |
+|---------|--------------|-------------|
+| Mina Protocol | docs.minaprotocol.com | o1-labs/o1js |
+| Solana | solana.com/docs | solana-labs/solana |
+| Cosmos SDK | docs.cosmos.network | cosmos/cosmos-sdk |
+
+Add more projects by creating a configuration file in `config/projects/`.
 
 ## Architecture
 
@@ -17,11 +31,11 @@ A Model Context Protocol (MCP) server that provides Mina Protocol developer docu
 │  Scraper        │     │  (Qdrant + FTS)  │     │  Server         │
 └─────────────────┘     └──────────────────┘     └─────────────────┘
         │                       │                        │
-        │                       │                        ▼
-        ▼                       ▼               ┌─────────────────┐
-  docs.minaprotocol.com   Vector + SQLite      │  Coding Agents  │
-                                                │  (Claude, etc.) │
-                                                └─────────────────┘
+        ▼                       │                        ▼
+  Project Configs               ▼               ┌─────────────────┐
+  (config/projects/)      Vector + SQLite      │  Coding Agents  │
+                         (project-filtered)    │  (Claude, etc.) │
+                                               └─────────────────┘
 ```
 
 ## Quick Start
@@ -72,21 +86,32 @@ curl http://localhost:6333/health
 npm run build
 ```
 
-### 5. Index the Documentation
+### 5. Index Documentation
 
-Run the scraper to crawl and index Mina documentation:
-
+List available projects:
 ```bash
-npm run scraper
+node packages/scraper/dist/index.js --list
+```
+
+Scrape a specific project:
+```bash
+# Index Mina Protocol docs
+node packages/scraper/dist/index.js --project mina
+
+# Index Solana docs
+node packages/scraper/dist/index.js --project solana
+
+# Index Cosmos SDK docs
+node packages/scraper/dist/index.js --project cosmos
 ```
 
 This will:
-- Crawl docs.minaprotocol.com (up to 200 pages by default)
+- Crawl the project's documentation site
 - Parse and chunk the content
 - Generate embeddings via OpenAI
-- Store in Qdrant (vector) and SQLite (full-text)
+- Store in Qdrant (vector) and SQLite (full-text) with project tags
 
-**Note**: First run takes 5-10 minutes and costs ~$0.10-0.20 in OpenAI API calls.
+**Note**: First run takes 5-10 minutes per project and costs ~$0.10-0.20 in OpenAI API calls.
 
 ### 6. Start the MCP Server
 
@@ -107,20 +132,62 @@ curl -X POST http://localhost:3000/mcp \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
 
-# Search documentation
+# List available projects
 curl -X POST http://localhost:3000/mcp \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"search_documentation","arguments":{"query":"how to deploy zkApp"}},"id":2}'
+  -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_projects","arguments":{}},"id":2}'
+
+# Search documentation (specify project)
+curl -X POST http://localhost:3000/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"search_documentation","arguments":{"query":"how to deploy","project":"mina"}},"id":3}'
 ```
 
 ## Available MCP Tools
 
-| Tool | Description | Example Query |
-|------|-------------|---------------|
-| `search_documentation` | Hybrid semantic/keyword search | "how to manage state in zkApps" |
-| `get_code_examples` | Find code snippets by topic | "SmartContract", "Poseidon hash" |
-| `explain_concept` | Explain ZK/Mina terminology | "zkSNARK", "Provable types" |
-| `debug_helper` | Troubleshoot errors | "proof verification failed" |
+All tools (except `list_projects`) require a `project` parameter to specify which documentation to search.
+
+| Tool | Description | Example Arguments |
+|------|-------------|-------------------|
+| `list_projects` | List available documentation projects | `{}` |
+| `search_documentation` | Hybrid semantic/keyword search | `{"query": "state management", "project": "mina"}` |
+| `get_code_examples` | Find code snippets by topic | `{"topic": "smart contract", "project": "solana"}` |
+| `explain_concept` | Explain project terminology | `{"concept": "IBC", "project": "cosmos"}` |
+| `debug_helper` | Troubleshoot errors | `{"error": "proof verification failed", "project": "mina"}` |
+| `get_api_signature` | Look up API documentation | `{"className": "Field", "project": "mina"}` |
+| `resolve_import` | Find import statements | `{"symbol": "Pubkey", "project": "solana"}` |
+| `get_pattern` | Get code patterns and recipes | `{"task": "deploy contract", "project": "mina"}` |
+
+## Adding New Projects
+
+Create a new JSON file in `config/projects/`:
+
+```json
+{
+  "id": "myproject",
+  "name": "My Project",
+  "docs": {
+    "baseUrl": "https://docs.myproject.com",
+    "excludePatterns": ["/api/", "/changelog/"],
+    "maxPages": 200
+  },
+  "github": {
+    "repo": "org/myproject",
+    "branch": "main",
+    "include": ["src/**/*.ts"],
+    "exclude": ["**/*.test.ts"]
+  },
+  "crawler": {
+    "concurrency": 5,
+    "delayMs": 500
+  }
+}
+```
+
+Then run the scraper:
+```bash
+node packages/scraper/dist/index.js --project myproject
+```
 
 ## Integration with AI Coding Agents
 
@@ -131,7 +198,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "mina-docs": {
+    "crypto-docs": {
       "url": "http://localhost:3000/mcp",
       "transport": "http"
     }
@@ -153,10 +220,16 @@ The server works with any MCP-compatible client via the HTTP endpoint.
 ## Project Structure
 
 ```
-mina-docs-mcp/
+crypto-docs-mcp/
+├── config/
+│   └── projects/         # Project configuration files
+│       ├── mina.json
+│       ├── solana.json
+│       └── cosmos.json
 ├── packages/
 │   ├── shared/           # Types, DB clients, search logic
 │   │   ├── src/
+│   │   │   ├── config/   # Project config loading
 │   │   │   ├── db/       # Qdrant & SQLite clients
 │   │   │   ├── types.ts  # Shared TypeScript types
 │   │   │   ├── search.ts # Hybrid search implementation
@@ -167,6 +240,7 @@ mina-docs-mcp/
 │   │   │   ├── crawler.ts
 │   │   │   ├── parser.ts
 │   │   │   ├── chunker.ts
+│   │   │   ├── github-source.ts
 │   │   │   └── index.ts
 │   │   └── package.json
 │   └── server/           # MCP HTTP server
@@ -177,8 +251,6 @@ mina-docs-mcp/
 │       │   └── index.ts
 │       └── package.json
 ├── data/                 # SQLite database storage
-├── scripts/              # Test scripts
-├── examples/             # Configuration examples
 ├── docker-compose.yml    # Qdrant setup
 └── package.json          # Monorepo root
 ```
@@ -189,17 +261,17 @@ mina-docs-mcp/
 # Build all packages
 npm run build
 
-# Run scraper to index documentation
-npm run scraper
+# List available projects
+node packages/scraper/dist/index.js --list
+
+# Index a project
+node packages/scraper/dist/index.js --project mina
 
 # Start server
 npm run server
 
 # Start server in dev mode (with watch)
 npm run dev:server
-
-# Run integration tests (requires server running)
-npm run test:integration
 ```
 
 ## Environment Variables
@@ -210,22 +282,22 @@ npm run test:integration
 | `MCP_PORT` | 3000 | Server port |
 | `MCP_HOST` | localhost | Server host |
 | `QDRANT_URL` | http://localhost:6333 | Qdrant URL |
-| `QDRANT_COLLECTION` | mina_docs | Qdrant collection name |
-| `SQLITE_PATH` | ./data/mina_docs.db | SQLite database path |
-| `SCRAPER_BASE_URL` | https://docs.minaprotocol.com | Documentation URL |
-| `SCRAPER_MAX_PAGES` | 200 | Max pages to crawl |
-| `SCRAPER_DELAY_MS` | 1000 | Delay between requests |
+| `QDRANT_COLLECTION` | crypto_docs | Qdrant collection name |
+| `SQLITE_PATH` | ./data/crypto_docs.db | SQLite database path |
+| `GITHUB_TOKEN` | (optional) | GitHub token for higher API rate limits |
 
 ## How It Works
 
-1. **Scraper** crawls docs.minaprotocol.com and extracts content
-2. **Parser** converts HTML to structured chunks (prose, code, API reference)
-3. **Chunker** splits large content with semantic overlap
-4. **Embeddings** are generated via OpenAI text-embedding-3-small
-5. **Qdrant** stores vectors for semantic search
-6. **SQLite FTS5** provides fast full-text search
-7. **Hybrid Search** combines both using Reciprocal Rank Fusion
-8. **MCP Server** exposes tools via JSON-RPC over HTTP
+1. **Project Config** defines documentation URL, GitHub repo, and crawler settings
+2. **Scraper** crawls the documentation site for a specific project
+3. **Parser** converts HTML to structured chunks (prose, code, API reference)
+4. **GitHub Source** fetches and parses source code (TypeScript, Rust, Go)
+5. **Chunker** splits large content with semantic overlap
+6. **Embeddings** are generated via OpenAI text-embedding-3-small
+7. **Qdrant** stores vectors for semantic search (with project tags)
+8. **SQLite FTS5** provides fast full-text search (with project filtering)
+9. **Hybrid Search** combines both using Reciprocal Rank Fusion
+10. **MCP Server** exposes tools via JSON-RPC over HTTP
 
 ## Troubleshooting
 
@@ -241,7 +313,7 @@ curl http://localhost:6333/health
 ### Empty Search Results
 Run the scraper first to index documentation:
 ```bash
-npm run scraper
+node packages/scraper/dist/index.js --project mina
 ```
 
 ### OpenAI API Errors
@@ -257,12 +329,16 @@ cp .env packages/scraper/.env
 cp .env packages/server/.env
 ```
 
+### "No projects configured"
+Make sure project JSON files exist in `config/projects/` directory.
+
 ## License
 
 MIT
 
 ## Resources
 
-- [Mina Protocol Documentation](https://docs.minaprotocol.com)
-- [o1js GitHub](https://github.com/o1-labs/o1js)
 - [Model Context Protocol](https://modelcontextprotocol.io)
+- [Mina Protocol Documentation](https://docs.minaprotocol.com)
+- [Solana Documentation](https://solana.com/docs)
+- [Cosmos SDK Documentation](https://docs.cosmos.network)

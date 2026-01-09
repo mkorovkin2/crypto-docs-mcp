@@ -4,8 +4,8 @@ import { explainConcept, ExplainConceptSchema } from './explain.js';
 import { debugHelper, DebugHelperSchema } from './debug.js';
 import { getApiSignature, GetApiSignatureSchema } from './api-signatures.js';
 import { resolveImport, ResolveImportSchema } from './imports.js';
-import { validateZkAppCode, ValidateZkAppCodeSchema } from './validate.js';
 import { getPattern, GetPatternSchema } from './patterns.js';
+import { listProjectsTool, ListProjectsSchema } from './list-projects.js';
 import type { HybridSearch, FullTextDB } from '@mina-docs/shared';
 
 export interface ToolContext {
@@ -16,14 +16,27 @@ export interface ToolContext {
 export function getToolDefinitions() {
   return [
     {
+      name: 'list_projects',
+      description: 'List all available documentation projects that can be queried. Use this to see which projects are available before searching.',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {},
+        required: []
+      }
+    },
+    {
       name: 'search_documentation',
-      description: 'Search Mina Protocol documentation using semantic and keyword search. Returns relevant documentation sections, tutorials, and API references. Use this for general documentation queries.',
+      description: 'Search project documentation using semantic and keyword search. Returns relevant documentation sections, tutorials, and API references. Use this for general documentation queries.',
       inputSchema: {
         type: 'object' as const,
         properties: {
           query: {
             type: 'string',
-            description: 'Search query - can be a question, keyword, or concept (e.g., "how to deploy a zkApp", "state management", "Merkle tree")'
+            description: 'Search query - can be a question, keyword, or concept'
+          },
+          project: {
+            type: 'string',
+            description: 'Project to search (e.g., "mina", "solana", "cosmos"). Use list_projects to see available options.'
           },
           contentType: {
             type: 'string',
@@ -35,135 +48,140 @@ export function getToolDefinitions() {
             description: 'Maximum number of results to return (default: 5, max: 10)'
           }
         },
-        required: ['query']
+        required: ['query', 'project']
       }
     },
     {
       name: 'get_code_examples',
-      description: 'Find code examples for Mina/o1js development. Returns TypeScript code snippets for zkApps, smart contracts, proofs, and common patterns. Best for finding implementation examples.',
+      description: 'Find code examples for a specific topic. Returns code snippets from documentation and source code. Best for finding implementation examples.',
       inputSchema: {
         type: 'object' as const,
         properties: {
           topic: {
             type: 'string',
-            description: 'Topic to find examples for (e.g., "SmartContract", "Poseidon hash", "deploy zkApp", "MerkleTree", "state management")'
+            description: 'Topic to find examples for (e.g., "smart contract", "hash function", "state management")'
+          },
+          project: {
+            type: 'string',
+            description: 'Project to search (e.g., "mina", "solana", "cosmos")'
           },
           limit: {
             type: 'number',
             description: 'Maximum number of examples to return (default: 3)'
           }
         },
-        required: ['topic']
+        required: ['topic', 'project']
       }
     },
     {
       name: 'explain_concept',
-      description: 'Get explanations of Mina Protocol and zero-knowledge concepts. Useful for understanding ZK terminology, protocol mechanics, and o1js features. Returns definitions and context.',
+      description: 'Get explanations of concepts from project documentation. Useful for understanding terminology, protocol mechanics, and framework features.',
       inputSchema: {
         type: 'object' as const,
         properties: {
           concept: {
             type: 'string',
-            description: 'Concept to explain (e.g., "zkSNARK", "SmartContract", "Provable types", "Field", "Poseidon", "MerkleTree")'
+            description: 'Concept to explain'
+          },
+          project: {
+            type: 'string',
+            description: 'Project to search (e.g., "mina", "solana", "cosmos")'
           },
           depth: {
             type: 'string',
             enum: ['brief', 'detailed'],
-            description: 'Level of detail - "brief" for quick definition, "detailed" for comprehensive explanation with examples (default: brief)'
+            description: 'Level of detail - "brief" for quick definition, "detailed" for comprehensive explanation (default: brief)'
           }
         },
-        required: ['concept']
+        required: ['concept', 'project']
       }
     },
     {
       name: 'debug_helper',
-      description: 'Get help debugging common Mina/o1js errors and issues. Provide the error message to get troubleshooting guidance, common causes, and solutions.',
+      description: 'Get help debugging errors and issues. Provide the error message to find relevant troubleshooting documentation.',
       inputSchema: {
         type: 'object' as const,
         properties: {
           error: {
             type: 'string',
-            description: 'Error message or description of the issue you\'re encountering'
+            description: 'Error message or description of the issue'
+          },
+          project: {
+            type: 'string',
+            description: 'Project to search (e.g., "mina", "solana", "cosmos")'
           },
           context: {
             type: 'string',
-            description: 'Additional context about what you were trying to do (optional but helpful)'
+            description: 'Additional context about what you were trying to do (optional)'
           }
         },
-        required: ['error']
+        required: ['error', 'project']
       }
     },
     {
       name: 'get_api_signature',
-      description: 'Get exact method signatures, parameters, and return types for o1js classes and functions. Use this to get accurate API information for Field, Bool, SmartContract, Poseidon, MerkleTree, etc.',
+      description: 'Get API documentation for classes and functions. Returns signatures, parameters, and usage examples from documentation.',
       inputSchema: {
         type: 'object' as const,
         properties: {
           className: {
             type: 'string',
-            description: 'Class name (e.g., "Field", "SmartContract", "MerkleTree", "Poseidon")'
+            description: 'Class or module name to look up'
+          },
+          project: {
+            type: 'string',
+            description: 'Project to search (e.g., "mina", "solana", "cosmos")'
           },
           methodName: {
             type: 'string',
             description: 'Specific method name (optional - omit to get class overview)'
           }
         },
-        required: ['className']
+        required: ['className', 'project']
       }
     },
     {
       name: 'resolve_import',
-      description: 'Get the correct import statement for o1js symbols. Use when you need to know what to import and from where.',
+      description: 'Find import statements and module paths for symbols. Searches documentation for how to import specific items.',
       inputSchema: {
         type: 'object' as const,
         properties: {
           symbol: {
             type: 'string',
-            description: 'Symbol to import (e.g., "MerkleTree", "Poseidon", "SmartContract") or category (e.g., "core", "contract", "merkle")'
+            description: 'Symbol to import (e.g., class name, function name)'
+          },
+          project: {
+            type: 'string',
+            description: 'Project to search (e.g., "mina", "solana", "cosmos")'
           },
           includeRelated: {
             type: 'boolean',
             description: 'Include related symbols you might also need (default: true)'
           }
         },
-        required: ['symbol']
-      }
-    },
-    {
-      name: 'validate_zkapp_code',
-      description: 'Validate zkApp code for common mistakes and anti-patterns. Checks for non-provable operations, missing initializations, incorrect conditionals, and more.',
-      inputSchema: {
-        type: 'object' as const,
-        properties: {
-          code: {
-            type: 'string',
-            description: 'TypeScript/o1js code to validate'
-          },
-          checkLevel: {
-            type: 'string',
-            enum: ['errors', 'warnings', 'all'],
-            description: 'What to check: "errors" (critical only), "warnings" (potential problems), "all" (comprehensive, default)'
-          }
-        },
-        required: ['code']
+        required: ['symbol', 'project']
       }
     },
     {
       name: 'get_pattern',
-      description: 'Get recommended code patterns and recipes for common zkApp tasks. Returns complete, working examples with explanations and pitfalls to avoid.',
+      description: 'Get recommended code patterns and recipes for common tasks. Returns complete examples with explanations.',
       inputSchema: {
         type: 'object' as const,
         properties: {
           task: {
             type: 'string',
-            description: 'Task or pattern (e.g., "merkle membership", "deploy contract", "emit events", "signature verification", "conditional logic")'
+            description: 'Task or pattern to find (e.g., "deploy contract", "emit events", "signature verification")'
+          },
+          project: {
+            type: 'string',
+            description: 'Project to search (e.g., "mina", "solana", "cosmos")'
           },
           includeVariations: {
             type: 'boolean',
             description: 'Include alternative approaches (default: true)'
           }
         },
-        required: ['task']
+        required: ['task', 'project']
       }
     }
   ];
@@ -178,6 +196,11 @@ export async function handleToolCall(
     const parsedArgs = args || {};
 
     switch (name) {
+      case 'list_projects':
+        return await listProjectsTool(
+          ListProjectsSchema.parse(parsedArgs)
+        );
+
       case 'search_documentation':
         return await searchDocumentation(
           SearchDocumentationSchema.parse(parsedArgs),
@@ -211,12 +234,6 @@ export async function handleToolCall(
       case 'resolve_import':
         return await resolveImport(
           ResolveImportSchema.parse(parsedArgs),
-          context
-        );
-
-      case 'validate_zkapp_code':
-        return await validateZkAppCode(
-          ValidateZkAppCodeSchema.parse(parsedArgs),
           context
         );
 

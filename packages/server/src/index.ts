@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 
 import 'dotenv/config';
-import { VectorDB, FullTextDB, HybridSearch } from '@mina-docs/shared';
+import { VectorDB, FullTextDB, HybridSearch, listProjects } from '@mina-docs/shared';
 import { config, validateConfig } from './config.js';
 import { createHttpTransport } from './transport.js';
 
 async function main() {
   console.error('='.repeat(60));
-  console.error('Mina Documentation MCP Server');
+  console.error('Crypto Documentation MCP Server');
   console.error('='.repeat(60));
 
   // Validate configuration
@@ -24,6 +24,14 @@ async function main() {
   console.error(`  Host: ${config.host}`);
   console.error(`  Qdrant: ${config.qdrant.url}`);
   console.error(`  SQLite: ${config.sqlite.path}`);
+
+  // List available projects
+  const projects = listProjects();
+  if (projects.length > 0) {
+    console.error(`\nConfigured projects: ${projects.join(', ')}`);
+  } else {
+    console.error('\nWarning: No projects configured in config/projects/');
+  }
 
   // Initialize databases
   console.error('\nInitializing databases...');
@@ -77,10 +85,14 @@ async function main() {
 
   console.error('\n' + '='.repeat(60));
   console.error('Server ready! Available MCP tools:');
-  console.error('  - search_documentation: Search Mina docs');
+  console.error('  - list_projects: List available documentation projects');
+  console.error('  - search_documentation: Search project docs');
   console.error('  - get_code_examples: Find code examples');
-  console.error('  - explain_concept: Explain ZK concepts');
+  console.error('  - explain_concept: Explain concepts');
   console.error('  - debug_helper: Debug common errors');
+  console.error('  - get_api_signature: Look up API documentation');
+  console.error('  - resolve_import: Find import statements');
+  console.error('  - get_pattern: Get code patterns and recipes');
   console.error('='.repeat(60));
 
   // Graceful shutdown
