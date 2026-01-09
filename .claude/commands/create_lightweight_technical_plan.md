@@ -107,6 +107,8 @@ After getting initial clarifications:
 
    **For external knowledge:**
    - **technical-researcher** - To find external information like documentation, code samples, or related questions other people have asked
+   - **technical-task-researcher** - Use this agent when facing ambiguous technical decisions. It uses Tavily to research official documentation, working code samples, known failure cases/pitfalls, and proven success patterns. Ideal for clarifying uncertain implementation approaches.
+   - **Tavily MCP tool** - Use `mcp__tavily__tavily_search` directly for quick web searches involving ambiguous questions, unstructured queries, or keyword-based lookups. Tavily excels at understanding context and returning relevant results for vague or exploratory searches where you're not sure exactly what you're looking for.
 
    Each agent knows how to:
    - Find the right files and code patterns
@@ -392,10 +394,12 @@ Example of spawning multiple tasks:
 ```python
 # Spawn these tasks concurrently:
 tasks = [
-    Task("Research database schema", db_research_prompt),
-    Task("Find API patterns", api_research_prompt),
-    Task("Investigate UI components", ui_research_prompt),
-    Task("Check test patterns", test_research_prompt)
+    Task("Research database schema", db_research_prompt, subagent_type="codebase-analyzer"),
+    Task("Find API patterns", api_research_prompt, subagent_type="codebase-pattern-finder"),
+    Task("Investigate UI components", ui_research_prompt, subagent_type="codebase-locator"),
+    Task("Check test patterns", test_research_prompt, subagent_type="codebase-analyzer"),
+    # For ambiguous technical decisions, use technical-task-researcher:
+    Task("Research best practices for [feature]", external_research_prompt, subagent_type="technical-task-researcher")
 ]
 ```
 
