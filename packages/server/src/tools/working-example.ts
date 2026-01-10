@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { ToolContext } from './index.js';
 import { PROMPTS } from '../prompts/index.js';
+import { formatSearchResultsAsContext, formatSourceUrls, getProjectContext } from './context-formatter.js';
 
 export const GetWorkingExampleSchema = z.object({
   task: z.string().describe('What you want to accomplish (e.g., "transfer tokens", "deploy smart contract")'),
@@ -14,8 +15,8 @@ export async function getWorkingExample(
   args: GetWorkingExampleArgs,
   context: ToolContext
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
-  // 1. Search for code examples and related prose
-  const [codeResults, proseResults] = await Promise.all([
+  // 1. Search for code examples and related prose in parallel
+  const [codeResults, proseResults, apiResults] = await Promise.all([
     context.search.search(args.task, {
       limit: 15,
       project: args.project,
@@ -29,10 +30,18 @@ export async function getWorkingExample(
       contentType: 'prose',
       rerank: true,
       rerankTopK: 5
+    }),
+    // Also search API reference for complete type info
+    context.search.search(`${args.task} interface type`, {
+      limit: 5,
+      project: args.project,
+      contentType: 'api-reference',
+      rerank: true,
+      rerankTopK: 3
     })
   ]);
 
-  const allResults = [...codeResults, ...proseResults];
+  const allResults = [...codeResults, ...proseResults, ...apiResults];
 
   if (allResults.length === 0) {
     return {
@@ -43,29 +52,24 @@ export async function getWorkingExample(
     };
   }
 
-  // 2. Format context
-  const contextChunks = allResults.map((r, i) => {
-    const sourceLabel = `[Source ${i + 1}]`;
-    const typeLabel = r.chunk.contentType === 'code' ? '[CODE]' : '[DOCS]';
-    return `${sourceLabel} ${typeLabel} ${r.chunk.title} - ${r.chunk.section}
-URL: ${r.chunk.url}
-${r.chunk.contentType === 'code' ? `Language: ${r.chunk.metadata.codeLanguage || 'unknown'}` : ''}
-Content:
-${r.chunk.content}
----`;
-  }).join('\n\n');
+  // 2. Format context with rich metadata for better code generation
+  const contextChunks = formatSearchResultsAsContext(allResults, {
+    includeMetadata: true,
+    labelType: true
+  });
 
-  // 3. Synthesize complete example
+  // 3. Get project-specific context
+  const projectContext = getProjectContext(args.project);
+
+  // 4. Synthesize complete example with project context
   const example = await context.llmClient.synthesize(
-    PROMPTS.workingExample.system,
+    PROMPTS.workingExample.system + projectContext,
     PROMPTS.workingExample.user(args.task, contextChunks, args.project),
     { maxTokens: args.maxTokens }
   );
 
-  // 4. Append sources
-  const sources = allResults.map((r, i) =>
-    `[Source ${i + 1}]: ${r.chunk.url}`
-  ).join('\n');
+  // 5. Append sources
+  const sources = formatSourceUrls(allResults);
 
   return {
     content: [{

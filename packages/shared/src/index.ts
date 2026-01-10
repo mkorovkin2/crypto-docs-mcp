@@ -7,3 +7,4 @@ export * from './config/project-config.js';
 export * from './config/load-config.js';
 export * from './llm.js';
 export * from './reranker.js';
+export * from './query-analyzer.js';

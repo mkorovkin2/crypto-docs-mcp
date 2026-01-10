@@ -1,5 +1,6 @@
 import type { DocumentChunk } from '@mina-docs/shared';
 import { randomUUID } from 'crypto';
+import { chunkCodeWithAST, shouldUseASTChunking } from './ast-chunker.js';
 
 const MAX_CHUNK_TOKENS = 1500;
 const MIN_CHUNK_TOKENS = 100;
@@ -15,11 +16,18 @@ export function chunkContent(chunks: DocumentChunk[]): DocumentChunk[] {
   const result: DocumentChunk[] = [];
 
   for (const chunk of chunks) {
-    // Code chunks stay as-is (usually well-sized)
+    // Code chunks: Use AST-based chunking for better semantic boundaries
     if (chunk.contentType === 'code') {
-      const tokens = estimateTokens(chunk.content);
-      if (tokens >= MIN_CHUNK_TOKENS || chunk.content.length > 100) {
-        result.push(chunk);
+      // Try AST-based chunking for code
+      if (shouldUseASTChunking(chunk.content)) {
+        const astChunks = chunkCodeWithAST(chunk);
+        result.push(...astChunks);
+      } else {
+        // Fallback: keep code chunk as-is if it doesn't look like structured code
+        const tokens = estimateTokens(chunk.content);
+        if (tokens >= MIN_CHUNK_TOKENS || chunk.content.length > 100) {
+          result.push(chunk);
+        }
       }
       continue;
     }

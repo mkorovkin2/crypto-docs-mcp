@@ -1,12 +1,14 @@
 import { z } from 'zod';
 import type { ToolContext } from './index.js';
 import { PROMPTS } from '../prompts/index.js';
+import { formatSearchResultsAsContext, formatSourceUrls, getProjectContext } from './context-formatter.js';
 
 export const ExplainErrorSchema = z.object({
   error: z.string().describe('The error message or description'),
   project: z.string().describe('Project to search (e.g., "mina", "solana", "cosmos")'),
   context: z.string().optional().describe('What you were trying to do when the error occurred'),
-  maxTokens: z.number().optional().default(2000).describe('Maximum response length (default: 2000)')
+  codeSnippet: z.string().optional().describe('The code that caused the error'),
+  maxTokens: z.number().optional().default(4000).describe('Maximum response length (default: 4000)')
 });
 
 type ExplainErrorArgs = z.infer<typeof ExplainErrorSchema>;
@@ -15,16 +17,24 @@ export async function explainError(
   args: ExplainErrorArgs,
   context: ToolContext
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
-  // 1. Search for error-related content
-  const searchQuery = args.context
-    ? `${args.error} ${args.context} error fix troubleshoot`
-    : `${args.error} error fix troubleshoot`;
+  // 1. Build comprehensive search query
+  const queryParts = [args.error];
+  if (args.context) queryParts.push(args.context);
+  queryParts.push('error fix troubleshoot solution');
+
+  // Extract potential identifiers from error message
+  const identifiers = args.error.match(/`[^`]+`|'[^']+'|"[^"]+"/g);
+  if (identifiers) {
+    queryParts.push(...identifiers.map(s => s.replace(/[`'"]/g, '')));
+  }
+
+  const searchQuery = queryParts.join(' ');
 
   const results = await context.search.search(searchQuery, {
     limit: 15,
     project: args.project,
     rerank: true,
-    rerankTopK: 8
+    rerankTopK: 10
   });
 
   if (results.length === 0) {
@@ -41,27 +51,30 @@ Try searching the project's GitHub issues or community forums.`
     };
   }
 
-  // 2. Format context
-  const contextChunks = results.map((r, i) => {
-    const sourceLabel = `[Source ${i + 1}]`;
-    return `${sourceLabel} ${r.chunk.title} - ${r.chunk.section}
-URL: ${r.chunk.url}
-Content:
-${r.chunk.content}
----`;
-  }).join('\n\n');
+  // 2. Format context with metadata
+  const contextChunks = formatSearchResultsAsContext(results, {
+    includeMetadata: true,
+    labelType: true
+  });
 
-  // 3. Synthesize error explanation
+  // 3. Build enhanced error context
+  let errorContext = args.context || 'Not provided';
+  if (args.codeSnippet) {
+    errorContext += `\n\nCode that caused the error:\n\`\`\`\n${args.codeSnippet}\n\`\`\``;
+  }
+
+  // 4. Get project-specific context
+  const projectContext = getProjectContext(args.project);
+
+  // 5. Synthesize error explanation
   const explanation = await context.llmClient.synthesize(
-    PROMPTS.explainError.system,
-    PROMPTS.explainError.user(args.error, args.context || '', contextChunks, args.project),
+    PROMPTS.explainError.system + projectContext,
+    PROMPTS.explainError.user(args.error, errorContext, contextChunks, args.project),
     { maxTokens: args.maxTokens }
   );
 
-  // 4. Append sources
-  const sources = results.map((r, i) =>
-    `[Source ${i + 1}]: ${r.chunk.url}`
-  ).join('\n');
+  // 6. Append sources
+  const sources = formatSourceUrls(results);
 
   return {
     content: [{

@@ -68,7 +68,7 @@ export function getToolDefinitions() {
     },
     {
       name: 'explain_error',
-      description: 'Get help understanding and fixing an error. Returns the error cause, how to fix it, and how to prevent it. Best for debugging.',
+      description: 'Get help understanding and fixing an error. Returns the error cause, how to fix it with code, and how to prevent it. Best for debugging blockchain development issues.',
       inputSchema: {
         type: 'object' as const,
         properties: {
@@ -84,9 +84,13 @@ export function getToolDefinitions() {
             type: 'string',
             description: 'What you were trying to do when the error occurred (optional but helps)'
           },
+          codeSnippet: {
+            type: 'string',
+            description: 'The code that caused the error (optional but helps identify the issue)'
+          },
           maxTokens: {
             type: 'number',
-            description: 'Maximum response length (default: 2000)'
+            description: 'Maximum response length (default: 4000)'
           }
         },
         required: ['error', 'project']
