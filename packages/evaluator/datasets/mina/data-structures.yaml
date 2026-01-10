@@ -1,0 +1,214 @@
+name: "Mina Protocol - Data Structures & Cryptography"
+project: "mina"
+version: "1.0.0"
+tests:
+  # === Merkle Tree ===
+  - id: "mina-ds-001"
+    name: "Merkle Tree in o1js"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How do I use MerkleTree in o1js for off-chain data storage?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 250
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "MerkleTree stores data off-chain with on-chain root commitment"
+          - "MerkleWitness proves membership without revealing entire tree"
+          - "The root hash is stored on-chain as zkApp state"
+          - "Tree height determines maximum number of leaves"
+    tags: ["data-structures", "merkle"]
+
+  - id: "mina-ds-002"
+    name: "Merkle Tree example"
+    tool: "get_working_example"
+    difficulty: "intermediate"
+    input:
+      task: "create a zkApp that uses a Merkle tree to verify membership"
+    expected:
+      validations:
+        - type: "has_code_block"
+          language: "typescript"
+        - type: "min_length"
+          chars: 450
+      codeRequirements:
+        mustInclude:
+          - "MerkleTree"
+          - "MerkleWitness"
+          - "root"
+          - "calculateRoot"
+        expectedStructure: "zkApp with Merkle root state and membership verification"
+      expectedImports:
+        - "o1js"
+    tags: ["data-structures", "merkle", "code"]
+
+  # === Merkle Map ===
+  - id: "mina-ds-003"
+    name: "MerkleMap for key-value storage"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "What is MerkleMap in o1js and how does it differ from MerkleTree?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "MerkleMap is a key-value store backed by a Merkle tree"
+          - "Keys are hashed to determine their position in the tree"
+          - "Supports get, set, and membership proofs"
+          - "More flexible than MerkleTree for arbitrary key access"
+    tags: ["data-structures", "merkle-map"]
+
+  - id: "mina-ds-004"
+    name: "MerkleMap example"
+    tool: "get_working_example"
+    difficulty: "intermediate"
+    input:
+      task: "use MerkleMap to store and verify user balances off-chain"
+    expected:
+      validations:
+        - type: "has_code_block"
+          language: "typescript"
+        - type: "min_length"
+          chars: 400
+      codeRequirements:
+        mustInclude:
+          - "MerkleMap"
+          - "MerkleMapWitness"
+          - "get"
+          - "set"
+        expectedStructure: "zkApp using MerkleMap for balance tracking"
+      expectedImports:
+        - "o1js"
+    tags: ["data-structures", "merkle-map", "code"]
+
+  # === Poseidon Hash ===
+  - id: "mina-ds-005"
+    name: "Poseidon hash function"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "What is Poseidon hash in o1js and why is it used instead of SHA-256?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Poseidon is a ZK-friendly hash function"
+          - "Much more efficient in circuits than SHA-256"
+          - "Used for commitments and Merkle tree hashing"
+          - "Poseidon.hash() takes an array of Field elements"
+    tags: ["cryptography", "poseidon"]
+
+  - id: "mina-ds-006"
+    name: "Poseidon hashing example"
+    tool: "get_working_example"
+    difficulty: "basic"
+    input:
+      task: "hash multiple Field values using Poseidon in o1js"
+    expected:
+      validations:
+        - type: "has_code_block"
+          language: "typescript"
+        - type: "min_length"
+          chars: 200
+      codeRequirements:
+        mustInclude:
+          - "Poseidon"
+          - "hash"
+          - "Field"
+        expectedStructure: "Hash multiple values with Poseidon.hash()"
+      expectedImports:
+        - "o1js"
+    tags: ["cryptography", "poseidon", "code"]
+
+  # === Signatures ===
+  - id: "mina-ds-007"
+    name: "Digital signatures in o1js"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How do I create and verify digital signatures in o1js?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Signature class represents Schnorr signatures"
+          - "Created with Signature.create() using a private key"
+          - "Verified with signature.verify() against a public key"
+          - "Can sign arbitrary Field arrays"
+    tags: ["cryptography", "signatures"]
+
+  - id: "mina-ds-008"
+    name: "Signature verification example"
+    tool: "get_working_example"
+    difficulty: "intermediate"
+    input:
+      task: "create and verify a signature on a message in o1js"
+    expected:
+      validations:
+        - type: "has_code_block"
+          language: "typescript"
+        - type: "min_length"
+          chars: 300
+      codeRequirements:
+        mustInclude:
+          - "Signature"
+          - "create"
+          - "verify"
+          - "PrivateKey"
+          - "PublicKey"
+        expectedStructure: "Create signature with private key, verify with public key"
+      expectedImports:
+        - "o1js"
+    tags: ["cryptography", "signatures", "code"]
+
+  # === Encryption ===
+  - id: "mina-ds-009"
+    name: "Encryption in o1js"
+    tool: "ask_docs"
+    difficulty: "advanced"
+    input:
+      question: "Does o1js support encryption? How can I encrypt data?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 150
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "o1js supports public-key encryption"
+          - "Encryption class provides encrypt/decrypt functionality"
+          - "Uses elliptic curve cryptography"
+    tags: ["cryptography", "encryption", "advanced"]
+
+  # === Group Operations ===
+  - id: "mina-ds-010"
+    name: "Group type for elliptic curves"
+    tool: "ask_docs"
+    difficulty: "advanced"
+    input:
+      question: "What is the Group type in o1js and how is it used?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Group represents points on an elliptic curve"
+          - "Supports point addition and scalar multiplication"
+          - "Used for cryptographic operations like signatures"
+          - "Group.generator is the base point of the curve"
+    tags: ["cryptography", "group", "advanced"]

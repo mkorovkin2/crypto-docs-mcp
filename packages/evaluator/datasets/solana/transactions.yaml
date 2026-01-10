@@ -1,0 +1,200 @@
+name: "Solana - Transactions & Instructions"
+project: "solana"
+version: "1.0.0"
+tests:
+  # === Transactions ===
+  - id: "sol-tx-001"
+    name: "Transaction structure"
+    tool: "ask_docs"
+    difficulty: "basic"
+    input:
+      question: "How are transactions structured in Solana?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 250
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Transactions contain one or more instructions"
+          - "All instructions in a transaction execute atomically"
+          - "Transactions include signatures and a recent blockhash"
+          - "Account keys are listed in the transaction header"
+      forbiddenKeywords:
+        - "zkapp"
+        - "o1js"
+    tags: ["transactions", "structure"]
+
+  - id: "sol-tx-002"
+    name: "Transaction signing"
+    tool: "ask_docs"
+    difficulty: "basic"
+    input:
+      question: "How do I sign and send a transaction in Solana?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Transactions must be signed by required signers"
+          - "Recent blockhash prevents replay attacks"
+          - "Signed transactions are sent to validators"
+          - "Use sendAndConfirmTransaction for confirmation"
+    tags: ["transactions", "signing"]
+
+  - id: "sol-tx-003"
+    name: "Build and send transaction"
+    tool: "get_working_example"
+    difficulty: "intermediate"
+    input:
+      task: "build a transaction with multiple instructions and send it"
+    expected:
+      validations:
+        - type: "has_code_block"
+        - type: "min_length"
+          chars: 400
+      codeRequirements:
+        mustInclude:
+          - "Transaction"
+          - "add"
+          - "sendAndConfirmTransaction"
+          - "recentBlockhash"
+        expectedStructure: "Create transaction, add instructions, sign, and send"
+    tags: ["transactions", "code"]
+
+  # === Instructions ===
+  - id: "sol-ix-001"
+    name: "Instruction structure"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "What is the structure of an instruction in Solana?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Instructions specify a program to invoke"
+          - "Include list of accounts the program will access"
+          - "Contain instruction data as bytes"
+          - "Account metadata specifies signer and writable status"
+    tags: ["instructions", "structure"]
+
+  - id: "sol-ix-002"
+    name: "Create custom instruction"
+    tool: "get_working_example"
+    difficulty: "intermediate"
+    input:
+      task: "create a custom instruction with account metas and data"
+    expected:
+      validations:
+        - type: "has_code_block"
+        - type: "min_length"
+          chars: 350
+      codeRequirements:
+        mustInclude:
+          - "TransactionInstruction"
+          - "keys"
+          - "programId"
+          - "data"
+        expectedStructure: "Create instruction with accounts and serialized data"
+    tags: ["instructions", "code"]
+
+  # === Versioned Transactions ===
+  - id: "sol-vtx-001"
+    name: "Versioned transactions"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "What are versioned transactions in Solana and when should I use them?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Versioned transactions support address lookup tables"
+          - "Allow more accounts per transaction"
+          - "Use MessageV0 for version 0 messages"
+          - "Required for larger transactions"
+    tags: ["transactions", "versioned"]
+
+  # === Transaction Errors ===
+  - id: "sol-tx-err-001"
+    name: "Blockhash expired error"
+    tool: "explain_error"
+    difficulty: "basic"
+    input:
+      error: "Transaction simulation failed: Blockhash not found"
+      context: "sending a transaction"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 150
+      groundTruth:
+        expectedFacts:
+          - "The blockhash in the transaction has expired"
+          - "Blockhashes are valid for about 60-90 seconds"
+          - "Get a fresh blockhash and retry"
+    tags: ["transactions", "error"]
+
+  - id: "sol-tx-err-002"
+    name: "Signature verification failed"
+    tool: "explain_error"
+    difficulty: "basic"
+    input:
+      error: "Transaction signature verification failure"
+      context: "submitting a signed transaction"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 150
+      groundTruth:
+        expectedFacts:
+          - "One or more required signatures are missing or invalid"
+          - "Check all required signers have signed"
+          - "Verify the correct keypairs were used"
+    tags: ["transactions", "error"]
+
+  # === Cross-Program Invocation ===
+  - id: "sol-cpi-001"
+    name: "Cross-Program Invocation"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "What is Cross-Program Invocation (CPI) in Solana?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "CPI allows one program to call another program"
+          - "Uses invoke or invoke_signed functions"
+          - "Caller's privileges are passed to the callee"
+          - "Essential for composable programs"
+    tags: ["cpi", "concept"]
+
+  - id: "sol-cpi-002"
+    name: "CPI with PDA signing"
+    tool: "ask_docs"
+    difficulty: "advanced"
+    input:
+      question: "How do I make a CPI where a PDA needs to sign?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Use invoke_signed with the PDA seeds"
+          - "Runtime verifies seeds derive the PDA address"
+          - "PDA can act as authority for other programs"
+    tags: ["cpi", "pda", "advanced"]

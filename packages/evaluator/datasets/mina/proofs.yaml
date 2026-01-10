@@ -1,0 +1,209 @@
+name: "Mina Protocol - Proofs & ZkProgram"
+project: "mina"
+version: "1.0.0"
+tests:
+  # === ZkProgram Basics ===
+  - id: "mina-proof-001"
+    name: "What is ZkProgram"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "What is ZkProgram in o1js and how does it differ from SmartContract?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "ZkProgram creates standalone zero-knowledge proofs"
+          - "ZkProgram doesn't require on-chain deployment"
+          - "ZkProgram can have custom public inputs and outputs"
+          - "ZkProgram proofs can be verified off-chain or in other programs"
+        forbiddenClaims:
+          - "ZkProgram is the same as SmartContract"
+    tags: ["proofs", "zkprogram"]
+
+  - id: "mina-proof-002"
+    name: "Basic ZkProgram example"
+    tool: "get_working_example"
+    difficulty: "intermediate"
+    input:
+      task: "create a ZkProgram that proves a number is positive"
+    expected:
+      validations:
+        - type: "has_code_block"
+          language: "typescript"
+        - type: "min_length"
+          chars: 350
+      codeRequirements:
+        mustInclude:
+          - "ZkProgram"
+          - "method"
+          - "Field"
+          - "compile"
+        expectedStructure: "ZkProgram with method that verifies positivity"
+      expectedImports:
+        - "o1js"
+    tags: ["proofs", "zkprogram", "code"]
+
+  # === Recursive Proofs ===
+  - id: "mina-proof-003"
+    name: "Recursive proofs concept"
+    tool: "ask_docs"
+    difficulty: "advanced"
+    input:
+      question: "How do recursive proofs work in o1js? What are they used for?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 250
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Recursive proofs verify other proofs inside a circuit"
+          - "Enables proving long computations incrementally"
+          - "ZkProgram can verify its own proofs from previous executions"
+          - "Useful for rollups and aggregating many proofs into one"
+    tags: ["proofs", "recursive", "advanced"]
+
+  - id: "mina-proof-004"
+    name: "Recursive proof example"
+    tool: "get_working_example"
+    difficulty: "advanced"
+    input:
+      task: "create a recursive ZkProgram that counts by verifying previous proofs"
+    expected:
+      validations:
+        - type: "has_code_block"
+          language: "typescript"
+        - type: "min_length"
+          chars: 450
+      codeRequirements:
+        mustInclude:
+          - "ZkProgram"
+          - "SelfProof"
+          - "verify"
+          - "recursive"
+        expectedStructure: "ZkProgram with base case and recursive step methods"
+      expectedImports:
+        - "o1js"
+    tags: ["proofs", "recursive", "code", "advanced"]
+
+  # === Proof Verification ===
+  - id: "mina-proof-005"
+    name: "Proof verification"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How do I verify a proof in o1js?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 150
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Proofs have a verify() method"
+          - "Verification uses the verification key"
+          - "Verification returns a boolean indicating validity"
+    tags: ["proofs", "verification"]
+
+  # === Proof Composition ===
+  - id: "mina-proof-006"
+    name: "Composing proofs from different programs"
+    tool: "ask_docs"
+    difficulty: "advanced"
+    input:
+      question: "Can I verify proofs from one ZkProgram inside another ZkProgram?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Yes, you can verify external proofs inside a ZkProgram"
+          - "The verifying program needs the verification key of the other program"
+          - "This enables modular proof composition"
+    tags: ["proofs", "composition", "advanced"]
+
+  # === Proof Serialization ===
+  - id: "mina-proof-007"
+    name: "Proof serialization"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How do I serialize and deserialize proofs in o1js?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 150
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Proofs can be converted to JSON with toJSON()"
+          - "Proofs can be reconstructed from JSON"
+          - "This enables storing and transmitting proofs"
+    tags: ["proofs", "serialization"]
+
+  # === Circuit Constraints ===
+  - id: "mina-proof-008"
+    name: "Understanding circuit constraints"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "What are circuit constraints in o1js and how do they affect proof generation?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Constraints are the equations that the prover must satisfy"
+          - "More constraints mean larger proofs and longer proving time"
+          - "Each Field operation typically adds constraints"
+          - "Constraint count can be checked after compilation"
+    tags: ["proofs", "constraints"]
+
+  # === Witness and Auxiliary Input ===
+  - id: "mina-proof-009"
+    name: "Witness values in proofs"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "What are witness values in o1js and how do I use Provable.witness()?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Witness values are private inputs to a circuit"
+          - "Provable.witness() introduces values from outside the circuit"
+          - "Witness values are not revealed in the proof"
+          - "The prover provides witness values when generating a proof"
+    tags: ["proofs", "witness"]
+
+  - id: "mina-proof-010"
+    name: "Witness example"
+    tool: "get_working_example"
+    difficulty: "intermediate"
+    input:
+      task: "use Provable.witness to introduce a private value in a zkApp method"
+    expected:
+      validations:
+        - type: "has_code_block"
+          language: "typescript"
+        - type: "min_length"
+          chars: 300
+      codeRequirements:
+        mustInclude:
+          - "Provable.witness"
+          - "Field"
+        expectedStructure: "Method using witness to introduce private computation"
+      expectedImports:
+        - "o1js"
+    tags: ["proofs", "witness", "code"]

@@ -1,0 +1,239 @@
+name: "Cosmos SDK - Staking Advanced"
+project: "cosmos"
+version: "1.0.0"
+tests:
+  # === Slashing ===
+  - id: "cosmos-slash-001"
+    name: "Slashing overview"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How does slashing work in Cosmos SDK?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Slashing penalizes misbehaving validators"
+          - "Double signing results in slashing"
+          - "Downtime can result in jailing and slashing"
+          - "Delegators are also slashed proportionally"
+      forbiddenKeywords:
+        - "mina"
+        - "solana"
+    tags: ["staking", "slashing"]
+
+  - id: "cosmos-slash-002"
+    name: "Slashing parameters"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "What are the slashing parameters in Cosmos SDK?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "slash_fraction_double_sign sets double sign penalty"
+          - "slash_fraction_downtime sets downtime penalty"
+          - "downtime_jail_duration sets jail time"
+          - "signed_blocks_window for uptime tracking"
+    tags: ["staking", "slashing", "params"]
+
+  # === Unbonding ===
+  - id: "cosmos-unbond-001"
+    name: "Unbonding process"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How does the unbonding process work in Cosmos?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Unbonding has a waiting period"
+          - "Tokens cannot be transferred during unbonding"
+          - "Slashing can occur during unbonding period"
+          - "Default unbonding period is typically 21 days"
+    tags: ["staking", "unbonding"]
+
+  - id: "cosmos-unbond-002"
+    name: "Undelegate tokens"
+    tool: "get_working_example"
+    difficulty: "intermediate"
+    input:
+      task: "undelegate tokens from a validator"
+    expected:
+      validations:
+        - type: "has_code_block"
+        - type: "min_length"
+          chars: 250
+      codeRequirements:
+        mustInclude:
+          - "MsgUndelegate"
+          - "validator"
+          - "amount"
+        expectedStructure: "Create and send undelegation transaction"
+    tags: ["staking", "unbonding", "code"]
+
+  # === Redelegation ===
+  - id: "cosmos-redel-001"
+    name: "Redelegation"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How does redelegation work in Cosmos SDK?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Redelegation moves stake between validators"
+          - "No unbonding period for redelegation"
+          - "Cannot redelegate redelegated tokens immediately"
+          - "Prevents validator hopping attacks"
+    tags: ["staking", "redelegation"]
+
+  - id: "cosmos-redel-002"
+    name: "Redelegate tokens"
+    tool: "get_working_example"
+    difficulty: "intermediate"
+    input:
+      task: "redelegate tokens from one validator to another"
+    expected:
+      validations:
+        - type: "has_code_block"
+        - type: "min_length"
+          chars: 300
+      codeRequirements:
+        mustInclude:
+          - "MsgBeginRedelegate"
+          - "validator_src"
+          - "validator_dst"
+        expectedStructure: "Create redelegation from source to destination validator"
+    tags: ["staking", "redelegation", "code"]
+
+  # === Validator Operations ===
+  - id: "cosmos-val-001"
+    name: "Create validator"
+    tool: "ask_docs"
+    difficulty: "advanced"
+    input:
+      question: "How do I create a validator in Cosmos SDK?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 250
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Use MsgCreateValidator to register"
+          - "Must provide validator public key"
+          - "Set commission rates"
+          - "Self-delegation amount required"
+    tags: ["staking", "validator"]
+
+  - id: "cosmos-val-002"
+    name: "Edit validator"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How do I edit validator details in Cosmos?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Use MsgEditValidator to update"
+          - "Can change commission rate"
+          - "Can update description and identity"
+          - "Commission rate changes have cooldown"
+    tags: ["staking", "validator"]
+
+  # === Staking Queries ===
+  - id: "cosmos-stake-q-001"
+    name: "Query validator set"
+    tool: "get_working_example"
+    difficulty: "basic"
+    input:
+      task: "query the current validator set"
+    expected:
+      validations:
+        - type: "has_code_block"
+        - type: "min_length"
+          chars: 200
+      codeRequirements:
+        mustInclude:
+          - "validators"
+          - "query"
+        expectedStructure: "Query staking module for validators"
+    tags: ["staking", "query", "code"]
+
+  - id: "cosmos-stake-q-002"
+    name: "Query delegations"
+    tool: "get_working_example"
+    difficulty: "basic"
+    input:
+      task: "query all delegations for an address"
+    expected:
+      validations:
+        - type: "has_code_block"
+        - type: "min_length"
+          chars: 200
+      codeRequirements:
+        mustInclude:
+          - "delegations"
+          - "delegator"
+        expectedStructure: "Query delegations for a delegator address"
+    tags: ["staking", "query", "code"]
+
+  # === Staking Errors ===
+  - id: "cosmos-stake-err-001"
+    name: "Already jailed error"
+    tool: "explain_error"
+    difficulty: "intermediate"
+    input:
+      error: "validator already jailed"
+      context: "validator operations"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 150
+      groundTruth:
+        expectedFacts:
+          - "Validator was jailed for misbehavior"
+          - "Must wait for jail period to expire"
+          - "Use unjail transaction to restore"
+      forbiddenKeywords:
+        - "zkapp"
+        - "solana"
+    tags: ["staking", "error"]
+
+  - id: "cosmos-stake-err-002"
+    name: "No delegation found"
+    tool: "explain_error"
+    difficulty: "basic"
+    input:
+      error: "no delegation for (address, validator) tuple"
+      context: "trying to undelegate"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 150
+      groundTruth:
+        expectedFacts:
+          - "No existing delegation to this validator"
+          - "Check delegator and validator addresses"
+          - "Must delegate before undelegating"
+    tags: ["staking", "error"]

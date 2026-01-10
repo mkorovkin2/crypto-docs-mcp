@@ -1,0 +1,288 @@
+name: "Cosmos SDK - Modules"
+project: "cosmos"
+version: "1.0.0"
+tests:
+  # === Module System ===
+  - id: "cosmos-mod-001"
+    name: "Cosmos SDK module architecture"
+    tool: "ask_docs"
+    difficulty: "basic"
+    input:
+      question: "How does the module architecture work in Cosmos SDK?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 250
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Cosmos SDK is built with a modular architecture"
+          - "Each module encapsulates specific blockchain functionality"
+          - "Modules have their own state, messages, and queries"
+          - "Core modules include bank, staking, gov, auth"
+        forbiddenClaims:
+          - "Cosmos uses a monolithic architecture"
+      forbiddenKeywords:
+        - "zkapp"
+        - "o1js"
+        - "solana"
+        - "anchor"
+    tags: ["modules", "architecture"]
+
+  - id: "cosmos-mod-002"
+    name: "Module components"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "What are the main components of a Cosmos SDK module?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Keeper: manages module state and logic"
+          - "Messages: define transactions the module handles"
+          - "Queries: read module state"
+          - "Genesis: initial state configuration"
+    tags: ["modules", "components"]
+
+  # === Bank Module ===
+  - id: "cosmos-bank-001"
+    name: "Bank module overview"
+    tool: "ask_docs"
+    difficulty: "basic"
+    input:
+      question: "What does the bank module do in Cosmos SDK?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Bank module handles token transfers"
+          - "Manages account balances"
+          - "Supports multiple token denominations"
+          - "Provides MsgSend for transfers"
+      forbiddenKeywords:
+        - "mina"
+        - "solana"
+    tags: ["bank", "module"]
+
+  - id: "cosmos-bank-002"
+    name: "Send tokens with bank"
+    tool: "get_working_example"
+    difficulty: "intermediate"
+    input:
+      task: "send tokens using the bank module"
+    expected:
+      validations:
+        - type: "has_code_block"
+        - type: "min_length"
+          chars: 300
+      codeRequirements:
+        mustInclude:
+          - "bank"
+          - "MsgSend"
+          - "amount"
+          - "from"
+          - "to"
+        mustNotInclude:
+          - "o1js"
+          - "SmartContract"
+        expectedStructure: "Create and broadcast MsgSend transaction"
+    tags: ["bank", "transfer", "code"]
+
+  - id: "cosmos-bank-003"
+    name: "Query balance"
+    tool: "get_working_example"
+    difficulty: "basic"
+    input:
+      task: "query an account balance using the bank module"
+    expected:
+      validations:
+        - type: "has_code_block"
+        - type: "min_length"
+          chars: 200
+      codeRequirements:
+        mustInclude:
+          - "bank"
+          - "balance"
+          - "denom"
+        expectedStructure: "Query balance for address and denomination"
+    tags: ["bank", "query", "code"]
+
+  # === Staking Module ===
+  - id: "cosmos-stake-001"
+    name: "Staking module overview"
+    tool: "ask_docs"
+    difficulty: "basic"
+    input:
+      question: "How does the staking module work in Cosmos SDK?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 250
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Staking module handles proof-of-stake consensus"
+          - "Validators stake tokens to participate in consensus"
+          - "Delegators can delegate tokens to validators"
+          - "Rewards are distributed to stakers"
+    tags: ["staking", "module"]
+
+  - id: "cosmos-stake-002"
+    name: "Delegate tokens"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How do I delegate tokens to a validator in Cosmos?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Use MsgDelegate to delegate tokens"
+          - "Specify validator address and amount"
+          - "Delegated tokens are bonded"
+          - "Undelegation has an unbonding period"
+    tags: ["staking", "delegation"]
+
+  - id: "cosmos-stake-003"
+    name: "Delegation example"
+    tool: "get_working_example"
+    difficulty: "intermediate"
+    input:
+      task: "delegate tokens to a validator"
+    expected:
+      validations:
+        - type: "has_code_block"
+        - type: "min_length"
+          chars: 300
+      codeRequirements:
+        mustInclude:
+          - "MsgDelegate"
+          - "validator"
+          - "amount"
+        expectedStructure: "Create and send delegation transaction"
+    tags: ["staking", "delegation", "code"]
+
+  # === Governance Module ===
+  - id: "cosmos-gov-001"
+    name: "Governance module overview"
+    tool: "ask_docs"
+    difficulty: "basic"
+    input:
+      question: "How does on-chain governance work in Cosmos SDK?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 250
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Gov module enables on-chain proposals and voting"
+          - "Proposals go through deposit, voting, and execution phases"
+          - "Token holders vote yes, no, abstain, or no-with-veto"
+          - "Passed proposals can execute parameter changes"
+    tags: ["governance", "module"]
+
+  - id: "cosmos-gov-002"
+    name: "Submit proposal"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How do I submit a governance proposal in Cosmos?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Use MsgSubmitProposal to create a proposal"
+          - "Proposals require a minimum deposit"
+          - "Proposal enters voting period after deposit threshold"
+    tags: ["governance", "proposals"]
+
+  - id: "cosmos-gov-003"
+    name: "Vote on proposal"
+    tool: "get_working_example"
+    difficulty: "intermediate"
+    input:
+      task: "vote on a governance proposal"
+    expected:
+      validations:
+        - type: "has_code_block"
+        - type: "min_length"
+          chars: 250
+      codeRequirements:
+        mustInclude:
+          - "MsgVote"
+          - "proposal"
+          - "vote"
+        expectedStructure: "Submit vote transaction for a proposal"
+    tags: ["governance", "voting", "code"]
+
+  # === Auth Module ===
+  - id: "cosmos-auth-001"
+    name: "Auth module and accounts"
+    tool: "ask_docs"
+    difficulty: "basic"
+    input:
+      question: "What does the auth module handle in Cosmos SDK?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Auth module manages accounts"
+          - "Handles signature verification"
+          - "Tracks account sequence numbers"
+          - "Supports different account types"
+    tags: ["auth", "module"]
+
+  # === Distribution Module ===
+  - id: "cosmos-dist-001"
+    name: "Distribution module"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How does the distribution module work in Cosmos SDK?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Distribution module handles staking rewards"
+          - "Rewards come from transaction fees and inflation"
+          - "Delegators can withdraw accumulated rewards"
+          - "Community pool receives a portion of rewards"
+    tags: ["distribution", "module"]
+
+  - id: "cosmos-dist-002"
+    name: "Withdraw rewards"
+    tool: "get_working_example"
+    difficulty: "intermediate"
+    input:
+      task: "withdraw staking rewards from a validator"
+    expected:
+      validations:
+        - type: "has_code_block"
+        - type: "min_length"
+          chars: 250
+      codeRequirements:
+        mustInclude:
+          - "MsgWithdrawDelegatorReward"
+          - "validator"
+        expectedStructure: "Withdraw rewards transaction"
+    tags: ["distribution", "rewards", "code"]

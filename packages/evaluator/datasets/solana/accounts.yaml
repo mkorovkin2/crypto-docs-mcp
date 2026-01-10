@@ -1,0 +1,236 @@
+name: "Solana - Accounts & Programs"
+project: "solana"
+version: "1.0.0"
+tests:
+  # === Account Model ===
+  - id: "sol-acct-001"
+    name: "Solana account model"
+    tool: "ask_docs"
+    difficulty: "basic"
+    input:
+      question: "How does the account model work in Solana?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 250
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Everything in Solana is an account"
+          - "Accounts store data and/or SOL balance"
+          - "Accounts have an owner program that controls them"
+          - "Programs are also stored in accounts marked as executable"
+        forbiddenClaims:
+          - "Solana uses the same model as Ethereum"
+      forbiddenKeywords:
+        - "zkapp"
+        - "mina"
+        - "o1js"
+    tags: ["accounts", "concept"]
+
+  - id: "sol-acct-002"
+    name: "Account structure"
+    tool: "ask_docs"
+    difficulty: "basic"
+    input:
+      question: "What fields does a Solana account contain?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "lamports: the SOL balance in lamports"
+          - "owner: the program that owns this account"
+          - "data: arbitrary byte array for storage"
+          - "executable: whether this account is a program"
+    tags: ["accounts", "structure"]
+
+  - id: "sol-acct-003"
+    name: "Account ownership"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "What does account ownership mean in Solana? Who can modify account data?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Only the owner program can modify account data"
+          - "The System Program owns normal wallet accounts"
+          - "Programs can transfer ownership to other programs"
+          - "Anyone can credit lamports to any account"
+    tags: ["accounts", "ownership"]
+
+  # === Programs ===
+  - id: "sol-prog-001"
+    name: "Solana programs overview"
+    tool: "ask_docs"
+    difficulty: "basic"
+    input:
+      question: "What are Solana programs and how do they work?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Programs are smart contracts on Solana"
+          - "Programs are stateless - they don't store data themselves"
+          - "Programs are compiled to BPF bytecode"
+          - "Programs process instructions and modify account data"
+        forbiddenClaims:
+          - "Programs store their state internally like Ethereum contracts"
+      forbiddenKeywords:
+        - "zkapp"
+        - "o1js"
+    tags: ["programs", "concept"]
+
+  - id: "sol-prog-002"
+    name: "Native vs on-chain programs"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "What is the difference between native programs and on-chain programs in Solana?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Native programs are built into the Solana runtime"
+          - "On-chain programs are deployed by users"
+          - "System Program and Token Program are native"
+          - "Both are invoked the same way via instructions"
+    tags: ["programs", "native"]
+
+  # === PDAs ===
+  - id: "sol-pda-001"
+    name: "Program Derived Addresses"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "What are Program Derived Addresses (PDAs) in Solana?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 250
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "PDAs are addresses derived from a program ID and seeds"
+          - "PDAs don't have a private key - only the program can sign"
+          - "Used for program-owned accounts and cross-program invocation"
+          - "Created using findProgramAddress or findProgramAddressSync"
+        forbiddenClaims:
+          - "PDAs have a corresponding private key"
+    tags: ["pda", "concept"]
+
+  - id: "sol-pda-002"
+    name: "PDA derivation example"
+    tool: "get_working_example"
+    difficulty: "intermediate"
+    input:
+      task: "derive a PDA from seeds and a program ID in Solana"
+    expected:
+      validations:
+        - type: "has_code_block"
+        - type: "min_length"
+          chars: 300
+      codeRequirements:
+        mustInclude:
+          - "findProgramAddress"
+          - "PublicKey"
+          - "seeds"
+          - "bump"
+        mustNotInclude:
+          - "o1js"
+          - "SmartContract"
+        expectedStructure: "Derive PDA with seeds and handle bump seed"
+    tags: ["pda", "code"]
+
+  - id: "sol-pda-003"
+    name: "PDA signing"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How do PDAs sign transactions in cross-program invocations?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "PDAs can sign via invoke_signed in CPI"
+          - "The program provides seeds to prove ownership"
+          - "The runtime verifies the seeds derive the PDA"
+    tags: ["pda", "signing"]
+
+  # === Rent ===
+  - id: "sol-rent-001"
+    name: "Rent and rent exemption"
+    tool: "ask_docs"
+    difficulty: "basic"
+    input:
+      question: "What is rent in Solana and how does rent exemption work?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Rent is a fee for storing data on-chain"
+          - "Accounts must maintain minimum balance for rent exemption"
+          - "Rent-exempt accounts are not charged ongoing rent"
+          - "Rent exemption depends on account data size"
+    tags: ["rent", "concept"]
+
+  # === System Program ===
+  - id: "sol-sys-001"
+    name: "System Program"
+    tool: "ask_docs"
+    difficulty: "basic"
+    input:
+      question: "What is the System Program in Solana and what can it do?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "System Program is a native program for account management"
+          - "Creates new accounts"
+          - "Transfers SOL between accounts"
+          - "Assigns account ownership to programs"
+    tags: ["system-program", "native"]
+
+  - id: "sol-sys-002"
+    name: "Create account example"
+    tool: "get_working_example"
+    difficulty: "intermediate"
+    input:
+      task: "create a new account using the System Program in Solana"
+    expected:
+      validations:
+        - type: "has_code_block"
+        - type: "min_length"
+          chars: 350
+      codeRequirements:
+        mustInclude:
+          - "SystemProgram"
+          - "createAccount"
+          - "lamports"
+          - "space"
+        mustNotInclude:
+          - "o1js"
+        expectedStructure: "Create account with size and rent-exempt balance"
+    tags: ["system-program", "code"]

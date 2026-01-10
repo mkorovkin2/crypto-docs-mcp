@@ -1,0 +1,334 @@
+name: "Mina Protocol - zkApp Development"
+project: "mina"
+version: "1.0.0"
+tests:
+  # === zkApp Fundamentals ===
+  - id: "mina-zkapp-001"
+    name: "What is a zkApp"
+    tool: "ask_docs"
+    difficulty: "basic"
+    input:
+      question: "What is a zkApp in Mina Protocol and how does it differ from traditional smart contracts?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 250
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "zkApp is a zero-knowledge smart contract on Mina"
+          - "zkApps execute off-chain and only submit proofs on-chain"
+          - "zkApps extend the SmartContract class in o1js"
+          - "Verification happens on-chain without revealing computation details"
+        forbiddenClaims:
+          - "zkApps execute all logic on-chain like Ethereum"
+      forbiddenKeywords:
+        - "solana"
+        - "cosmos"
+        - "anchor"
+    tags: ["zkapp", "concept"]
+
+  - id: "mina-zkapp-002"
+    name: "SmartContract class structure"
+    tool: "ask_docs"
+    difficulty: "basic"
+    input:
+      question: "What is the structure of a SmartContract class in o1js? What are the key decorators?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "SmartContract is the base class for zkApps"
+          - "@state decorator marks on-chain state variables"
+          - "@method decorator marks callable methods"
+          - "State is limited to 8 Field elements per zkApp"
+    tags: ["zkapp", "structure"]
+
+  - id: "mina-zkapp-003"
+    name: "Basic zkApp example"
+    tool: "get_working_example"
+    difficulty: "basic"
+    input:
+      task: "create a basic zkApp with a counter state that can be incremented"
+    expected:
+      validations:
+        - type: "has_code_block"
+          language: "typescript"
+        - type: "min_length"
+          chars: 400
+        - type: "contains"
+          value: "SmartContract"
+        - type: "contains"
+          value: "@state"
+        - type: "contains"
+          value: "@method"
+      codeRequirements:
+        mustInclude:
+          - "class"
+          - "extends SmartContract"
+          - "@state"
+          - "@method"
+          - "State"
+          - "Field"
+        mustNotInclude:
+          - "anchor"
+          - "solana"
+        expectedStructure: "A class extending SmartContract with state and increment method"
+      expectedImports:
+        - "o1js"
+    tags: ["zkapp", "code", "counter"]
+
+  # === State Management ===
+  - id: "mina-zkapp-004"
+    name: "zkApp state management"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How does state management work in zkApps? What are the limitations?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 250
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Each zkApp has 8 Field elements of on-chain state"
+          - "State is declared using @state decorator and State<T> type"
+          - "State can be read with get() and updated with set()"
+          - "State updates require a valid proof and transaction"
+        forbiddenClaims:
+          - "zkApps can have unlimited on-chain storage"
+    tags: ["zkapp", "state"]
+
+  - id: "mina-zkapp-005"
+    name: "State preconditions"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "What are state preconditions in zkApps and how do they work?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Preconditions assert that on-chain state matches expected values"
+          - "requireEquals checks current state before allowing updates"
+          - "Transactions fail if preconditions don't match actual state"
+          - "Preconditions prevent race conditions in concurrent updates"
+    tags: ["zkapp", "state", "preconditions"]
+
+  # === Methods and Proofs ===
+  - id: "mina-zkapp-006"
+    name: "zkApp methods"
+    tool: "ask_docs"
+    difficulty: "basic"
+    input:
+      question: "How do @method decorated functions work in zkApps?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "@method decorator marks functions that can be called as zkApp interactions"
+          - "Methods are compiled into circuits that generate proofs"
+          - "Methods can take arguments and update state"
+          - "Calling a method generates a proof of correct execution"
+    tags: ["zkapp", "methods"]
+
+  - id: "mina-zkapp-007"
+    name: "Method with inputs example"
+    tool: "get_working_example"
+    difficulty: "intermediate"
+    input:
+      task: "create a zkApp method that takes a Field input and updates state conditionally"
+    expected:
+      validations:
+        - type: "has_code_block"
+          language: "typescript"
+        - type: "min_length"
+          chars: 350
+      codeRequirements:
+        mustInclude:
+          - "@method"
+          - "Field"
+          - "set"
+          - "Provable.if"
+        expectedStructure: "Method accepting Field parameter with conditional state update"
+      expectedImports:
+        - "o1js"
+    tags: ["zkapp", "methods", "code"]
+
+  # === Deployment ===
+  - id: "mina-zkapp-008"
+    name: "zkApp deployment process"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How do I deploy a zkApp to the Mina network?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 250
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Deployment requires compiling the zkApp first"
+          - "A deployment transaction sets the verification key on-chain"
+          - "You need a funded account to pay deployment fees"
+          - "The zkApp is associated with a specific public key address"
+    tags: ["zkapp", "deploy"]
+
+  - id: "mina-zkapp-009"
+    name: "Deployment code example"
+    tool: "get_working_example"
+    difficulty: "intermediate"
+    input:
+      task: "deploy a zkApp to the Mina devnet"
+    expected:
+      validations:
+        - type: "has_code_block"
+          language: "typescript"
+        - type: "min_length"
+          chars: 400
+      codeRequirements:
+        mustInclude:
+          - "compile"
+          - "deploy"
+          - "Mina"
+          - "transaction"
+          - "PrivateKey"
+        expectedStructure: "Compile zkApp, create deployment transaction, sign and send"
+      expectedImports:
+        - "o1js"
+    tags: ["zkapp", "deploy", "code"]
+
+  # === Transactions ===
+  - id: "mina-zkapp-010"
+    name: "zkApp transactions"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How do transactions work when interacting with zkApps?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Transactions bundle zkApp method calls with proofs"
+          - "Mina.transaction() creates a transaction context"
+          - "Transactions must be proved, signed, and sent"
+          - "Account updates describe state changes in the transaction"
+    tags: ["zkapp", "transactions"]
+
+  - id: "mina-zkapp-011"
+    name: "Calling zkApp methods"
+    tool: "get_working_example"
+    difficulty: "intermediate"
+    input:
+      task: "call a zkApp method and submit the transaction"
+    expected:
+      validations:
+        - type: "has_code_block"
+          language: "typescript"
+        - type: "min_length"
+          chars: 350
+      codeRequirements:
+        mustInclude:
+          - "Mina.transaction"
+          - "prove"
+          - "sign"
+          - "send"
+        expectedStructure: "Create transaction, call method, prove, sign, and send"
+      expectedImports:
+        - "o1js"
+    tags: ["zkapp", "transactions", "code"]
+
+  # === Compilation ===
+  - id: "mina-zkapp-012"
+    name: "zkApp compilation"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "What happens when a zkApp is compiled? What is the verification key?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Compilation converts methods into arithmetic circuits"
+          - "Compilation generates a verification key for the zkApp"
+          - "The verification key is stored on-chain"
+          - "Compilation can be cached to speed up subsequent runs"
+    tags: ["zkapp", "compilation"]
+
+  # === Permissions ===
+  - id: "mina-zkapp-013"
+    name: "zkApp permissions"
+    tool: "ask_docs"
+    difficulty: "advanced"
+    input:
+      question: "How do permissions work in zkApps? What can be controlled?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Permissions control who can update different aspects of a zkApp"
+          - "Permissions can require proofs, signatures, or be impossible"
+          - "editState permission controls state modifications"
+          - "setVerificationKey controls upgradeability"
+    tags: ["zkapp", "permissions", "advanced"]
+
+  # === Events ===
+  - id: "mina-zkapp-014"
+    name: "zkApp events"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How do I emit events from a zkApp?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 150
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Events are emitted using this.emitEvent()"
+          - "Events are stored on-chain and can be queried"
+          - "Event types must be defined in the zkApp class"
+    tags: ["zkapp", "events"]
+
+  - id: "mina-zkapp-015"
+    name: "Events example"
+    tool: "get_working_example"
+    difficulty: "intermediate"
+    input:
+      task: "create a zkApp that emits events when state changes"
+    expected:
+      validations:
+        - type: "has_code_block"
+          language: "typescript"
+        - type: "min_length"
+          chars: 350
+      codeRequirements:
+        mustInclude:
+          - "emitEvent"
+          - "events"
+          - "@method"
+        expectedStructure: "zkApp with event definition and emission in method"
+      expectedImports:
+        - "o1js"
+    tags: ["zkapp", "events", "code"]

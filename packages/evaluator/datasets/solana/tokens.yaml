@@ -1,0 +1,209 @@
+name: "Solana - SPL Tokens"
+project: "solana"
+version: "1.0.0"
+tests:
+  # === SPL Token Program ===
+  - id: "sol-tok-001"
+    name: "SPL Token Program overview"
+    tool: "ask_docs"
+    difficulty: "basic"
+    input:
+      question: "What is the SPL Token Program and what does it do?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 250
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "SPL Token is Solana's standard token program"
+          - "Manages fungible and non-fungible tokens"
+          - "Handles minting, burning, and transfers"
+          - "Uses separate mint and token accounts"
+        forbiddenClaims:
+          - "SPL Token is like ERC-20"
+      forbiddenKeywords:
+        - "zkapp"
+        - "o1js"
+        - "mina"
+    tags: ["tokens", "spl"]
+
+  - id: "sol-tok-002"
+    name: "Mint account vs token account"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "What is the difference between a mint account and a token account in SPL Token?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Mint account defines the token (supply, decimals, authority)"
+          - "Token account holds a user's balance of a specific token"
+          - "Each token account is associated with one mint"
+          - "Users need a token account for each token type they hold"
+    tags: ["tokens", "accounts"]
+
+  - id: "sol-tok-003"
+    name: "Create SPL token mint"
+    tool: "get_working_example"
+    difficulty: "intermediate"
+    input:
+      task: "create a new SPL token mint with 9 decimals"
+    expected:
+      validations:
+        - type: "has_code_block"
+        - type: "min_length"
+          chars: 400
+      codeRequirements:
+        mustInclude:
+          - "createMint"
+          - "decimals"
+          - "mintAuthority"
+        mustNotInclude:
+          - "o1js"
+          - "SmartContract"
+        expectedStructure: "Create mint with specified decimals and authority"
+    tags: ["tokens", "mint", "code"]
+
+  - id: "sol-tok-004"
+    name: "Mint tokens to account"
+    tool: "get_working_example"
+    difficulty: "intermediate"
+    input:
+      task: "mint SPL tokens to a token account"
+    expected:
+      validations:
+        - type: "has_code_block"
+        - type: "min_length"
+          chars: 350
+      codeRequirements:
+        mustInclude:
+          - "mintTo"
+          - "mint"
+          - "destination"
+          - "amount"
+        expectedStructure: "Mint tokens with authority signature"
+    tags: ["tokens", "mint", "code"]
+
+  - id: "sol-tok-005"
+    name: "Transfer SPL tokens"
+    tool: "get_working_example"
+    difficulty: "intermediate"
+    input:
+      task: "transfer SPL tokens between two accounts"
+    expected:
+      validations:
+        - type: "has_code_block"
+        - type: "min_length"
+          chars: 350
+      codeRequirements:
+        mustInclude:
+          - "transfer"
+          - "source"
+          - "destination"
+          - "owner"
+        expectedStructure: "Transfer with source, destination, and owner signature"
+    tags: ["tokens", "transfer", "code"]
+
+  # === Associated Token Accounts ===
+  - id: "sol-ata-001"
+    name: "Associated Token Accounts"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "What are Associated Token Accounts (ATAs) in Solana?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "ATAs are deterministically derived token accounts"
+          - "Each wallet has one ATA per token mint"
+          - "Address derived from wallet address and mint"
+          - "Simplifies token management for users"
+    tags: ["tokens", "ata"]
+
+  - id: "sol-ata-002"
+    name: "Get or create ATA"
+    tool: "get_working_example"
+    difficulty: "intermediate"
+    input:
+      task: "get or create an Associated Token Account for a user"
+    expected:
+      validations:
+        - type: "has_code_block"
+        - type: "min_length"
+          chars: 300
+      codeRequirements:
+        mustInclude:
+          - "getOrCreateAssociatedTokenAccount"
+          - "mint"
+          - "owner"
+        expectedStructure: "Create ATA if it doesn't exist"
+    tags: ["tokens", "ata", "code"]
+
+  # === Token 2022 ===
+  - id: "sol-tok22-001"
+    name: "Token 2022 extensions"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "What is Token 2022 and what extensions does it provide?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Token 2022 is an upgraded token program"
+          - "Provides extensions like transfer fees"
+          - "Supports confidential transfers"
+          - "Backwards compatible with SPL Token"
+    tags: ["tokens", "token-2022"]
+
+  # === Token Errors ===
+  - id: "sol-tok-err-001"
+    name: "Insufficient funds error"
+    tool: "explain_error"
+    difficulty: "basic"
+    input:
+      error: "Error: insufficient funds"
+      context: "trying to transfer SPL tokens"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 150
+      groundTruth:
+        expectedFacts:
+          - "The token account doesn't have enough balance"
+          - "Check the source account balance before transfer"
+          - "Amount may exceed available tokens"
+      forbiddenKeywords:
+        - "zkapp"
+        - "proof verification"
+    tags: ["tokens", "error"]
+
+  - id: "sol-tok-err-002"
+    name: "Owner mismatch error"
+    tool: "explain_error"
+    difficulty: "intermediate"
+    input:
+      error: "Error: owner does not match"
+      context: "trying to transfer tokens from an account"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 150
+      groundTruth:
+        expectedFacts:
+          - "The signer is not the owner of the token account"
+          - "Token accounts have an owner field that must sign transfers"
+          - "Check you're signing with the correct keypair"
+    tags: ["tokens", "error"]

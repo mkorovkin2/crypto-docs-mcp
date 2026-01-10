@@ -1,0 +1,287 @@
+name: "Multi-hop & Comparative Tests"
+project: "all"
+version: "1.0.0"
+tests:
+  # === Multi-hop Reasoning (Mina) ===
+  - id: "mh-mina-001"
+    name: "Merkle tree to actions flow"
+    tool: "ask_docs"
+    difficulty: "advanced"
+    input:
+      question: "How do I use a Merkle tree to store data off-chain and then use actions to update it in my zkApp?"
+      project: "mina"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 350
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Store Merkle root on-chain as state"
+          - "Keep full Merkle tree off-chain (client or server)"
+          - "Use actions to batch state updates"
+          - "Reducer processes actions to update the root"
+          - "Merkle witness proves membership for updates"
+      forbiddenKeywords:
+        - "cosmos"
+        - "solana"
+    tags: ["multi-hop", "mina", "merkle", "actions"]
+
+  - id: "mh-mina-002"
+    name: "Recursive proofs for aggregation"
+    tool: "ask_docs"
+    difficulty: "advanced"
+    input:
+      question: "How do I use recursive proofs in o1js to aggregate multiple user proofs into a single proof for batch verification?"
+      project: "mina"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 350
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Define ZkProgram with recursive method"
+          - "Base case proves first element"
+          - "Recursive case takes previous proof as input"
+          - "SelfProof type represents the recursive proof"
+          - "Final proof verifies entire batch"
+    tags: ["multi-hop", "mina", "proofs", "recursive"]
+
+  # === Multi-hop Reasoning (Solana) ===
+  - id: "mh-sol-001"
+    name: "PDA with CPI for escrow"
+    tool: "ask_docs"
+    difficulty: "advanced"
+    input:
+      question: "How do I create an escrow program in Solana that uses a PDA to hold tokens and CPI to transfer them?"
+      project: "solana"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 350
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Derive PDA for escrow authority"
+          - "PDA owns the token account holding escrowed tokens"
+          - "Use invoke_signed for CPI with PDA authority"
+          - "Seeds must match PDA derivation"
+          - "Transfer tokens using SPL Token program CPI"
+      forbiddenKeywords:
+        - "mina"
+        - "cosmos"
+    tags: ["multi-hop", "solana", "pda", "cpi", "escrow"]
+
+  - id: "mh-sol-002"
+    name: "Versioned transactions with lookup tables"
+    tool: "ask_docs"
+    difficulty: "advanced"
+    input:
+      question: "How do I use address lookup tables with versioned transactions to fit more accounts in a Solana transaction?"
+      project: "solana"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 300
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Create address lookup table account"
+          - "Extend table with frequently used addresses"
+          - "Use MessageV0 with address lookup tables"
+          - "VersionedTransaction wraps the message"
+          - "Reduces transaction size by referencing addresses"
+    tags: ["multi-hop", "solana", "versioned", "lookup-tables"]
+
+  # === Multi-hop Reasoning (Cosmos) ===
+  - id: "mh-cosmos-001"
+    name: "IBC with custom middleware"
+    tool: "ask_docs"
+    difficulty: "advanced"
+    input:
+      question: "How do I create an IBC application that uses middleware to add custom logic to token transfers?"
+      project: "cosmos"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 350
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "IBC middleware wraps an underlying IBC application"
+          - "Implements IBCModule interface"
+          - "Can intercept OnRecvPacket and other callbacks"
+          - "Chain middleware together for composition"
+          - "Pass through to underlying app after custom logic"
+      forbiddenKeywords:
+        - "mina"
+        - "solana"
+    tags: ["multi-hop", "cosmos", "ibc", "middleware"]
+
+  - id: "mh-cosmos-002"
+    name: "Governance with parameter changes"
+    tool: "ask_docs"
+    difficulty: "advanced"
+    input:
+      question: "How do I create a governance proposal that changes module parameters when passed?"
+      project: "cosmos"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 300
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Submit proposal with ParameterChangeProposal"
+          - "Specify parameter key and new value"
+          - "Proposal goes through deposit and voting"
+          - "Execution handler updates parameters on pass"
+    tags: ["multi-hop", "cosmos", "governance", "params"]
+
+  # === Comparative Questions ===
+  - id: "comp-token-001"
+    name: "Token models comparison"
+    tool: "ask_docs"
+    difficulty: "advanced"
+    input:
+      question: "How does the token model in Solana (SPL Token with separate accounts) compare to Cosmos (bank module with multi-denom balances)?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 400
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Solana: separate token account per mint per user"
+          - "Solana: Token account holds balance for one token"
+          - "Cosmos: single account with multiple denomination balances"
+          - "Cosmos: bank module manages all token transfers"
+    tags: ["comparative", "tokens", "solana", "cosmos"]
+
+  - id: "comp-state-001"
+    name: "State storage comparison"
+    tool: "ask_docs"
+    difficulty: "advanced"
+    input:
+      question: "How does on-chain state storage in Mina (zkApp state) compare to Solana accounts?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 400
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Mina: zkApps have 8 Field elements (32 bytes each) on-chain"
+          - "Mina: Must use off-chain storage for more data"
+          - "Solana: Accounts can store up to 10MB of data"
+          - "Solana: Pay rent based on data size"
+    tags: ["comparative", "state", "mina", "solana"]
+
+  - id: "comp-consensus-001"
+    name: "Consensus comparison"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How does Mina's Ouroboros Samasika compare to Cosmos's Tendermint BFT?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 350
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Mina uses Ouroboros Samasika (proof-of-stake)"
+          - "Mina has probabilistic finality"
+          - "Cosmos uses Tendermint BFT consensus"
+          - "Tendermint provides instant finality"
+    tags: ["comparative", "consensus", "mina", "cosmos"]
+
+  - id: "comp-tx-001"
+    name: "Transaction atomicity"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How do atomic multi-instruction transactions work differently in Solana vs Cosmos?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 300
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Solana: All instructions in a transaction execute atomically"
+          - "Solana: Single instruction failure rolls back entire transaction"
+          - "Cosmos: Multiple messages in one transaction"
+          - "Cosmos: Messages execute sequentially, atomic at tx level"
+    tags: ["comparative", "transactions", "solana", "cosmos"]
+
+  # === Cross-concept (within same project) ===
+  - id: "cross-mina-001"
+    name: "Tokens with actions"
+    tool: "ask_docs"
+    difficulty: "advanced"
+    input:
+      question: "How do I use custom tokens with actions/reducers to build a token airdrop system in Mina?"
+      project: "mina"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 350
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Custom tokens use TokenContract"
+          - "Actions queue pending airdrops"
+          - "Reducer processes airdrop actions"
+          - "Token mint happens when reducer executes"
+      forbiddenKeywords:
+        - "cosmos"
+        - "solana"
+    tags: ["cross-concept", "mina", "tokens", "actions"]
+
+  - id: "cross-sol-001"
+    name: "SPL tokens with metadata"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How do I create an SPL token with on-chain metadata in Solana?"
+      project: "solana"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 300
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Use Metaplex token metadata program"
+          - "Create metadata account associated with mint"
+          - "Metadata PDA derived from mint address"
+          - "Store name, symbol, URI in metadata"
+      forbiddenKeywords:
+        - "mina"
+        - "cosmos"
+    tags: ["cross-concept", "solana", "tokens", "metadata"]
+
+  - id: "cross-cosmos-001"
+    name: "Staking with governance"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How does staking affect voting power in Cosmos governance?"
+      project: "cosmos"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 250
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Staked tokens give voting power"
+          - "Delegators can vote or inherit validator vote"
+          - "Voting power proportional to stake"
+          - "Must be staked at proposal creation time"
+      forbiddenKeywords:
+        - "mina"
+        - "solana"
+    tags: ["cross-concept", "cosmos", "staking", "governance"]

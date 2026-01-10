@@ -1,0 +1,209 @@
+name: "Mina Protocol - Tokens & Actions"
+project: "mina"
+version: "1.0.0"
+tests:
+  # === Custom Tokens ===
+  - id: "mina-token-001"
+    name: "Custom tokens in Mina"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How do custom tokens work in Mina? What is the token API?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 250
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "zkApps can manage custom tokens using the token API"
+          - "Tokens are identified by a token ID derived from the zkApp"
+          - "TokenContract base class provides standard token functionality"
+          - "Token balances are tracked in account state"
+    tags: ["tokens", "concept"]
+
+  - id: "mina-token-002"
+    name: "Token transfer example"
+    tool: "get_working_example"
+    difficulty: "intermediate"
+    input:
+      task: "create a custom token with mint and transfer capabilities"
+    expected:
+      validations:
+        - type: "has_code_block"
+          language: "typescript"
+        - type: "min_length"
+          chars: 500
+      codeRequirements:
+        mustInclude:
+          - "TokenContract"
+          - "mint"
+          - "transfer"
+          - "@method"
+        expectedStructure: "Token contract with minting and transfer methods"
+      expectedImports:
+        - "o1js"
+    tags: ["tokens", "code"]
+
+  - id: "mina-token-003"
+    name: "Token permissions"
+    tool: "ask_docs"
+    difficulty: "advanced"
+    input:
+      question: "How do I control who can mint or transfer custom tokens in Mina?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Token operations can be gated by proofs or signatures"
+          - "Minting is typically restricted to the token owner"
+          - "Transfer permissions can be customized per token"
+    tags: ["tokens", "permissions", "advanced"]
+
+  # === Actions and Reducers ===
+  - id: "mina-action-001"
+    name: "Actions and reducers concept"
+    tool: "ask_docs"
+    difficulty: "advanced"
+    input:
+      question: "What are actions and reducers in Mina zkApps?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 250
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Actions are events dispatched by zkApps"
+          - "Actions are accumulated in an on-chain action state"
+          - "Reducers process accumulated actions to update state"
+          - "Useful for handling concurrent updates without conflicts"
+        forbiddenClaims:
+          - "Actions are the same as events"
+    tags: ["actions", "reducers", "advanced"]
+
+  - id: "mina-action-002"
+    name: "Dispatching actions"
+    tool: "ask_docs"
+    difficulty: "advanced"
+    input:
+      question: "How do I dispatch actions from a zkApp method?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Actions are dispatched using this.reducer.dispatch()"
+          - "Action type must be defined in the zkApp"
+          - "Dispatched actions are stored in the action state"
+    tags: ["actions", "dispatch", "advanced"]
+
+  - id: "mina-action-003"
+    name: "Reducer example"
+    tool: "get_working_example"
+    difficulty: "advanced"
+    input:
+      task: "create a zkApp that uses actions and a reducer to aggregate votes"
+    expected:
+      validations:
+        - type: "has_code_block"
+          language: "typescript"
+        - type: "min_length"
+          chars: 500
+      codeRequirements:
+        mustInclude:
+          - "Reducer"
+          - "dispatch"
+          - "reduce"
+          - "@method"
+        expectedStructure: "zkApp with action type, dispatch, and reduce methods"
+      expectedImports:
+        - "o1js"
+    tags: ["actions", "reducers", "code", "advanced"]
+
+  # === Off-chain Storage ===
+  - id: "mina-offchain-001"
+    name: "Off-chain storage patterns"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "What are the patterns for off-chain storage in Mina zkApps?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Merkle trees store data off-chain with on-chain commitments"
+          - "Nullifiers prevent double-spending of off-chain data"
+          - "Off-chain servers or IPFS can store the actual data"
+          - "Only proofs and commitments go on-chain"
+    tags: ["storage", "offchain"]
+
+  # === Account Updates ===
+  - id: "mina-account-001"
+    name: "Account updates in transactions"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "What are account updates in Mina transactions?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Account updates describe changes to account state"
+          - "Each zkApp method call creates account updates"
+          - "Account updates include authorization (proof or signature)"
+          - "Multiple account updates can be bundled in one transaction"
+    tags: ["transactions", "account-updates"]
+
+  # === Testing ===
+  - id: "mina-test-001"
+    name: "Testing zkApps"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How do I test zkApps locally?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Local blockchain can be simulated for testing"
+          - "Mina.LocalBlockchain() creates a test environment"
+          - "Test accounts with funds are available"
+          - "No need for network connection during local tests"
+    tags: ["testing", "local"]
+
+  - id: "mina-test-002"
+    name: "Local testing example"
+    tool: "get_working_example"
+    difficulty: "intermediate"
+    input:
+      task: "set up a local testing environment for a zkApp"
+    expected:
+      validations:
+        - type: "has_code_block"
+          language: "typescript"
+        - type: "min_length"
+          chars: 400
+      codeRequirements:
+        mustInclude:
+          - "Mina.LocalBlockchain"
+          - "setActiveInstance"
+          - "testAccounts"
+        expectedStructure: "Set up local blockchain, get test accounts, deploy and test"
+      expectedImports:
+        - "o1js"
+    tags: ["testing", "local", "code"]

@@ -1,0 +1,219 @@
+name: "Mina Protocol - Primitives & Types"
+project: "mina"
+version: "1.0.0"
+tests:
+  # === Field Type ===
+  - id: "mina-prim-001"
+    name: "Field type fundamentals"
+    description: "Core Field type understanding"
+    tool: "ask_docs"
+    difficulty: "basic"
+    input:
+      question: "What is the Field type in o1js and what are its basic operations?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Field is the fundamental type in o1js representing elements of a prime field"
+          - "Field elements can be added, subtracted, multiplied, and divided"
+          - "Field values are bounded by a large prime number"
+          - "You can create a Field from a number, string, or bigint"
+        forbiddenClaims:
+          - "Field is the same as a regular JavaScript number"
+          - "Field operations work with floating point numbers"
+      forbiddenKeywords:
+        - "solana"
+        - "cosmos"
+    tags: ["primitives", "field"]
+
+  - id: "mina-prim-002"
+    name: "Field arithmetic example"
+    tool: "get_working_example"
+    difficulty: "basic"
+    input:
+      task: "demonstrate basic Field arithmetic operations in o1js"
+    expected:
+      validations:
+        - type: "has_code_block"
+          language: "typescript"
+        - type: "min_length"
+          chars: 300
+      codeRequirements:
+        mustInclude:
+          - "Field"
+          - "add"
+          - "mul"
+          - "import from o1js"
+        expectedStructure: "Show creating Field values and performing arithmetic"
+      expectedImports:
+        - "o1js"
+    tags: ["primitives", "field", "code"]
+
+  - id: "mina-prim-003"
+    name: "Field comparison operations"
+    tool: "ask_docs"
+    difficulty: "basic"
+    input:
+      question: "How do I compare Field values in o1js? What comparison methods are available?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 150
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "assertEquals checks if two Fields are equal"
+          - "assertLessThan or lessThan for ordering comparisons"
+          - "Comparisons in provable code create constraints"
+        forbiddenClaims:
+          - "You can use JavaScript === operator directly"
+    tags: ["primitives", "field", "comparison"]
+
+  # === Bool Type ===
+  - id: "mina-prim-004"
+    name: "Bool type in o1js"
+    tool: "ask_docs"
+    difficulty: "basic"
+    input:
+      question: "What is the Bool type in o1js and how does it differ from JavaScript boolean?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 150
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Bool is the provable boolean type in o1js"
+          - "Bool can be created from JavaScript boolean values"
+          - "Bool has methods like and(), or(), not() for logic operations"
+          - "Bool is used in circuit constraints and conditions"
+        forbiddenClaims:
+          - "Bool is the same as JavaScript boolean"
+    tags: ["primitives", "bool"]
+
+  - id: "mina-prim-005"
+    name: "Bool conditional logic"
+    tool: "get_working_example"
+    difficulty: "basic"
+    input:
+      task: "show how to use Bool for conditional logic in o1js"
+    expected:
+      validations:
+        - type: "has_code_block"
+          language: "typescript"
+        - type: "min_length"
+          chars: 250
+      codeRequirements:
+        mustInclude:
+          - "Bool"
+          - "Provable.if"
+          - "import from o1js"
+        expectedStructure: "Show conditional selection using Provable.if with Bool"
+    tags: ["primitives", "bool", "code"]
+
+  # === UInt Types ===
+  - id: "mina-prim-006"
+    name: "UInt32 and UInt64 types"
+    tool: "ask_docs"
+    difficulty: "basic"
+    input:
+      question: "What are UInt32 and UInt64 in o1js and when should I use them?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "UInt32 represents unsigned 32-bit integers"
+          - "UInt64 represents unsigned 64-bit integers"
+          - "These types automatically enforce range constraints"
+          - "Useful for values that need bounded ranges like amounts or indices"
+        forbiddenClaims:
+          - "UInt32 can hold negative numbers"
+    tags: ["primitives", "uint"]
+
+  # === CircuitString ===
+  - id: "mina-prim-007"
+    name: "CircuitString usage"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How do I work with strings in o1js using CircuitString?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 150
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "CircuitString is used for provable string operations"
+          - "Strings have a fixed maximum length in circuits"
+          - "Can convert to and from regular JavaScript strings"
+    tags: ["primitives", "string"]
+
+  # === Struct Type ===
+  - id: "mina-prim-008"
+    name: "Custom Struct definition"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How do I create custom data structures using Struct in o1js?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Struct is used to define custom provable types"
+          - "Struct takes an object defining field names and their types"
+          - "Custom structs can be used in zkApp state and method parameters"
+          - "Structs can contain nested provable types"
+    tags: ["primitives", "struct"]
+
+  - id: "mina-prim-009"
+    name: "Struct example code"
+    tool: "get_working_example"
+    difficulty: "intermediate"
+    input:
+      task: "create a custom Struct type for a user profile with name and age"
+    expected:
+      validations:
+        - type: "has_code_block"
+          language: "typescript"
+        - type: "min_length"
+          chars: 300
+      codeRequirements:
+        mustInclude:
+          - "Struct"
+          - "Field"
+          - "class"
+          - "extends"
+        expectedStructure: "Define a class extending Struct with typed properties"
+      expectedImports:
+        - "o1js"
+    tags: ["primitives", "struct", "code"]
+
+  # === Provable Type System ===
+  - id: "mina-prim-010"
+    name: "Provable type conversion"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How does the Provable type system work in o1js? How do I convert between provable and regular types?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Provable types can be converted to and from plain JavaScript objects"
+          - "toFields() converts a provable type to an array of Field elements"
+          - "fromFields() reconstructs a provable type from Field elements"
+          - "Provable.witness() creates provable values from JavaScript values"
+    tags: ["primitives", "provable"]

@@ -1,0 +1,167 @@
+name: "Cosmos SDK - IBC & Interoperability"
+project: "cosmos"
+version: "1.0.0"
+tests:
+  # === IBC Overview ===
+  - id: "cosmos-ibc-001"
+    name: "IBC protocol overview"
+    tool: "ask_docs"
+    difficulty: "basic"
+    input:
+      question: "What is IBC (Inter-Blockchain Communication) in Cosmos?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 250
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "IBC enables communication between different blockchains"
+          - "Uses light clients for trustless verification"
+          - "Supports token transfers and arbitrary data"
+          - "Chains connect through channels and connections"
+        forbiddenClaims:
+          - "IBC requires a centralized bridge"
+      forbiddenKeywords:
+        - "mina"
+        - "solana"
+        - "o1js"
+    tags: ["ibc", "interoperability"]
+
+  - id: "cosmos-ibc-002"
+    name: "IBC architecture"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "What are clients, connections, and channels in IBC?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 250
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Light clients verify state of counterparty chains"
+          - "Connections link two chains via their clients"
+          - "Channels are built on top of connections"
+          - "Each channel is bound to a specific port"
+    tags: ["ibc", "architecture"]
+
+  - id: "cosmos-ibc-003"
+    name: "IBC token transfer"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How do IBC token transfers work?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Tokens are escrowed on source chain"
+          - "Voucher tokens minted on destination chain"
+          - "Transfer uses ICS-20 standard"
+          - "Denominations are prefixed with port/channel"
+    tags: ["ibc", "transfers"]
+
+  - id: "cosmos-ibc-004"
+    name: "IBC transfer example"
+    tool: "get_working_example"
+    difficulty: "intermediate"
+    input:
+      task: "transfer tokens to another chain via IBC"
+    expected:
+      validations:
+        - type: "has_code_block"
+        - type: "min_length"
+          chars: 300
+      codeRequirements:
+        mustInclude:
+          - "MsgTransfer"
+          - "channel"
+          - "timeout"
+        expectedStructure: "Create IBC transfer message with channel and timeout"
+    tags: ["ibc", "transfer", "code"]
+
+  # === Relayers ===
+  - id: "cosmos-relay-001"
+    name: "IBC relayers"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "What are IBC relayers and what do they do?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Relayers watch chains for IBC packets"
+          - "Submit proof of packets to destination chains"
+          - "Anyone can run a relayer"
+          - "Relayers are not trusted - they only relay proofs"
+    tags: ["ibc", "relayers"]
+
+  # === IBC Errors ===
+  - id: "cosmos-ibc-err-001"
+    name: "IBC timeout error"
+    tool: "explain_error"
+    difficulty: "basic"
+    input:
+      error: "packet timeout"
+      context: "IBC transfer to another chain"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 150
+      groundTruth:
+        expectedFacts:
+          - "The IBC packet was not acknowledged before timeout"
+          - "Tokens are refunded on the source chain"
+          - "May indicate relayer issues or destination chain problems"
+      forbiddenKeywords:
+        - "zkapp"
+        - "solana"
+    tags: ["ibc", "error"]
+
+  # === Tendermint/CometBFT ===
+  - id: "cosmos-tm-001"
+    name: "Tendermint consensus"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How does Tendermint (CometBFT) consensus work in Cosmos?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 250
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Tendermint/CometBFT is a BFT consensus engine"
+          - "Provides instant finality"
+          - "Tolerates up to 1/3 Byzantine validators"
+          - "Separates consensus from application via ABCI"
+    tags: ["consensus", "tendermint"]
+
+  - id: "cosmos-abci-001"
+    name: "ABCI interface"
+    tool: "ask_docs"
+    difficulty: "advanced"
+    input:
+      question: "What is ABCI in Cosmos and what are its main methods?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "ABCI is Application Blockchain Interface"
+          - "Separates consensus engine from application logic"
+          - "Key methods include CheckTx, DeliverTx, Commit"
+          - "Enables applications in any language"
+    tags: ["abci", "architecture", "advanced"]

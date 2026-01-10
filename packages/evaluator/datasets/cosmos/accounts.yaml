@@ -1,0 +1,220 @@
+name: "Cosmos SDK - Accounts & Keys"
+project: "cosmos"
+version: "1.0.0"
+tests:
+  # === Account Types ===
+  - id: "cosmos-acc-001"
+    name: "Account types overview"
+    tool: "ask_docs"
+    difficulty: "basic"
+    input:
+      question: "What types of accounts exist in Cosmos SDK?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "BaseAccount is the basic account type"
+          - "ModuleAccount for module-owned accounts"
+          - "VestingAccount for token vesting"
+          - "Accounts have address, pubkey, and sequence"
+      forbiddenKeywords:
+        - "mina"
+        - "solana"
+    tags: ["accounts", "basics"]
+
+  - id: "cosmos-acc-002"
+    name: "Address formats"
+    tool: "ask_docs"
+    difficulty: "basic"
+    input:
+      question: "How are addresses formatted in Cosmos SDK?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 150
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Addresses use Bech32 encoding"
+          - "Different prefixes for different address types"
+          - "Validator addresses have valoper prefix"
+          - "Account addresses have default chain prefix"
+    tags: ["accounts", "address"]
+
+  - id: "cosmos-acc-003"
+    name: "Create account from mnemonic"
+    tool: "get_working_example"
+    difficulty: "intermediate"
+    input:
+      task: "create a Cosmos account from a mnemonic phrase"
+    expected:
+      validations:
+        - type: "has_code_block"
+        - type: "min_length"
+          chars: 300
+      codeRequirements:
+        mustInclude:
+          - "mnemonic"
+          - "address"
+        expectedStructure: "Derive key from mnemonic and get address"
+    tags: ["accounts", "keys", "code"]
+
+  # === Vesting ===
+  - id: "cosmos-vest-001"
+    name: "Vesting accounts"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How do vesting accounts work in Cosmos SDK?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Vesting accounts lock tokens until unlock schedule"
+          - "Continuous vesting unlocks linearly over time"
+          - "Delayed vesting unlocks all at once after cliff"
+          - "Vested tokens can be delegated but not transferred"
+    tags: ["vesting", "accounts"]
+
+  - id: "cosmos-vest-002"
+    name: "Create vesting account"
+    tool: "get_working_example"
+    difficulty: "intermediate"
+    input:
+      task: "create a continuous vesting account"
+    expected:
+      validations:
+        - type: "has_code_block"
+        - type: "min_length"
+          chars: 250
+      codeRequirements:
+        mustInclude:
+          - "vesting"
+          - "start_time"
+          - "end_time"
+        expectedStructure: "Create vesting account with schedule"
+    tags: ["vesting", "code"]
+
+  # === Multisig ===
+  - id: "cosmos-multi-001"
+    name: "Multisig accounts"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How do multisig accounts work in Cosmos SDK?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Multisig requires multiple signatures to authorize"
+          - "Has a threshold of required signatures"
+          - "Public keys combined into multisig pubkey"
+          - "Supports k-of-n signature schemes"
+    tags: ["multisig", "accounts"]
+
+  - id: "cosmos-multi-002"
+    name: "Create multisig transaction"
+    tool: "get_working_example"
+    difficulty: "advanced"
+    input:
+      task: "create and sign a multisig transaction"
+    expected:
+      validations:
+        - type: "has_code_block"
+        - type: "min_length"
+          chars: 350
+      codeRequirements:
+        mustInclude:
+          - "multisig"
+          - "threshold"
+          - "sign"
+        expectedStructure: "Create multisig, collect signatures, broadcast"
+    tags: ["multisig", "code"]
+
+  # === Key Management ===
+  - id: "cosmos-key-001"
+    name: "Key derivation"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How does key derivation work in Cosmos SDK?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Uses BIP39 for mnemonic generation"
+          - "BIP44 for HD key derivation"
+          - "Default path is m/44'/118'/0'/0/0"
+          - "Secp256k1 is the default curve"
+    tags: ["keys", "derivation"]
+
+  - id: "cosmos-key-002"
+    name: "Keyring usage"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How do I use the keyring in Cosmos SDK?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Keyring stores and manages private keys"
+          - "Supports multiple backends (os, file, test)"
+          - "CLI uses keyring for signing transactions"
+          - "Keys can be imported and exported"
+    tags: ["keys", "keyring"]
+
+  # === Account Errors ===
+  - id: "cosmos-acc-err-001"
+    name: "Account not found error"
+    tool: "explain_error"
+    difficulty: "basic"
+    input:
+      error: "account not found"
+      context: "querying an account"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 150
+      groundTruth:
+        expectedFacts:
+          - "The account has not been initialized on chain"
+          - "Account needs to receive tokens to be created"
+          - "Query for non-existent address returns error"
+      forbiddenKeywords:
+        - "zkapp"
+        - "solana"
+    tags: ["accounts", "error"]
+
+  - id: "cosmos-acc-err-002"
+    name: "Invalid address error"
+    tool: "explain_error"
+    difficulty: "basic"
+    input:
+      error: "decoding bech32 failed"
+      context: "using an address"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 150
+      groundTruth:
+        expectedFacts:
+          - "The address format is invalid"
+          - "Must be valid Bech32 encoding"
+          - "Check for typos in the address string"
+    tags: ["accounts", "error"]

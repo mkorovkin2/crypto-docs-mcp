@@ -32,3 +32,6 @@ npm-debug.log*
 
 # Testing
 coverage/
+
+# Evaluation reports
+packages/evaluator/reports/*.json

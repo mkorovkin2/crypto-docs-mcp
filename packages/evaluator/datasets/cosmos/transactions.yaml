@@ -1,0 +1,221 @@
+name: "Cosmos SDK - Transactions & CLI"
+project: "cosmos"
+version: "1.0.0"
+tests:
+  # === Transaction Structure ===
+  - id: "cosmos-tx-001"
+    name: "Transaction structure"
+    tool: "ask_docs"
+    difficulty: "basic"
+    input:
+      question: "How are transactions structured in Cosmos SDK?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Transactions contain messages, fees, and signatures"
+          - "Multiple messages can be in one transaction"
+          - "Gas is used to meter computation"
+          - "Transactions are encoded with protobuf"
+      forbiddenKeywords:
+        - "mina"
+        - "solana"
+    tags: ["transactions", "structure"]
+
+  - id: "cosmos-tx-002"
+    name: "Transaction signing"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How does transaction signing work in Cosmos SDK?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Sign mode DIRECT signs raw bytes"
+          - "Sign mode LEGACY_AMINO for backwards compatibility"
+          - "Account number and sequence prevent replay"
+          - "Chain ID prevents cross-chain replay"
+    tags: ["transactions", "signing"]
+
+  - id: "cosmos-tx-003"
+    name: "Build and broadcast transaction"
+    tool: "get_working_example"
+    difficulty: "intermediate"
+    input:
+      task: "build and broadcast a transaction using CosmJS"
+    expected:
+      validations:
+        - type: "has_code_block"
+        - type: "min_length"
+          chars: 350
+      codeRequirements:
+        mustInclude:
+          - "SigningStargateClient"
+          - "broadcast"
+          - "signAndBroadcast"
+        expectedStructure: "Create client, build message, sign and broadcast"
+    tags: ["transactions", "cosmjs", "code"]
+
+  # === Gas and Fees ===
+  - id: "cosmos-gas-001"
+    name: "Gas and fees"
+    tool: "ask_docs"
+    difficulty: "basic"
+    input:
+      question: "How do gas and fees work in Cosmos SDK?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Gas measures computational cost"
+          - "Fee = gas * gas price"
+          - "Validators set minimum gas prices"
+          - "Insufficient gas causes transaction failure"
+    tags: ["gas", "fees"]
+
+  - id: "cosmos-gas-002"
+    name: "Gas estimation"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "How do I estimate gas for a Cosmos transaction?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 150
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Simulation runs transaction without state changes"
+          - "Returns gas used estimate"
+          - "Add buffer for safety (10-20%)"
+    tags: ["gas", "estimation"]
+
+  # === CLI ===
+  - id: "cosmos-cli-001"
+    name: "Cosmos CLI basics"
+    tool: "ask_docs"
+    difficulty: "basic"
+    input:
+      question: "How do I use the Cosmos CLI to query and send transactions?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "CLI is named after the chain (e.g., gaiad)"
+          - "query subcommand for reading state"
+          - "tx subcommand for sending transactions"
+          - "keys subcommand for key management"
+    tags: ["cli", "basics"]
+
+  - id: "cosmos-cli-002"
+    name: "CLI send tokens"
+    tool: "get_working_example"
+    difficulty: "basic"
+    input:
+      task: "send tokens using the Cosmos CLI"
+    expected:
+      validations:
+        - type: "has_code_block"
+        - type: "min_length"
+          chars: 150
+      codeRequirements:
+        mustInclude:
+          - "tx bank send"
+          - "from"
+          - "amount"
+        expectedStructure: "CLI command to send tokens"
+    tags: ["cli", "send", "code"]
+
+  # === Queries ===
+  - id: "cosmos-query-001"
+    name: "Query types"
+    tool: "ask_docs"
+    difficulty: "basic"
+    input:
+      question: "What types of queries can I make in Cosmos SDK?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Each module exposes query endpoints"
+          - "Queries read state without transactions"
+          - "gRPC and REST APIs available"
+          - "LCD (Light Client Daemon) provides REST"
+    tags: ["queries", "api"]
+
+  # === Transaction Errors ===
+  - id: "cosmos-tx-err-001"
+    name: "Out of gas error"
+    tool: "explain_error"
+    difficulty: "basic"
+    input:
+      error: "out of gas"
+      context: "submitting a transaction"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 150
+      groundTruth:
+        expectedFacts:
+          - "Transaction ran out of allocated gas"
+          - "Increase gas limit in transaction"
+          - "Gas consumed exceeds gas limit"
+      forbiddenKeywords:
+        - "zkapp"
+        - "solana"
+    tags: ["transactions", "error"]
+
+  - id: "cosmos-tx-err-002"
+    name: "Account sequence mismatch"
+    tool: "explain_error"
+    difficulty: "intermediate"
+    input:
+      error: "account sequence mismatch"
+      context: "sending multiple transactions"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 150
+      groundTruth:
+        expectedFacts:
+          - "Expected sequence number doesn't match account"
+          - "May have pending transaction not yet included"
+          - "Query current sequence and retry"
+    tags: ["transactions", "error"]
+
+  # === Genesis ===
+  - id: "cosmos-gen-001"
+    name: "Genesis configuration"
+    tool: "ask_docs"
+    difficulty: "intermediate"
+    input:
+      question: "What is the genesis file in Cosmos and what does it contain?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 200
+        - type: "has_citation"
+      groundTruth:
+        expectedFacts:
+          - "Genesis defines initial state of the chain"
+          - "Contains initial accounts and balances"
+          - "Sets module parameters"
+          - "Includes initial validator set"
+    tags: ["genesis", "configuration"]
