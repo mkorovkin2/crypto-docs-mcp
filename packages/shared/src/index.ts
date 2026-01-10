@@ -8,3 +8,5 @@ export * from './config/load-config.js';
 export * from './llm.js';
 export * from './reranker.js';
 export * from './query-analyzer.js';
+export * from './confidence.js';
+export * from './corrective-rag.js';

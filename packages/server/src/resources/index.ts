@@ -5,32 +5,7 @@ export interface ResourceContext {
 }
 
 export function getResourceDefinitions() {
-  return [
-    {
-      uri: 'mina://docs/zkapps/overview',
-      name: 'zkApps Overview',
-      description: 'Introduction to building zkApps on Mina Protocol',
-      mimeType: 'text/markdown'
-    },
-    {
-      uri: 'mina://docs/o1js/introduction',
-      name: 'o1js Introduction',
-      description: 'Getting started with the o1js TypeScript framework for zero-knowledge proofs',
-      mimeType: 'text/markdown'
-    },
-    {
-      uri: 'mina://docs/tutorials/hello-world',
-      name: 'Hello World Tutorial',
-      description: 'Build your first zkApp step by step',
-      mimeType: 'text/markdown'
-    },
-    {
-      uri: 'mina://docs/tutorials/deploying',
-      name: 'Deployment Guide',
-      description: 'How to deploy zkApps to Mina networks',
-      mimeType: 'text/markdown'
-    }
-  ];
+  return [];
 }
 
 export async function handleResourceRead(

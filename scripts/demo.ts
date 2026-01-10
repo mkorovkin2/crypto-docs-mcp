@@ -152,7 +152,7 @@ async function main() {
   subheader('Step 1: List Available Projects');
   agentThinks("First, let me see what documentation projects are available...");
 
-  const projectsResult = await callTool('list_projects', {});
+  const projectsResult = await callTool('crypto_list_projects', {});
   showResult(projectsResult, 15);
 
   await sleep(1000);
@@ -167,14 +167,14 @@ async function main() {
   await sleep(1000);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Step 2: ask_docs - Get synthesized answer about smart contracts
+  // Step 2: crypto_ask_docs - Get synthesized answer about smart contracts
   // ═══════════════════════════════════════════════════════════════════════════
 
-  subheader('Step 2: ask_docs - Ask How Smart Contracts Work');
+  subheader('Step 2: crypto_ask_docs - Ask How Smart Contracts Work');
   agentThinks(`Let me ask the docs how smart contracts work in ${PROJECT}...`);
   log(colors.dim, `  (This will synthesize an answer from multiple docs!)`);
 
-  const askResult = await callTool('ask_docs', {
+  const askResult = await callTool('crypto_ask_docs', {
     question: `How do smart contracts work in ${PROJECT}? What are the key concepts I need to understand?`,
     project: PROJECT
   });
@@ -183,14 +183,14 @@ async function main() {
   await sleep(2000);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Step 3: get_working_example - Get complete code example
+  // Step 3: crypto_get_working_example - Get complete code example
   // ═══════════════════════════════════════════════════════════════════════════
 
-  subheader('Step 3: get_working_example - Get Complete Code');
+  subheader('Step 3: crypto_get_working_example - Get Complete Code');
   agentThinks("Now I need a complete, runnable code example...");
   log(colors.dim, `  (This will create a full example with ALL imports!)`);
 
-  const exampleResult = await callTool('get_working_example', {
+  const exampleResult = await callTool('crypto_get_working_example', {
     task: 'create a simple counter smart contract',
     project: PROJECT
   });
@@ -199,14 +199,14 @@ async function main() {
   await sleep(2000);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Step 4: explain_error - Debug an error
+  // Step 4: crypto_explain_error - Debug an error
   // ═══════════════════════════════════════════════════════════════════════════
 
-  subheader('Step 4: explain_error - Debug an Error');
+  subheader('Step 4: crypto_explain_error - Debug an Error');
   agentThinks("I'm getting an error when trying to deploy...");
   log(colors.dim, `  (This will diagnose the error and suggest fixes!)`);
 
-  const errorResult = await callTool('explain_error', {
+  const errorResult = await callTool('crypto_explain_error', {
     error: 'transaction verification failed',
     project: PROJECT,
     context: 'deploying a smart contract to devnet'
@@ -216,14 +216,14 @@ async function main() {
   await sleep(2000);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Step 5: search_docs - Raw search for specific info
+  // Step 5: crypto_search_docs - Raw search for specific info
   // ═══════════════════════════════════════════════════════════════════════════
 
-  subheader('Step 5: search_docs - Raw Search');
+  subheader('Step 5: crypto_search_docs - Raw Search');
   agentThinks("Let me search for specific info about deployment...");
   log(colors.dim, `  (This returns raw chunks for browsing)`);
 
-  const searchResult = await callTool('search_docs', {
+  const searchResult = await callTool('crypto_search_docs', {
     query: 'deploy contract network',
     project: PROJECT,
     limit: 3
@@ -239,11 +239,11 @@ async function main() {
   log(colors.cyan, '  NEW WAY: Server synthesizes complete, actionable answers!');
   console.log();
   console.log('  New tools demonstrated:');
-  log(colors.green, '  1. list_projects       → See available documentation');
-  log(colors.green, '  2. ask_docs            → Ask questions, get SYNTHESIZED answers');
-  log(colors.green, '  3. get_working_example → Get COMPLETE code with all imports');
-  log(colors.green, '  4. explain_error       → Debug errors with specific fixes');
-  log(colors.green, '  5. search_docs         → Raw search when needed');
+  log(colors.green, '  1. crypto_list_projects       → See available documentation');
+  log(colors.green, '  2. crypto_ask_docs            → Ask questions, get SYNTHESIZED answers');
+  log(colors.green, '  3. crypto_get_working_example → Get COMPLETE code with all imports');
+  log(colors.green, '  4. crypto_explain_error       → Debug errors with specific fixes');
+  log(colors.green, '  5. crypto_search_docs         → Raw search when needed');
   console.log();
   log(colors.cyan, `  The agent gets actionable answers, not raw chunks!`);
   console.log();

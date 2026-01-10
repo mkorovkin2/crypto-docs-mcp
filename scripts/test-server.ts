@@ -116,7 +116,7 @@ async function main() {
     const tools = result.tools || [];
     const toolNames = tools.map((t: any) => t.name);
 
-    const expected = ['list_projects', 'ask_docs', 'get_working_example', 'explain_error', 'search_docs'];
+    const expected = ['crypto_list_projects', 'crypto_ask_docs', 'crypto_get_working_example', 'crypto_explain_error', 'crypto_search_docs'];
     for (const name of expected) {
       if (!toolNames.includes(name)) {
         throw new Error(`Missing tool: ${name}`);
@@ -125,11 +125,11 @@ async function main() {
     return { response: `${tools.length} tools: ${toolNames.join(', ')}` };
   }));
 
-  // Test 4: list_projects
-  console.log(`${YELLOW}[4/8] Testing list_projects...${RESET}`);
-  results.push(await runTest('list_projects', async () => {
+  // Test 4: crypto_list_projects
+  console.log(`${YELLOW}[4/8] Testing crypto_list_projects...${RESET}`);
+  results.push(await runTest('crypto_list_projects', async () => {
     const result = await callMCP('tools/call', {
-      name: 'list_projects',
+      name: 'crypto_list_projects',
       arguments: {}
     });
     const text = result.content?.[0]?.text || '';
@@ -139,11 +139,11 @@ async function main() {
     return { response: text.slice(0, 200) };
   }));
 
-  // Test 5: search_docs
-  console.log(`${YELLOW}[5/8] Testing search_docs...${RESET}`);
-  results.push(await runTest('search_docs', async () => {
+  // Test 5: crypto_search_docs
+  console.log(`${YELLOW}[5/8] Testing crypto_search_docs...${RESET}`);
+  results.push(await runTest('crypto_search_docs', async () => {
     const result = await callMCP('tools/call', {
-      name: 'search_docs',
+      name: 'crypto_search_docs',
       arguments: {
         query: 'smart contract',
         project: 'mina',
@@ -157,11 +157,11 @@ async function main() {
     return { response: `Response length: ${text.length} chars` };
   }));
 
-  // Test 6: ask_docs (LLM synthesis)
-  console.log(`${YELLOW}[6/8] Testing ask_docs (LLM synthesis)...${RESET}`);
-  results.push(await runTest('ask_docs (LLM)', async () => {
+  // Test 6: crypto_ask_docs (LLM synthesis)
+  console.log(`${YELLOW}[6/8] Testing crypto_ask_docs (LLM synthesis)...${RESET}`);
+  results.push(await runTest('crypto_ask_docs (LLM)', async () => {
     const result = await callMCP('tools/call', {
-      name: 'ask_docs',
+      name: 'crypto_ask_docs',
       arguments: {
         question: 'What is a zkApp?',
         project: 'mina',
@@ -179,11 +179,11 @@ async function main() {
     return { response: `Response length: ${text.length} chars (LLM synthesized!)` };
   }));
 
-  // Test 7: get_working_example (LLM synthesis)
-  console.log(`${YELLOW}[7/8] Testing get_working_example (LLM synthesis)...${RESET}`);
-  results.push(await runTest('get_working_example (LLM)', async () => {
+  // Test 7: crypto_get_working_example (LLM synthesis)
+  console.log(`${YELLOW}[7/8] Testing crypto_get_working_example (LLM synthesis)...${RESET}`);
+  results.push(await runTest('crypto_get_working_example (LLM)', async () => {
     const result = await callMCP('tools/call', {
-      name: 'get_working_example',
+      name: 'crypto_get_working_example',
       arguments: {
         task: 'create a counter',
         project: 'mina',
@@ -197,11 +197,11 @@ async function main() {
     return { response: `Response length: ${text.length} chars (code example!)` };
   }));
 
-  // Test 8: explain_error (LLM synthesis)
-  console.log(`${YELLOW}[8/8] Testing explain_error (LLM synthesis)...${RESET}`);
-  results.push(await runTest('explain_error (LLM)', async () => {
+  // Test 8: crypto_explain_error (LLM synthesis)
+  console.log(`${YELLOW}[8/8] Testing crypto_explain_error (LLM synthesis)...${RESET}`);
+  results.push(await runTest('crypto_explain_error (LLM)', async () => {
     const result = await callMCP('tools/call', {
-      name: 'explain_error',
+      name: 'crypto_explain_error',
       arguments: {
         error: 'constraint not satisfied',
         project: 'mina',
