@@ -10,3 +10,5 @@ export * from './reranker.js';
 export * from './query-analyzer.js';
 export * from './confidence.js';
 export * from './corrective-rag.js';
+export * from './understanding-extractor.js';
+export * from './search-query-generator.js';

@@ -10,7 +10,8 @@ import type {
   AgentResponse,
   SearchResult,
   SourceReference,
-  QueryAnalysis
+  QueryAnalysis,
+  SearchGuidance
 } from '@mina-docs/shared';
 import { calculateConfidenceScore, quickConfidenceEstimate } from '@mina-docs/shared';
 
@@ -21,6 +22,7 @@ export class ResponseBuilder {
   private warnings: string[] = [];
   private suggestions: AgentResponseMetadata['suggestions'] = [];
   private relatedQueries: string[] = [];
+  private searchGuidance?: SearchGuidance;
 
   constructor() {
     this.startTime = Date.now();
@@ -89,6 +91,14 @@ export class ResponseBuilder {
   }
 
   /**
+   * Set search guidance for when documentation is insufficient
+   */
+  setSearchGuidance(guidance: SearchGuidance): this {
+    this.searchGuidance = guidance;
+    return this;
+  }
+
+  /**
    * Set source references from search results
    */
   setSources(results: SearchResult[]): this {
@@ -121,7 +131,8 @@ export class ResponseBuilder {
         suggestions: this.suggestions,
         relatedQueries: this.relatedQueries.length > 0 ? this.relatedQueries : undefined,
         warnings: this.warnings.length > 0 ? this.warnings : undefined,
-        processingTimeMs: Date.now() - this.startTime
+        processingTimeMs: Date.now() - this.startTime,
+        searchGuidance: this.searchGuidance
       },
       sources: this.sources
     };

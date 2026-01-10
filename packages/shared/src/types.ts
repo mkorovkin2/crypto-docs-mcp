@@ -1,3 +1,5 @@
+import type { SearchGuidance } from './search-query-generator.js';
+
 export interface DocumentChunk {
   id: string;
   url: string;
@@ -64,6 +66,9 @@ export interface AgentResponseMetadata {
 
   /** Processing time in milliseconds */
   processingTimeMs: number;
+
+  /** Search guidance when documentation is insufficient (optional) */
+  searchGuidance?: SearchGuidance;
 }
 
 /**

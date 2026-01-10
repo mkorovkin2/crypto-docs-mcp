@@ -1,14 +1,16 @@
 # Intelligent Fallback with Web Search Guidance Implementation Plan
 
+**STATUS: IMPLEMENTED** (2026-01-10)
+
 ## Overview
 
 Enhance the MCP server to gracefully handle questions it cannot answer by:
-1. Detecting when retrieved documentation is insufficient
-2. Extracting what concepts/terms it DOES understand from the query
-3. Generating specific, actionable web search queries based on that understanding
-4. Returning a structured "I don't know" response with targeted search guidance
+1. **Always trying to answer first** - the server synthesizes an answer from whatever documentation it has
+2. Detecting when the answer quality is insufficient (low confidence, poor concept coverage)
+3. Extracting what concepts/terms it DOES understand from the query
+4. **Appending** specific, actionable web search queries to help the coding agent find missing information
 
-This transforms unhelpful "I couldn't find anything" responses into actionable guidance that helps coding agents continue making progress.
+This ensures the server provides whatever value it can while also guiding agents to find additional information when needed.
 
 ## Current State Analysis
 

@@ -149,8 +149,24 @@ function runValidation(response: string, rule: ValidationRule): ValidationResult
     case 'confidence_above':
       return validateRetrieval.confidenceAbove(response, rule.threshold);
 
+    case 'confidence_below':
+      return validateRetrieval.confidenceBelow(response, rule.threshold);
+
     case 'sources_count':
       return validateRetrieval.sourcesCount(response, rule.min);
+
+    // Search guidance validators (intelligent fallback feature)
+    case 'has_search_guidance':
+      return validateRetrieval.hasSearchGuidance(response);
+
+    case 'search_guidance_has_project':
+      return validateRetrieval.searchGuidanceHasProject(response, rule.project);
+
+    case 'search_guidance_has_searches':
+      return validateRetrieval.searchGuidanceHasSearches(response, rule.min);
+
+    case 'has_web_search_suggestion':
+      return validateRetrieval.hasWebSearchSuggestion(response);
 
     default:
       return {

@@ -4,7 +4,12 @@ import { PROMPTS } from '../prompts/index.js';
 import {
   analyzeQuery,
   correctiveSearch,
-  shouldApplyCorrectiveRAG
+  shouldApplyCorrectiveRAG,
+  extractQueryUnderstanding,
+  shouldIncludeSearchGuidance,
+  generateSearchGuidance,
+  formatSearchGuidanceAsMarkdown,
+  calculateConfidenceScore
 } from '@mina-docs/shared';
 import { formatSearchResultsAsContext, getProjectContext } from './context-formatter.js';
 import { ResponseBuilder, calculateConfidence } from '../utils/response-builder.js';
@@ -89,27 +94,36 @@ export async function askDocs(
   builder.setRetrievalQuality(results);
   builder.setSources(results);
 
-  // 7. Handle no results case
+  // 7. Handle no results case - still provide search guidance
   if (results.length === 0) {
     logger.warn('No results found for query');
     builder.setConfidence(0);
     builder.addWarning('No documentation found for this query');
-    builder.addSuggestion(
-      'search_docs',
-      'Try a broader keyword search',
-      {
-        query: analysis.keywords[0] || args.question.split(' ')[0],
-        project: args.project
-      }
-    );
-    builder.addSuggestion(
-      'list_projects',
-      'Verify the project name is correct',
-      {}
-    );
 
+    // Generate search guidance even with no results
+    const noResultsConfidence = calculateConfidenceScore(args.question, analysis, [], '');
+    const understanding = extractQueryUnderstanding(
+      args.question,
+      args.project,
+      analysis,
+      [],
+      noResultsConfidence
+    );
+    const searchGuidance = generateSearchGuidance(understanding, args.question);
+    builder.setSearchGuidance(searchGuidance);
+
+    // Add web search suggestions
+    for (const search of searchGuidance.suggestedSearches.slice(0, 2)) {
+      builder.addSuggestion(
+        'web_search',
+        search.rationale,
+        { query: search.query, engine: search.suggestedEngine }
+      );
+    }
+
+    const guidanceText = formatSearchGuidanceAsMarkdown(searchGuidance);
     return builder.buildMCPResponse(
-      `No documentation found for your question in ${args.project}. Try rephrasing or check if the project name is correct.`
+      `I couldn't find documentation for your question in ${args.project}.\n${guidanceText}`
     );
   }
 
@@ -138,8 +152,43 @@ export async function askDocs(
   builder.setConfidence(confidence);
   logger.confidence(confidence);
 
-  // 12. Add warnings based on confidence and context
-  if (confidence < 40) {
+  // 12. Extract understanding and check if we need search guidance
+  const confidenceResult = calculateConfidenceScore(args.question, analysis, results, answer);
+  const understanding = extractQueryUnderstanding(
+    args.question,
+    args.project,
+    analysis,
+    results,
+    confidenceResult
+  );
+
+  // 13. Determine if answer is insufficient and we should add search guidance
+  let finalAnswer = answer;
+  const needsSearchGuidance = shouldIncludeSearchGuidance(results, confidence, understanding);
+
+  if (needsSearchGuidance) {
+    logger.info('Answer confidence low - adding search guidance');
+    const searchGuidance = generateSearchGuidance(understanding, args.question);
+    builder.setSearchGuidance(searchGuidance);
+
+    // Append search guidance to the answer
+    const guidanceText = formatSearchGuidanceAsMarkdown(searchGuidance);
+    finalAnswer = `${answer}\n${guidanceText}`;
+
+    // Add web search as a suggestion
+    for (const search of searchGuidance.suggestedSearches.slice(0, 2)) {
+      builder.addSuggestion(
+        'web_search',
+        search.rationale,
+        { query: search.query, engine: search.suggestedEngine }
+      );
+    }
+
+    builder.addWarning('The answer above may be incomplete - web search recommended for comprehensive information');
+  }
+
+  // 14. Add other warnings based on confidence and context
+  if (confidence < 40 && !needsSearchGuidance) {
     logger.warn(`Low confidence score: ${confidence}`);
     builder.addWarning('Low confidence - results may not fully address your question');
   }
@@ -147,14 +196,14 @@ export async function askDocs(
     builder.addWarning('This appears to be a follow-up question - context from previous queries was considered');
   }
 
-  // 13. Generate contextual suggestions
+  // 15. Generate contextual suggestions
   const suggestions = generateSuggestions(analysis, results, args.project);
   suggestions.forEach(s => builder.addSuggestion(s.action, s.reason, s.params));
   logger.debug(`Generated ${suggestions.length} follow-up suggestions`);
 
-  // 14. Generate related queries
+  // 16. Generate related queries
   const relatedQueries = generateRelatedQueries(args.question, analysis, results, args.project);
   relatedQueries.forEach(q => builder.addRelatedQuery(q));
 
-  return builder.buildMCPResponse(answer);
+  return builder.buildMCPResponse(finalAnswer);
 }

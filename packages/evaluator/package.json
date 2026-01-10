@@ -9,6 +9,7 @@
     "eval:mina": "node dist/index.js --project mina",
     "eval:solana": "node dist/index.js --project solana",
     "eval:cosmos": "node dist/index.js --project cosmos",
+    "eval:fallback": "node dist/index.js --tag fallback",
     "sanity-check": "node scripts/sanity-check.js"
   },
   "dependencies": {

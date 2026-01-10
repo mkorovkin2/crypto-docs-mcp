@@ -16,7 +16,13 @@ export type ValidationRule =
   | { type: 'min_length'; chars: number }
   | { type: 'has_citation' }
   | { type: 'confidence_above'; threshold: number }
-  | { type: 'sources_count'; min: number };
+  | { type: 'confidence_below'; threshold: number }
+  | { type: 'sources_count'; min: number }
+  // Search guidance validators (for intelligent fallback feature)
+  | { type: 'has_search_guidance' }
+  | { type: 'search_guidance_has_project'; project: string }
+  | { type: 'search_guidance_has_searches'; min: number }
+  | { type: 'has_web_search_suggestion' };
 
 export interface TestCase {
   id: string;

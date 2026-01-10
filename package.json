@@ -20,6 +20,7 @@
     "eval:mina": "npm run eval -w @crypto-docs/evaluator -- --project mina",
     "eval:solana": "npm run eval -w @crypto-docs/evaluator -- --project solana",
     "eval:cosmos": "npm run eval -w @crypto-docs/evaluator -- --project cosmos",
+    "eval:fallback": "npm run eval:fallback -w @crypto-docs/evaluator",
     "eval:verbose": "npm run eval -w @crypto-docs/evaluator -- --verbose",
     "eval:dry-run": "npm run eval -w @crypto-docs/evaluator -- --dry-run"
   },

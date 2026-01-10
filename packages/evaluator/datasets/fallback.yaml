@@ -1,0 +1,320 @@
+name: "Intelligent Fallback & Search Guidance"
+project: "multi"
+version: "1.0.0"
+description: |
+  Tests for the intelligent fallback feature that provides web search guidance
+  when the MCP server cannot fully answer a question from indexed documentation.
+
+  These tests verify:
+  1. The server still attempts to answer with available information
+  2. Search guidance is provided when confidence is low
+  3. Search queries are project-specific and actionable
+  4. The guidance includes the correct project context
+
+tests:
+  # === Mina Protocol Fallback Tests ===
+
+  - id: "fallback-mina-001"
+    name: "Mina - Undocumented advanced feature"
+    description: "Test fallback for a query about a niche/advanced feature that may not be well documented"
+    tool: "ask_docs"
+    project: "mina"
+    difficulty: "advanced"
+    input:
+      question: "How do I implement a recursive proof aggregator with custom proof merging strategies in o1js?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 100
+        # Should have low-to-medium confidence since this is a very specific topic
+        - type: "confidence_below"
+          threshold: 60
+      groundTruth:
+        expectedFacts:
+          - "The response should attempt to provide relevant information or acknowledge limitations"
+          - "If search guidance is included, it should mention Mina, o1js, or recursive proofs"
+        acceptableVariations:
+          - "May provide partial information with search guidance"
+          - "May admit the documentation doesn't fully cover this topic"
+    tags: ["fallback", "mina", "advanced"]
+
+  - id: "fallback-mina-002"
+    name: "Mina - Fictional feature query"
+    description: "Test fallback for a query about a feature that likely doesn't exist"
+    tool: "ask_docs"
+    project: "mina"
+    difficulty: "basic"
+    input:
+      question: "How do I use the zkApp.enableQuantumResistance() method in o1js?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 50
+      groundTruth:
+        expectedFacts:
+          - "Should acknowledge that this specific method/feature is not documented or may not exist"
+          - "Should provide search guidance or alternative suggestions"
+        forbiddenClaims:
+          - "Claiming to know exactly how to use this fictional method"
+          - "Making up API details that don't exist"
+    tags: ["fallback", "mina", "fictional"]
+
+  - id: "fallback-mina-003"
+    name: "Mina - Search guidance quality"
+    description: "Verify search guidance includes Mina-specific terms"
+    tool: "ask_docs"
+    project: "mina"
+    difficulty: "intermediate"
+    input:
+      question: "How do I integrate o1js with a custom trusted execution environment for off-chain proofs?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 100
+      groundTruth:
+        expectedFacts:
+          - "Response should attempt to address off-chain proofs or acknowledge limitations"
+          - "If search guidance is provided, queries should include Mina/o1js terms"
+    tags: ["fallback", "mina", "search-guidance"]
+
+  # === Solana Fallback Tests ===
+
+  - id: "fallback-solana-001"
+    name: "Solana - Undocumented edge case"
+    description: "Test fallback for a very specific Solana edge case"
+    tool: "ask_docs"
+    project: "solana"
+    difficulty: "advanced"
+    input:
+      question: "How do I handle cross-program invocation depth limits when building a recursive swap aggregator on Solana?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 100
+      groundTruth:
+        expectedFacts:
+          - "Should attempt to address CPI or acknowledge documentation gaps"
+          - "If search guidance provided, should mention Solana, Anchor, or CPI"
+    tags: ["fallback", "solana", "advanced"]
+
+  - id: "fallback-solana-002"
+    name: "Solana - Fictional program feature"
+    description: "Test fallback for a query about a non-existent Solana feature"
+    tool: "ask_docs"
+    project: "solana"
+    difficulty: "basic"
+    input:
+      question: "How do I use the built-in Solana program for automatic rent exemption refunds?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 50
+      groundTruth:
+        expectedFacts:
+          - "Should acknowledge limitations or non-existence of this feature"
+          - "May provide information about actual rent exemption handling"
+        forbiddenClaims:
+          - "Describing a non-existent automatic refund program"
+    tags: ["fallback", "solana", "fictional"]
+
+  - id: "fallback-solana-003"
+    name: "Solana - Search guidance with project context"
+    description: "Verify search guidance includes Solana-specific terms"
+    tool: "ask_docs"
+    project: "solana"
+    difficulty: "intermediate"
+    input:
+      question: "How do I implement a Solana program that interacts with Pyth oracle for real-time price feeds with custom staleness checks?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 100
+      groundTruth:
+        expectedFacts:
+          - "Should attempt to provide oracle integration info or acknowledge gaps"
+          - "Search guidance should reference Solana/Anchor ecosystem"
+    tags: ["fallback", "solana", "search-guidance"]
+
+  # === Cosmos Fallback Tests ===
+
+  - id: "fallback-cosmos-001"
+    name: "Cosmos - Undocumented module interaction"
+    description: "Test fallback for complex Cosmos SDK module interaction"
+    tool: "ask_docs"
+    project: "cosmos"
+    difficulty: "advanced"
+    input:
+      question: "How do I implement a custom IBC middleware that intercepts and modifies packet data based on external oracle attestations?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 100
+      groundTruth:
+        expectedFacts:
+          - "Should attempt to provide IBC middleware info or acknowledge complexity"
+          - "If search guidance provided, should mention Cosmos SDK or IBC"
+    tags: ["fallback", "cosmos", "advanced"]
+
+  - id: "fallback-cosmos-002"
+    name: "Cosmos - Fictional keeper feature"
+    description: "Test fallback for a query about a non-existent Cosmos feature"
+    tool: "ask_docs"
+    project: "cosmos"
+    difficulty: "basic"
+    input:
+      question: "How do I use the AutoRebalanceKeeper to automatically rebalance staking delegations in Cosmos SDK?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 50
+      groundTruth:
+        expectedFacts:
+          - "Should acknowledge this keeper doesn't exist or isn't documented"
+          - "May provide alternative approaches for delegation management"
+        forbiddenClaims:
+          - "Describing how to use a non-existent AutoRebalanceKeeper"
+    tags: ["fallback", "cosmos", "fictional"]
+
+  - id: "fallback-cosmos-003"
+    name: "Cosmos - Search guidance quality"
+    description: "Verify search guidance includes Cosmos-specific terms"
+    tool: "ask_docs"
+    project: "cosmos"
+    difficulty: "intermediate"
+    input:
+      question: "How do I implement a custom governance proposal type that requires multi-sig approval from a DAO before execution?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 100
+      groundTruth:
+        expectedFacts:
+          - "Should attempt to address governance or acknowledge documentation gaps"
+          - "Search guidance should reference Cosmos SDK terminology"
+    tags: ["fallback", "cosmos", "search-guidance"]
+
+  # === Cross-Project Fallback Tests ===
+
+  - id: "fallback-cross-001"
+    name: "Cross-project - Wrong project context"
+    description: "Test when asking about Solana feature in Mina context"
+    tool: "ask_docs"
+    project: "mina"
+    difficulty: "basic"
+    input:
+      question: "How do I create a PDA (Program Derived Address) in o1js?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 50
+      groundTruth:
+        expectedFacts:
+          - "Should clarify that PDAs are a Solana concept, not Mina"
+          - "May suggest the equivalent Mina concept or redirect to correct project"
+        forbiddenClaims:
+          - "Describing how to create PDAs in o1js as if it were a real feature"
+    tags: ["fallback", "cross-project", "mina"]
+
+  - id: "fallback-cross-002"
+    name: "Cross-project - Mixed terminology"
+    description: "Test when mixing terminology from different chains"
+    tool: "ask_docs"
+    project: "solana"
+    difficulty: "basic"
+    input:
+      question: "How do I use the keeper pattern to manage state in my Solana Anchor program?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 50
+      groundTruth:
+        expectedFacts:
+          - "Should clarify that keeper pattern is Cosmos terminology"
+          - "May explain the Solana equivalent (program accounts, PDAs)"
+    tags: ["fallback", "cross-project", "solana"]
+
+  # === Graceful Degradation Tests ===
+
+  - id: "fallback-graceful-001"
+    name: "Graceful - Partial answer with guidance"
+    description: "Test that server provides partial answer plus search guidance"
+    tool: "ask_docs"
+    project: "mina"
+    difficulty: "intermediate"
+    input:
+      question: "How do I implement a zkApp that verifies merkle proofs from an external data source with custom hash functions?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 150
+      groundTruth:
+        expectedFacts:
+          - "Should provide information about merkle proofs in o1js"
+          - "May acknowledge limitations regarding custom hash functions"
+          - "Should be helpful even if not complete"
+        acceptableVariations:
+          - "Partial answer with search guidance for advanced topics"
+          - "General merkle tree info with suggestions for custom implementations"
+    tags: ["fallback", "graceful", "mina"]
+
+  - id: "fallback-graceful-002"
+    name: "Graceful - Vague query handling"
+    description: "Test handling of vague queries that are hard to answer precisely"
+    tool: "ask_docs"
+    project: "solana"
+    difficulty: "basic"
+    input:
+      question: "What's the best way to do things on Solana?"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 50
+      groundTruth:
+        expectedFacts:
+          - "Should attempt to provide general guidance or ask for clarification"
+          - "May suggest more specific areas to explore"
+        forbiddenClaims:
+          - "Providing a definitive 'best way' without context"
+    tags: ["fallback", "graceful", "vague"]
+
+  # === Error Tool Fallback Tests ===
+
+  - id: "fallback-error-001"
+    name: "Error - Fictional error message"
+    description: "Test explain_error with a made-up error"
+    tool: "explain_error"
+    project: "mina"
+    difficulty: "basic"
+    input:
+      error: "ZkAppQuantumEntanglementError: Circuit exceeded maximum qubit allocation"
+      context: "Trying to deploy a zkApp"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 50
+      groundTruth:
+        expectedFacts:
+          - "Should acknowledge this error is not recognized or documented"
+          - "May provide general debugging suggestions"
+          - "Should not make up explanations for fictional errors"
+    tags: ["fallback", "error", "mina"]
+
+  - id: "fallback-error-002"
+    name: "Error - Ambiguous error"
+    description: "Test explain_error with an ambiguous/generic error"
+    tool: "explain_error"
+    project: "solana"
+    difficulty: "basic"
+    input:
+      error: "Transaction failed"
+      context: "Trying to transfer tokens"
+    expected:
+      validations:
+        - type: "min_length"
+          chars: 100
+      groundTruth:
+        expectedFacts:
+          - "Should acknowledge the error is too vague for specific diagnosis"
+          - "Should provide common causes of transaction failures"
+          - "May suggest how to get more detailed error information"
+    tags: ["fallback", "error", "solana"]
