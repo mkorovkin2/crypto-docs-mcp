@@ -1,0 +1,30 @@
+{
+  "id": "beam-shader-sdk",
+  "type": "github",
+  "repoType": "sdk",
+  "trustLevel": "official",
+  "repo": "BeamMW/shader-sdk",
+  "branch": "master",
+  "scrapeStrategy": {
+    "apiPaths": [
+      "**/*.cpp",
+      "**/*.h"
+    ],
+    "exampleDirs": ["shaders", "examples"],
+    "exclude": [
+      "**/*.test.*",
+      "**/test/**",
+      "**/tests/**"
+    ],
+    "extensions": [".cpp", ".h", ".hpp", ".wasm"]
+  },
+  "qualityThresholds": {
+    "minDocumentationScore": 20,
+    "minLLMRelevanceScore": 40,
+    "requireReadme": false
+  },
+  "versionPackages": ["beam-shader-sdk"],
+  "description": "Beam shader SDK - privacy smart contract development kit (WASM-based)",
+  "maintainer": "BeamMW",
+  "addedAt": "2026-01-11T00:00:00.000Z"
+}

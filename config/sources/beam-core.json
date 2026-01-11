@@ -1,0 +1,35 @@
+{
+  "id": "beam-core",
+  "type": "github",
+  "repoType": "sdk",
+  "trustLevel": "official",
+  "repo": "BeamMW/beam",
+  "branch": "master",
+  "scrapeStrategy": {
+    "apiPaths": [
+      "wallet/api/*.cpp",
+      "wallet/api/*.h",
+      "wallet/core/*.cpp",
+      "wallet/core/*.h",
+      "core/*.cpp",
+      "core/*.h"
+    ],
+    "exampleDirs": ["wallet/cli"],
+    "exclude": [
+      "**/*.test.*",
+      "**/test/**",
+      "**/tests/**",
+      "**/benchmarks/**"
+    ],
+    "extensions": [".cpp", ".h", ".hpp"]
+  },
+  "qualityThresholds": {
+    "minDocumentationScore": 20,
+    "minLLMRelevanceScore": 40,
+    "requireReadme": false
+  },
+  "versionPackages": ["beam"],
+  "description": "Beam core blockchain - Mimblewimble + LelantusMW privacy implementation",
+  "maintainer": "BeamMW",
+  "addedAt": "2026-01-11T00:00:00.000Z"
+}

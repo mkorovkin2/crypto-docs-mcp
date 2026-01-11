@@ -1,0 +1,31 @@
+{
+  "id": "beam-web-wallet",
+  "type": "github",
+  "repoType": "sdk",
+  "trustLevel": "official",
+  "repo": "BeamMW/web-wallet",
+  "branch": "master",
+  "scrapeStrategy": {
+    "apiPaths": [
+      "src/**/*.ts",
+      "src/**/*.tsx"
+    ],
+    "exampleDirs": ["src/app"],
+    "exclude": [
+      "**/*.test.ts",
+      "**/*.spec.ts",
+      "**/node_modules/**",
+      "**/__tests__/**"
+    ],
+    "extensions": [".ts", ".tsx", ".js"]
+  },
+  "qualityThresholds": {
+    "minDocumentationScore": 25,
+    "minLLMRelevanceScore": 45,
+    "requireReadme": false
+  },
+  "versionPackages": ["beam-web-wallet"],
+  "description": "Beam web wallet - TypeScript-based browser wallet interface",
+  "maintainer": "BeamMW",
+  "addedAt": "2026-01-11T00:00:00.000Z"
+}

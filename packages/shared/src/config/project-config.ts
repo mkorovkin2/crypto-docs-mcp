@@ -25,6 +25,8 @@ export const ProjectConfigSchema = z.object({
     excludePatterns: z.array(z.string()).default([]),
     // Max pages to crawl
     maxPages: z.number().default(200),
+    // Use Puppeteer browser for Cloudflare-protected sites
+    useBrowser: z.boolean().default(false),
     // Custom selectors for content extraction (optional)
     selectors: z.object({
       content: z.string().optional(), // CSS selector for main content

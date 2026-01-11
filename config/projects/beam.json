@@ -1,0 +1,19 @@
+{
+  "id": "beam",
+  "name": "Beam",
+  "docs": {
+    "baseUrl": "https://github.com/BeamMW/beam/wiki",
+    "excludePatterns": ["/releases/", "/archive/", "/_history"],
+    "maxPages": 100
+  },
+  "github": {
+    "repo": "BeamMW/beam",
+    "branch": "master",
+    "include": ["wallet/**/*.cpp", "wallet/**/*.h", "core/**/*.cpp", "core/**/*.h"],
+    "exclude": ["**/*.test.*", "**/test/**", "**/tests/**"]
+  },
+  "crawler": {
+    "concurrency": 3,
+    "delayMs": 1000
+  }
+}

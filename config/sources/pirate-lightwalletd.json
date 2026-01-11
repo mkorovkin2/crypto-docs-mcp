@@ -1,0 +1,32 @@
+{
+  "id": "pirate-lightwalletd",
+  "type": "github",
+  "repoType": "sdk",
+  "trustLevel": "official",
+  "repo": "PirateNetwork/lightwalletd",
+  "branch": "master",
+  "scrapeStrategy": {
+    "apiPaths": [
+      "common/*.go",
+      "frontend/*.go",
+      "walletrpc/*.go"
+    ],
+    "exampleDirs": ["docs"],
+    "exclude": [
+      "**/*_test.go",
+      "**/test/**",
+      "**/tests/**",
+      "**/testdata/**"
+    ],
+    "extensions": [".go"]
+  },
+  "qualityThresholds": {
+    "minDocumentationScore": 20,
+    "minLLMRelevanceScore": 40,
+    "requireReadme": false
+  },
+  "versionPackages": ["lightwalletd"],
+  "description": "Pirate Chain light wallet daemon - bandwidth-efficient blockchain interface",
+  "maintainer": "PirateNetwork",
+  "addedAt": "2026-01-11T00:00:00.000Z"
+}

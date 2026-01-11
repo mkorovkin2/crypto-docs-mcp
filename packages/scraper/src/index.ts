@@ -101,6 +101,7 @@ const config = {
   concurrency: projectConfig.crawler.concurrency,
   delayMs: projectConfig.crawler.delayMs,
   userAgent: projectConfig.crawler.userAgent,
+  useBrowser: projectConfig.docs.useBrowser,
   // GitHub config
   github: projectConfig.github,
   githubToken: process.env.GITHUB_TOKEN,
@@ -215,7 +216,8 @@ async function main() {
       delayMs: config.delayMs,
       maxPages: config.maxPages,
       excludePatterns: config.excludePatterns,
-      userAgent: config.userAgent
+      userAgent: config.userAgent,
+      useBrowser: config.useBrowser
     });
 
     console.log('\nStarting documentation crawl...\n');

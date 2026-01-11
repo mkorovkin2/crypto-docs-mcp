@@ -10,5 +10,17 @@
   {
     "projectId": "cosmos",
     "sources": ["cosmos-sdk-official"]
+  },
+  {
+    "projectId": "pirate-chain",
+    "sources": ["pirate-core", "pirate-lightwalletd"]
+  },
+  {
+    "projectId": "beam",
+    "sources": ["beam-core", "beam-web-wallet", "beam-shader-sdk"]
+  },
+  {
+    "projectId": "secret",
+    "sources": ["secret-network", "secret-js", "secret-toolkit"]
   }
 ]

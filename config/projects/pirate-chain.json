@@ -1,0 +1,20 @@
+{
+  "id": "pirate-chain",
+  "name": "Pirate Chain",
+  "docs": {
+    "baseUrl": "https://docs.piratechain.com",
+    "excludePatterns": ["/api/", "/changelog/", "/releases/"],
+    "maxPages": 150,
+    "useBrowser": true
+  },
+  "github": {
+    "repo": "PirateNetwork/pirate",
+    "branch": "master",
+    "include": ["src/**/*.cpp", "src/**/*.h"],
+    "exclude": ["**/*.test.*", "**/test/**", "**/tests/**"]
+  },
+  "crawler": {
+    "concurrency": 3,
+    "delayMs": 1000
+  }
+}
