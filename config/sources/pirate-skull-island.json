@@ -1,0 +1,33 @@
+{
+  "id": "pirate-skull-island",
+  "type": "github",
+  "repoType": "example-repo",
+  "trustLevel": "official",
+  "repo": "PirateNetwork/Skull-Island",
+  "branch": "main",
+  "scrapeStrategy": {
+    "apiPaths": [
+      "src/**/*.js",
+      "src/**/*.jsx",
+      "app/**/*.js"
+    ],
+    "exampleDirs": ["src", "app", "components"],
+    "exclude": [
+      "**/node_modules/**",
+      "**/*.test.js",
+      "**/tests/**",
+      "**/build/**",
+      "**/dist/**"
+    ],
+    "extensions": [".js", ".jsx", ".ts", ".tsx"]
+  },
+  "qualityThresholds": {
+    "minDocumentationScore": 15,
+    "minLLMRelevanceScore": 35,
+    "requireReadme": false
+  },
+  "versionPackages": [],
+  "description": "Skull Island - React Native mobile wallet for ARRR (Android)",
+  "maintainer": "PirateNetwork",
+  "addedAt": "2026-01-11T00:00:00.000Z"
+}

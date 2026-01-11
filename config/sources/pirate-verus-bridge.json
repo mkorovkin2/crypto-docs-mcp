@@ -1,0 +1,31 @@
+{
+  "id": "pirate-verus-bridge",
+  "type": "github",
+  "repoType": "example-repo",
+  "trustLevel": "verified-community",
+  "repo": "VerusCoin/Verusbridgekeeper",
+  "branch": "main",
+  "scrapeStrategy": {
+    "apiPaths": [
+      "**/*.js",
+      "**/*.ts",
+      "src/**/*"
+    ],
+    "exampleDirs": ["src", "lib"],
+    "exclude": [
+      "**/node_modules/**",
+      "**/test/**",
+      "**/dist/**"
+    ],
+    "extensions": [".js", ".ts", ".json"]
+  },
+  "qualityThresholds": {
+    "minDocumentationScore": 15,
+    "minLLMRelevanceScore": 35,
+    "requireReadme": false
+  },
+  "versionPackages": [],
+  "description": "Verus Bridgekeeper - Node.js bridge for vARRR cross-chain transfers to Ethereum",
+  "maintainer": "VerusCoin",
+  "addedAt": "2026-01-11T00:00:00.000Z"
+}

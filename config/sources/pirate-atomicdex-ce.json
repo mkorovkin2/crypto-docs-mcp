@@ -1,0 +1,31 @@
+{
+  "id": "pirate-atomicdex-ce",
+  "type": "github",
+  "repoType": "example-repo",
+  "trustLevel": "community",
+  "repo": "Komodian/atomicDEX-Desktop-CE",
+  "branch": "main",
+  "scrapeStrategy": {
+    "apiPaths": [
+      "src/**/*.cpp",
+      "src/**/*.hpp",
+      "src/**/*.qml"
+    ],
+    "exampleDirs": ["src", "qml"],
+    "exclude": [
+      "**/test/**",
+      "**/tests/**",
+      "**/build/**"
+    ],
+    "extensions": [".cpp", ".hpp", ".qml"]
+  },
+  "qualityThresholds": {
+    "minDocumentationScore": 15,
+    "minLLMRelevanceScore": 35,
+    "requireReadme": false
+  },
+  "versionPackages": [],
+  "description": "AtomicDEX Community Edition - Desktop DEX with ARRR atomic swap trading",
+  "maintainer": "Komodian",
+  "addedAt": "2026-01-11T00:00:00.000Z"
+}

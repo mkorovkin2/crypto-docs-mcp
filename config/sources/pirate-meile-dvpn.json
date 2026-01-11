@@ -1,0 +1,31 @@
+{
+  "id": "pirate-meile-dvpn",
+  "type": "github",
+  "repoType": "example-repo",
+  "trustLevel": "verified-community",
+  "repo": "MathNodes/meile-gui",
+  "branch": "main",
+  "scrapeStrategy": {
+    "apiPaths": [
+      "src/**/*.py",
+      "**/*.py"
+    ],
+    "exampleDirs": ["src", "meile_gui"],
+    "exclude": [
+      "**/test/**",
+      "**/tests/**",
+      "**/__pycache__/**",
+      "**/build/**"
+    ],
+    "extensions": [".py"]
+  },
+  "qualityThresholds": {
+    "minDocumentationScore": 15,
+    "minLLMRelevanceScore": 35,
+    "requireReadme": false
+  },
+  "versionPackages": [],
+  "description": "Meile dVPN - Decentralized VPN app accepting ARRR payments (Sentinel Network)",
+  "maintainer": "MathNodes",
+  "addedAt": "2026-01-11T00:00:00.000Z"
+}

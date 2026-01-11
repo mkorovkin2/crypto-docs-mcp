@@ -14,10 +14,13 @@
   {
     "projectId": "pirate-chain",
     "sources": [
-      "pirate-core",
-      "pirate-lightwalletd",
       "pirate-piratepay",
-      "pirate-arrrmada"
+      "pirate-skull-island",
+      "pirate-treasurechest",
+      "pirate-komodo-wallet",
+      "pirate-meile-dvpn",
+      "pirate-verus-bridge",
+      "pirate-atomicdex-ce"
     ]
   },
   {

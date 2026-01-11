@@ -1,0 +1,31 @@
+{
+  "id": "pirate-komodo-wallet",
+  "type": "github",
+  "repoType": "example-repo",
+  "trustLevel": "verified-community",
+  "repo": "KomodoPlatform/komodo-wallet-desktop",
+  "branch": "main",
+  "scrapeStrategy": {
+    "apiPaths": [
+      "src/**/*.cpp",
+      "src/**/*.hpp",
+      "src/**/*.qml"
+    ],
+    "exampleDirs": ["src", "qml"],
+    "exclude": [
+      "**/test/**",
+      "**/tests/**",
+      "**/build/**"
+    ],
+    "extensions": [".cpp", ".hpp", ".qml", ".js"]
+  },
+  "qualityThresholds": {
+    "minDocumentationScore": 15,
+    "minLLMRelevanceScore": 35,
+    "requireReadme": false
+  },
+  "versionPackages": [],
+  "description": "Komodo Wallet Desktop - Non-custodial DEX wallet with ARRR atomic swap support",
+  "maintainer": "KomodoPlatform",
+  "addedAt": "2026-01-11T00:00:00.000Z"
+}
