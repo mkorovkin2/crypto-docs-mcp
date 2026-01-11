@@ -82,7 +82,8 @@ export async function askDocs(
     logger.info(`Corrective RAG completed in ${Date.now() - correctiveStart}ms, now have ${results.length} results`);
 
     if (wasRetried) {
-      builder.addWarning(`Initial search had low relevance; retried with: ${alternativeQueries.join(', ')}`);
+      const quotedQueries = alternativeQueries.map(q => `"${q}"`).join(', ');
+      builder.addWarning(`Initial search had low relevance; retried with alternative queries: ${quotedQueries}`);
     }
   }
 

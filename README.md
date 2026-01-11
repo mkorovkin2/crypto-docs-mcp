@@ -599,6 +599,64 @@ Test cases are defined in YAML files under `packages/evaluator/datasets/`:
 - **Code requirements**: Import completeness, setup instructions
 - **LLM Judge**: GPT-4o-mini scores relevance, accuracy, completeness (0-100)
 
+## RAG Inspector
+
+Interactive CLI for testing and evaluating the corrective RAG system. Simulates coding agent queries and shows detailed metrics about how the RAG pipeline processes them.
+
+### Running the Inspector
+
+```bash
+# Start the MCP server first (in another terminal)
+npm run server
+
+# Run the RAG Inspector (compiles TypeScript on first run)
+npm run rag-inspector
+
+# Or with a specific project (uses pre-compiled JS)
+npm run rag:mina
+npm run rag:solana
+npm run rag:cosmos
+```
+
+### Inspector Commands
+
+| Command | Description |
+|---------|-------------|
+| `ask <question>` | Ask a question and see detailed RAG analysis |
+| `a <question>` | Shorthand for ask |
+| `compare` | Compare two queries side by side (interactive) |
+| `stress <topic>` | Run stress test with 8 query variations |
+| `retry` | Re-run the last query |
+| `history` | Show query history with metrics summary |
+| `detail <n>` | Show full details for history item n |
+| `project <id>` | Switch project (mina/solana/cosmos) |
+| `export [file]` | Export session history to JSON |
+| `clear` | Clear screen |
+| `help` | Show help |
+| `quit` | Exit |
+
+### What the Inspector Shows
+
+For each query, you'll see:
+
+- **Confidence Meter**: Visual 0-100% bar (green ≥70%, yellow ≥50%, red <50%)
+- **RAG Metrics**: Retrieval quality, sources used, query type, processing time
+- **Corrective RAG Indicator**: Shows when retries were triggered and what alternative queries were tried
+- **Search Guidance**: When docs are insufficient, shows suggested web searches
+- **Suggestions**: Follow-up actions and related queries
+- **Answer Preview**: First 500 characters of the response
+
+### Special Modes
+
+**Compare Mode** (`compare`):
+Enter two queries and see a side-by-side comparison of confidence, quality, and whether search guidance was triggered.
+
+**Stress Test** (`stress <topic>`):
+Runs 8 variations of a query (e.g., "What is X?", "How do I use X?", "X example code") and shows aggregate statistics including average confidence and quality distribution.
+
+**Export** (`export session.json`):
+Saves full session history with raw responses for offline analysis.
+
 ## Environment Variables
 
 | Variable | Default | Description |

@@ -22,7 +22,11 @@
     "eval:cosmos": "npm run eval -w @crypto-docs/evaluator -- --project cosmos",
     "eval:fallback": "npm run eval:fallback -w @crypto-docs/evaluator",
     "eval:verbose": "npm run eval -w @crypto-docs/evaluator -- --verbose",
-    "eval:dry-run": "npm run eval -w @crypto-docs/evaluator -- --dry-run"
+    "eval:dry-run": "npm run eval -w @crypto-docs/evaluator -- --dry-run",
+    "rag-inspector": "npx tsc scripts/rag-inspector.ts --outDir scripts --esModuleInterop --module ESNext --moduleResolution node --target ES2022 && node scripts/rag-inspector.js",
+    "rag:mina": "node scripts/rag-inspector.js --project mina",
+    "rag:solana": "node scripts/rag-inspector.js --project solana",
+    "rag:cosmos": "node scripts/rag-inspector.js --project cosmos"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
