@@ -12,7 +12,7 @@ export function parseDocumentation(url: string, html: string, project: string): 
   $('[aria-hidden="true"]').remove();
 
   // Get the main content area
-  const mainContent = $('main, article, .content, .documentation, .markdown-body, .prose').first();
+  const mainContent = $('main, article, .content, .main-content, .documentation, .markdown-body, .prose, #main-content, [role="main"]').first();
   const content = mainContent.length ? mainContent : $('body');
 
   const pageTitle = $('h1').first().text().trim() || $('title').text().trim().split('|')[0].trim();
