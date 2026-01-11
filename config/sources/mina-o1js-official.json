@@ -1,0 +1,35 @@
+{
+  "id": "mina-o1js-official",
+  "type": "github",
+  "repoType": "sdk",
+  "trustLevel": "official",
+  "repo": "o1-labs/o1js",
+  "branch": "main",
+  "scrapeStrategy": {
+    "apiPaths": [
+      "src/lib/provable/*.ts",
+      "src/lib/mina/*.ts",
+      "src/lib/proof-system/*.ts"
+    ],
+    "exampleDirs": ["src/examples"],
+    "exclude": [
+      "**/*.test.ts",
+      "**/*.spec.ts",
+      "**/node_modules/**",
+      "**/benchmarks/**",
+      "**/benchmark/**",
+      "**/perf/**",
+      "**/performance/**"
+    ],
+    "extensions": [".ts", ".tsx"]
+  },
+  "qualityThresholds": {
+    "minDocumentationScore": 20,
+    "minLLMRelevanceScore": 40,
+    "requireReadme": false
+  },
+  "versionPackages": ["o1js", "@o1labs/snarkyjs"],
+  "description": "Official o1js SDK - core provable types and zkApp infrastructure",
+  "maintainer": "o1-labs",
+  "addedAt": "2026-01-10T00:00:00.000Z"
+}

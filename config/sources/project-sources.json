@@ -1,0 +1,14 @@
+[
+  {
+    "projectId": "mina",
+    "sources": ["mina-o1js-official", "mina-zkapp-cli"]
+  },
+  {
+    "projectId": "solana",
+    "sources": ["solana-spl-official"]
+  },
+  {
+    "projectId": "cosmos",
+    "sources": ["cosmos-sdk-official"]
+  }
+]

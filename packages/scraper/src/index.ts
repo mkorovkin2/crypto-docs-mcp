@@ -6,12 +6,15 @@ import { Crawler } from './crawler.js';
 import { parseDocumentation } from './parser.js';
 import { chunkContent } from './chunker.js';
 import { scrapeGitHubSource } from './github-source.js';
+import { scrapeProjectGitHubSources } from './intelligent-github-scraper.js';
 import {
   VectorDB,
   FullTextDB,
   generateEmbeddings,
   loadProjectConfig,
   listProjects,
+  loadProjectGitHubSources,
+  sourceRegistryExists,
   type ProjectConfig
 } from '@mina-docs/shared';
 
@@ -20,23 +23,32 @@ const { values: args } = parseArgs({
   options: {
     project: { type: 'string', short: 'p' },
     list: { type: 'boolean', short: 'l' },
-    help: { type: 'boolean', short: 'h' }
-  }
+    help: { type: 'boolean', short: 'h' },
+    'use-registry': { type: 'boolean', short: 'r' },
+    'dry-run': { type: 'boolean', short: 'd' },
+    'github-only': { type: 'boolean', short: 'g' }
+  },
+  allowPositionals: true // Allow positional args to be ignored
 });
 
 if (args.help) {
   console.log(`
-Usage: scrape [options]
+Usage: npm run scraper -- [options]
 
 Options:
-  -p, --project <id>  Project to scrape (required)
-  -l, --list          List available projects
-  -h, --help          Show this help
+  -p, --project <id>   Project to scrape (required)
+  -l, --list           List available projects
+  -h, --help           Show this help
+  -r, --use-registry   Use source registry for intelligent GitHub scraping
+  -d, --dry-run        Dry run (skip LLM calls, just show what would be indexed)
+  -g, --github-only    Only scrape GitHub sources (skip documentation)
 
 Examples:
-  npm run scrape -- --project mina
-  npm run scrape -- -p solana
-  npm run scrape -- --list
+  npm run scraper -- --project mina
+  npm run scraper -- -p mina --use-registry
+  npm run scraper -- -p mina --use-registry --dry-run
+  npm run scraper -- -p mina --github-only --use-registry
+  npm run scraper -- --list
   `);
   process.exit(0);
 }
@@ -91,7 +103,11 @@ const config = {
   userAgent: projectConfig.crawler.userAgent,
   // GitHub config
   github: projectConfig.github,
-  githubToken: process.env.GITHUB_TOKEN
+  githubToken: process.env.GITHUB_TOKEN,
+  // New options
+  useRegistry: args['use-registry'] || false,
+  dryRun: args['dry-run'] || false,
+  githubOnly: args['github-only'] || false
 };
 
 async function main() {
@@ -114,8 +130,16 @@ async function main() {
   console.log(`  Delay: ${config.delayMs}ms`);
   console.log(`  Qdrant: ${config.qdrantUrl}`);
   console.log(`  SQLite: ${config.sqlitePath}`);
+  console.log(`  Use Registry: ${config.useRegistry}`);
+  console.log(`  Dry Run: ${config.dryRun}`);
+  console.log(`  GitHub Only: ${config.githubOnly}`);
   if (config.github) {
-    console.log(`  GitHub: ${config.github.repo}@${config.github.branch}`);
+    console.log(`  GitHub (legacy): ${config.github.repo}@${config.github.branch}`);
+  }
+  if (config.useRegistry && sourceRegistryExists()) {
+    const registrySources = loadProjectGitHubSources(config.project);
+    console.log(`  Registry Sources: ${registrySources.length} configured`);
+    registrySources.forEach(s => console.log(`    - ${s.id} (${s.trustLevel})`));
   }
 
   // Initialize databases
@@ -146,18 +170,6 @@ async function main() {
     console.error('  ✗ Failed to initialize SQLite:', error);
     process.exit(1);
   }
-
-  // Initialize crawler
-  const crawler = new Crawler({
-    baseUrl: config.baseUrl,
-    concurrency: config.concurrency,
-    delayMs: config.delayMs,
-    maxPages: config.maxPages,
-    excludePatterns: config.excludePatterns,
-    userAgent: config.userAgent
-  });
-
-  console.log('\nStarting crawl...\n');
 
   let totalChunks = 0;
   let processedPages = 0;
@@ -194,45 +206,120 @@ async function main() {
     }
   }
 
-  // Crawl and process pages
-  for await (const page of crawler.crawl()) {
-    processedPages++;
-    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-    console.log(`[${elapsed}s] Processing (${processedPages}/${config.maxPages}): ${page.url}`);
+  // Crawl documentation (skip if --github-only)
+  if (!config.githubOnly) {
+    // Initialize crawler
+    const crawler = new Crawler({
+      baseUrl: config.baseUrl,
+      concurrency: config.concurrency,
+      delayMs: config.delayMs,
+      maxPages: config.maxPages,
+      excludePatterns: config.excludePatterns,
+      userAgent: config.userAgent
+    });
 
-    try {
-      // Parse HTML into chunks with project identifier
-      const rawChunks = parseDocumentation(page.url, page.html, config.project);
+    console.log('\nStarting documentation crawl...\n');
 
-      if (rawChunks.length === 0) {
-        console.log(`  ⚠ No content extracted, skipping`);
-        continue;
+    // Crawl and process pages
+    for await (const page of crawler.crawl()) {
+      processedPages++;
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(`[${elapsed}s] Processing (${processedPages}/${config.maxPages}): ${page.url}`);
+
+      try {
+        // Parse HTML into chunks with project identifier
+        const rawChunks = parseDocumentation(page.url, page.html, config.project);
+
+        if (rawChunks.length === 0) {
+          console.log(`  ⚠ No content extracted, skipping`);
+          continue;
+        }
+
+        // Apply semantic chunking
+        const chunks = chunkContent(rawChunks);
+        console.log(`  ✓ Extracted ${chunks.length} chunks`);
+
+        // Add to pending batch
+        pendingChunks.push(...chunks);
+
+        // Process batch if large enough
+        if (pendingChunks.length >= EMBEDDING_BATCH_SIZE) {
+          await processBatch();
+        }
+      } catch (error) {
+        failedPages++;
+        console.error(`  ✗ Error:`, error instanceof Error ? error.message : error);
       }
-
-      // Apply semantic chunking
-      const chunks = chunkContent(rawChunks);
-      console.log(`  ✓ Extracted ${chunks.length} chunks`);
-
-      // Add to pending batch
-      pendingChunks.push(...chunks);
-
-      // Process batch if large enough
-      if (pendingChunks.length >= EMBEDDING_BATCH_SIZE) {
-        await processBatch();
-      }
-    } catch (error) {
-      failedPages++;
-      console.error(`  ✗ Error:`, error instanceof Error ? error.message : error);
     }
+
+    // Process remaining chunks
+    await processBatch();
+  } else {
+    console.log('\nSkipping documentation crawl (--github-only mode)');
   }
 
-  // Process remaining chunks
-  await processBatch();
+  // Scrape GitHub sources
+  const useIntelligentScraper = config.useRegistry && sourceRegistryExists();
 
-  // Scrape GitHub source (if configured)
-  if (config.github) {
+  if (useIntelligentScraper) {
+    // Use intelligent scraper with source registry
     console.log('\n' + '='.repeat(60));
-    console.log(`Scraping Source Code from GitHub: ${config.github.repo}`);
+    console.log('Intelligent GitHub Scraping (Source Registry)');
+    console.log('='.repeat(60));
+
+    const registrySources = loadProjectGitHubSources(config.project);
+
+    if (registrySources.length === 0) {
+      console.log('No sources configured in registry for this project');
+    } else {
+      try {
+        const results = await scrapeProjectGitHubSources(
+          config.project,
+          registrySources,
+          {
+            openaiApiKey: config.openaiApiKey!,
+            githubToken: config.githubToken,
+            dryRun: config.dryRun
+          }
+        );
+
+        // Index all chunks from all sources
+        for (const result of results) {
+          if (result.chunks.length > 0) {
+            console.log(`\nIndexing ${result.chunks.length} chunks from ${result.sourceId}...`);
+
+            // Process in batches
+            for (let i = 0; i < result.chunks.length; i += EMBEDDING_BATCH_SIZE) {
+              const batch = result.chunks.slice(i, i + EMBEDDING_BATCH_SIZE);
+
+              const embeddings = await generateEmbeddings(
+                batch.map(c => c.content),
+                config.openaiApiKey!
+              );
+
+              await vectorDb.upsert(batch, embeddings);
+              await ftsDb.upsert(batch);
+
+              totalChunks += batch.length;
+              console.log(`  Indexed batch ${Math.floor(i / EMBEDDING_BATCH_SIZE) + 1}/${Math.ceil(result.chunks.length / EMBEDDING_BATCH_SIZE)}`);
+            }
+          }
+
+          console.log(`\nSource ${result.sourceId} stats:`);
+          console.log(`  Files: ${result.stats.totalFiles}`);
+          console.log(`  Indexed: ${result.stats.indexed}`);
+          console.log(`  Skipped: ${result.stats.skipped}`);
+        }
+
+        console.log(`\n✓ Intelligent GitHub scraping complete`);
+      } catch (error) {
+        console.error('⚠ Intelligent GitHub scraping failed:', error instanceof Error ? error.message : error);
+      }
+    }
+  } else if (config.github) {
+    // Legacy scraper (backward compatibility)
+    console.log('\n' + '='.repeat(60));
+    console.log(`Scraping Source Code from GitHub (Legacy): ${config.github.repo}`);
     console.log('='.repeat(60));
 
     try {
@@ -276,10 +363,10 @@ async function main() {
   console.log('Scraping Complete!');
   console.log('='.repeat(60));
   console.log(`  Project: ${config.project} (${config.projectName})`);
-  console.log(`  Pages processed: ${processedPages}`);
-  console.log(`  Pages failed: ${failedPages}`);
+  console.log(`  Docs crawled: ${config.githubOnly ? 'skipped' : `${processedPages} pages (${failedPages} failed)`}`);
+  console.log(`  GitHub mode: ${useIntelligentScraper ? 'intelligent (registry)' : config.github ? 'legacy' : 'disabled'}`);
+  console.log(`  Dry run: ${config.dryRun ? 'yes' : 'no'}`);
   console.log(`  Total chunks indexed: ${totalChunks}`);
-  console.log(`  GitHub source: ${config.github ? 'enabled' : 'disabled'}`);
   console.log(`  Total time: ${totalTime}s`);
   console.log('='.repeat(60));
 

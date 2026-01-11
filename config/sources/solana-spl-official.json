@@ -1,0 +1,27 @@
+{
+  "id": "solana-spl-official",
+  "type": "github",
+  "repoType": "sdk",
+  "trustLevel": "official",
+  "repo": "solana-labs/solana-program-library",
+  "branch": "master",
+  "scrapeStrategy": {
+    "apiPaths": [
+      "token/program/src/**/*.rs",
+      "associated-token-account/program/src/**/*.rs",
+      "token/program-2022/src/**/*.rs"
+    ],
+    "exampleDirs": ["examples"],
+    "exclude": ["**/tests/**", "**/*_test.rs", "**/target/**"],
+    "extensions": [".rs"]
+  },
+  "qualityThresholds": {
+    "minDocumentationScore": 20,
+    "minLLMRelevanceScore": 40,
+    "requireReadme": false
+  },
+  "versionPackages": ["@solana/web3.js", "@solana/spl-token"],
+  "description": "Official Solana Program Library - token programs and SPL implementations",
+  "maintainer": "solana-labs",
+  "addedAt": "2026-01-10T00:00:00.000Z"
+}

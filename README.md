@@ -8,9 +8,14 @@ A Model Context Protocol (MCP) server that provides blockchain developer documen
 - **Multi-Project Support**: Query documentation from Mina, Solana, Cosmos, and more
 - **Hybrid Search**: Combines vector similarity (Qdrant) and full-text search (SQLite FTS5) with Reciprocal Rank Fusion
 - **Smart Reranking**: Results are reranked using gpt-4o-mini for higher relevance
+- **Corrective RAG**: Automatically retries with alternative queries when initial results have low confidence
 - **Working Code Examples**: Get complete, runnable code with imports and setup instructions
 - **Error Debugging**: Explain errors with root cause analysis and fixes
 - **Source Citations**: All answers include links to original documentation sources
+- **Intelligent GitHub Scraping**: Quality-filtered indexing of GitHub examples with LLM relevance scoring
+- **Trust Levels**: Tiered source trust (official > verified-community > community) affects search ranking
+- **Source Registry**: Modular configuration for multiple GitHub repos per project
+- **Evaluation Suite**: Comprehensive test harness with LLM-based validation for quality assurance
 
 ## Supported Projects
 
@@ -101,24 +106,38 @@ npm run build
 
 List available projects:
 ```bash
-node packages/scraper/dist/index.js --list
+npm run scraper -- --list
 ```
 
 Scrape a specific project:
 ```bash
-# Index Mina Protocol docs
-node packages/scraper/dist/index.js --project mina
+# Index Mina Protocol docs (legacy mode)
+npm run scraper -- -p mina
 
-# Index Solana docs
-node packages/scraper/dist/index.js --project solana
+# Index with intelligent GitHub scraping (recommended)
+npm run scraper -- -p mina --use-registry
 
-# Index Cosmos SDK docs
-node packages/scraper/dist/index.js --project cosmos
+# Dry run to preview what would be indexed (no LLM costs)
+npm run scraper -- -p mina --use-registry --dry-run
+
+# GitHub sources only (skip documentation crawl)
+npm run scraper -- -p mina --use-registry --github-only
 ```
+
+**Scraper Options:**
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--project <id>` | `-p` | Project to scrape (required) |
+| `--list` | `-l` | List available projects |
+| `--use-registry` | `-r` | Use source registry for intelligent GitHub scraping |
+| `--dry-run` | `-d` | Preview what would be indexed (skip LLM calls) |
+| `--github-only` | `-g` | Only scrape GitHub sources, skip documentation |
+| `--help` | `-h` | Show help |
 
 This will:
 - Crawl the project's documentation site
 - Parse and chunk the content
+- (With `--use-registry`) Run intelligent quality filtering on GitHub sources
 - Generate embeddings via OpenAI
 - Store in Qdrant (vector) and SQLite (full-text) with project tags
 
@@ -146,50 +165,50 @@ curl -X POST http://localhost:3000/mcp \
 # List available projects
 curl -X POST http://localhost:3000/mcp \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_projects","arguments":{}},"id":2}'
+  -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"crypto_list_projects","arguments":{}},"id":2}'
 
 # Ask a question (LLM-synthesized answer)
 curl -X POST http://localhost:3000/mcp \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"ask_docs","arguments":{"question":"How do I create a smart contract?","project":"mina"}},"id":3}'
+  -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"crypto_ask_docs","arguments":{"question":"How do I create a smart contract?","project":"mina"}},"id":3}'
 ```
 
 ## Available MCP Tools
 
-The server exposes 5 LLM-powered tools via the MCP protocol. All tools (except `list_projects`) require a `project` parameter.
+The server exposes 5 LLM-powered tools via the MCP protocol. All tools (except `crypto_list_projects`) require a `project` parameter.
 
 | Tool | Description | Example Arguments |
 |------|-------------|-------------------|
-| `list_projects` | List available documentation projects | `{}` |
-| `ask_docs` | Ask a question, get a synthesized answer with citations | `{"question": "How do state channels work?", "project": "mina"}` |
-| `get_working_example` | Get complete, runnable code for a task | `{"task": "deploy a smart contract", "project": "solana"}` |
-| `explain_error` | Debug an error with root cause and fixes | `{"error": "proof verification failed", "project": "mina", "context": "during zkApp deployment"}` |
-| `search_docs` | Search raw documentation chunks (no LLM synthesis) | `{"query": "IBC protocol", "project": "cosmos", "limit": 5}` |
+| `crypto_list_projects` | List available documentation projects | `{}` |
+| `crypto_ask_docs` | Ask a question, get a synthesized answer with citations | `{"question": "How do state channels work?", "project": "mina"}` |
+| `crypto_get_working_example` | Get complete, runnable code for a task | `{"task": "deploy a smart contract", "project": "solana"}` |
+| `crypto_explain_error` | Debug an error with root cause and fixes | `{"error": "proof verification failed", "project": "mina", "context": "during zkApp deployment"}` |
+| `crypto_search_docs` | Search raw documentation chunks (no LLM synthesis) | `{"query": "IBC protocol", "project": "cosmos", "limit": 5}` |
 
 ### Tool Details
 
-#### `ask_docs`
+#### `crypto_ask_docs`
 Returns a comprehensive answer synthesized by GPT-4o, including:
 - Direct answer to the question
 - Relevant code snippets with imports
 - Step-by-step instructions when applicable
 - Source URLs for further reading
 
-#### `get_working_example`
+#### `crypto_get_working_example`
 Returns production-ready code including:
 - All necessary imports
 - Complete implementation
 - Setup/configuration instructions
 - Usage example
 
-#### `explain_error`
+#### `crypto_explain_error`
 Returns debugging assistance including:
 - What the error means
 - Common causes
 - Step-by-step fix instructions
 - Prevention tips
 
-#### `search_docs`
+#### `crypto_search_docs`
 Returns raw documentation chunks for cases where you need:
 - Direct access to source material
 - Multiple perspectives on a topic
@@ -223,7 +242,143 @@ Create a new JSON file in `config/projects/`:
 
 Then run the scraper:
 ```bash
-node packages/scraper/dist/index.js --project myproject
+npm run scraper -- -p myproject
+```
+
+## Intelligent GitHub Scraping
+
+The intelligent scraper uses a multi-stage quality pipeline to ensure only useful examples are indexed, preventing database pollution with benchmarks, internal utilities, and low-value code.
+
+### Source Registry
+
+Instead of a single GitHub repo per project, the source registry (`config/sources/`) allows multiple repos with different trust levels and scrape strategies.
+
+**Directory Structure:**
+```
+config/sources/
+├── mina-o1js-official.json      # Official SDK
+├── mina-zkapp-cli.json          # Official examples
+├── solana-spl-official.json     # Official SPL
+├── cosmos-sdk-official.json     # Official SDK
+└── project-sources.json         # Maps projects to sources
+```
+
+**Example Source Entry** (`config/sources/mina-o1js-official.json`):
+```json
+{
+  "id": "mina-o1js-official",
+  "type": "github",
+  "repoType": "sdk",
+  "trustLevel": "official",
+  "repo": "o1-labs/o1js",
+  "branch": "main",
+  "scrapeStrategy": {
+    "apiPaths": ["src/lib/provable/*.ts", "src/lib/mina/*.ts"],
+    "exampleDirs": ["src/examples"],
+    "exclude": ["**/*.test.ts", "**/benchmarks/**", "**/node_modules/**"],
+    "extensions": [".ts", ".tsx"]
+  },
+  "qualityThresholds": {
+    "minDocumentationScore": 20,
+    "minLLMRelevanceScore": 40,
+    "requireReadme": false
+  },
+  "versionPackages": ["o1js"],
+  "description": "Official o1js SDK"
+}
+```
+
+### Trust Levels
+
+Sources are assigned trust levels that affect search ranking:
+
+| Trust Level | Description | Search Weight |
+|-------------|-------------|---------------|
+| `official` | Official project repos maintained by core team | 1.0 |
+| `verified-community` | High-quality community repos (>100 stars, active) | 0.85 |
+| `community` | General community contributions | 0.7 |
+
+### Repo Types
+
+Different repo types use different scrape strategies:
+
+| Repo Type | Strategy |
+|-----------|----------|
+| `sdk` | Only scrape `apiPaths` (API definitions) and `exampleDirs` |
+| `example-repo` | Scrape broadly from `exampleDirs`, allow shallow root files |
+| `tutorial-repo` | Similar to example-repo, prioritizes documentation |
+| `ecosystem-lib` | Community libraries, scrape examples only |
+
+### Quality Pipeline
+
+The intelligent scraper runs a 4-stage quality pipeline:
+
+```
+1. Directory Filtering    → Skip files not in allowed paths
+2. Quick Heuristics       → Skip tests, configs, benchmarks, generated files
+3. Documentation Score    → Assess README, JSDoc, comment density (0-100)
+4. LLM Relevance Score    → GPT-4o-mini evaluates "Is this a useful example?" (0-100)
+```
+
+Files must pass all stages to be indexed. The LLM prompt is strict:
+- **80-100**: Complete, well-documented example teaching a clear concept
+- **60-79**: Useful but may lack context
+- **40-59**: Partial utility, reference only
+- **20-39**: Internal code, not educational
+- **0-19**: Boilerplate, benchmarks, irrelevant
+
+### Indexed Metadata
+
+Each chunk from intelligent scraping includes rich metadata:
+
+| Field | Description |
+|-------|-------------|
+| `trustLevel` | Source trust level (official/verified-community/community) |
+| `sourceId` | Reference to source registry entry |
+| `qualityScore` | LLM relevance score (0-100) |
+| `exampleDescription` | What this code demonstrates |
+| `prerequisites` | Inferred prerequisites |
+| `versionHint` | Inferred version compatibility |
+| `readmeContext` | Relevant README excerpt |
+| `repoStats` | Stars, forks, last commit |
+
+### Adding Community Sources
+
+1. Create a source file in `config/sources/`:
+```json
+{
+  "id": "mina-community-examples",
+  "type": "github",
+  "repoType": "example-repo",
+  "trustLevel": "community",
+  "repo": "community-member/zkapp-examples",
+  "branch": "main",
+  "scrapeStrategy": {
+    "exampleDirs": ["examples", "demos"],
+    "exclude": ["**/*.test.ts", "**/node_modules/**"]
+  },
+  "qualityThresholds": {
+    "minDocumentationScore": 30,
+    "minLLMRelevanceScore": 50,
+    "requireReadme": true
+  },
+  "description": "Community zkApp examples"
+}
+```
+
+2. Add to project mapping in `config/sources/project-sources.json`:
+```json
+[
+  {
+    "projectId": "mina",
+    "sources": ["mina-o1js-official", "mina-zkapp-cli", "mina-community-examples"]
+  }
+]
+```
+
+3. Run the intelligent scraper:
+```bash
+npm run scraper -- -p mina --use-registry
 ```
 
 ## Integration with AI Coding Agents
@@ -259,49 +414,76 @@ The server works with any MCP-compatible client via the HTTP endpoint.
 ```
 crypto-docs-mcp/
 ├── config/
-│   └── projects/         # Project configuration files
-│       ├── mina.json
-│       ├── solana.json
-│       └── cosmos.json
+│   ├── projects/              # Project configuration files
+│   │   ├── mina.json
+│   │   ├── solana.json
+│   │   └── cosmos.json
+│   └── sources/               # Source registry (intelligent scraping)
+│       ├── mina-o1js-official.json
+│       ├── mina-zkapp-cli.json
+│       ├── solana-spl-official.json
+│       ├── cosmos-sdk-official.json
+│       └── project-sources.json
 ├── packages/
-│   ├── shared/           # Types, DB clients, search logic
+│   ├── shared/                # Types, DB clients, search logic
 │   │   ├── src/
-│   │   │   ├── config/   # Project config loading
-│   │   │   ├── db/       # Qdrant & SQLite clients
-│   │   │   ├── types.ts  # Shared TypeScript types
-│   │   │   ├── search.ts # Hybrid search with RRF
-│   │   │   ├── reranker.ts # GPT-4o-mini reranking
-│   │   │   ├── llm.ts    # GPT-4o answer synthesis
+│   │   │   ├── config/
+│   │   │   │   ├── project-config.ts
+│   │   │   │   ├── load-config.ts
+│   │   │   │   ├── source-registry.ts   # Source registry schemas
+│   │   │   │   └── load-sources.ts      # Source registry loader
+│   │   │   ├── db/            # Qdrant & SQLite clients
+│   │   │   ├── types.ts       # Shared types (with trust metadata)
+│   │   │   ├── search.ts      # Hybrid search with RRF
+│   │   │   ├── reranker.ts    # GPT-4o-mini reranking
+│   │   │   ├── llm.ts         # GPT-4o answer synthesis
 │   │   │   └── embeddings.ts
 │   │   └── package.json
-│   ├── scraper/          # Documentation crawler
+│   ├── scraper/               # Documentation crawler
 │   │   ├── src/
 │   │   │   ├── crawler.ts
 │   │   │   ├── parser.ts
 │   │   │   ├── chunker.ts
-│   │   │   ├── github-source.ts
+│   │   │   ├── github-source.ts           # Legacy GitHub scraper
+│   │   │   ├── intelligent-github-scraper.ts  # Quality-filtered scraper
+│   │   │   ├── quality-assessor.ts        # LLM relevance scoring
+│   │   │   ├── readme-extractor.ts        # README context extraction
 │   │   │   └── index.ts
 │   │   └── package.json
-│   └── server/           # MCP HTTP server
+│   ├── server/                # MCP HTTP server
+│   │   ├── src/
+│   │   │   ├── tools/         # MCP tool implementations
+│   │   │   │   ├── ask-docs.ts
+│   │   │   │   ├── working-example.ts
+│   │   │   │   ├── explain-error.ts
+│   │   │   │   ├── search-docs.ts
+│   │   │   │   └── list-projects.ts
+│   │   │   ├── prompts/       # LLM system prompts
+│   │   │   ├── resources/
+│   │   │   ├── transport.ts
+│   │   │   └── index.ts
+│   │   └── package.json
+│   └── evaluator/             # Test harness for quality assurance
 │       ├── src/
-│       │   ├── tools/    # MCP tool implementations
-│       │   │   ├── ask-docs.ts
-│       │   │   ├── working-example.ts
-│       │   │   ├── explain-error.ts
-│       │   │   ├── search-docs.ts
-│       │   │   └── list-projects.ts
-│       │   ├── prompts/  # LLM system prompts
-│       │   ├── resources/
-│       │   ├── transport.ts
-│       │   └── index.ts
+│       │   ├── index.ts       # CLI entry point
+│       │   ├── harness.ts     # Test runner
+│       │   ├── metrics.ts     # Pass/fail metrics
+│       │   ├── reporter.ts    # Report generation
+│       │   └── validators/    # Validation logic
+│       │       └── llm-judge.ts  # GPT-4o-mini scoring
+│       ├── datasets/          # YAML test cases
+│       │   ├── mina/
+│       │   ├── solana/
+│       │   └── cosmos/
+│       ├── reports/           # Evaluation results
 │       └── package.json
-├── scripts/              # Demo and test scripts
+├── scripts/                   # Demo and test scripts
 │   ├── demo.ts
 │   ├── demo.sh
 │   └── test-integration.ts
-├── data/                 # SQLite database storage
-├── docker-compose.yml    # Qdrant setup
-└── package.json          # Monorepo root
+├── data/                      # SQLite database storage
+├── docker-compose.yml         # Qdrant setup
+└── package.json               # Monorepo root
 ```
 
 ## Development
@@ -314,10 +496,19 @@ npm run build
 npm run clean
 
 # List available projects
-node packages/scraper/dist/index.js --list
+npm run scraper -- --list
 
-# Index a project
-node packages/scraper/dist/index.js --project mina
+# Index a project (legacy mode)
+npm run scraper -- -p mina
+
+# Index with intelligent scraping (recommended)
+npm run scraper -- -p mina --use-registry
+
+# Dry run (preview without LLM costs)
+npm run scraper -- -p mina --use-registry --dry-run
+
+# GitHub only (skip docs crawl)
+npm run scraper -- -p mina --use-registry --github-only
 
 # Start server (production)
 npm run server
@@ -355,6 +546,59 @@ npm run test:integration
 
 Tests cover: health check, MCP initialization, all 5 tools, and resources.
 
+## Evaluation Suite
+
+The project includes a comprehensive evaluation system for testing answer quality using LLM-based validation.
+
+### Running Evaluations
+
+```bash
+# Run all evaluations
+npm run eval
+
+# Project-specific evaluations
+npm run eval:mina
+npm run eval:solana
+npm run eval:cosmos
+
+# Test fallback behavior
+npm run eval:fallback
+
+# Verbose output with details
+npm run eval:verbose
+
+# Preview tests without running
+npm run eval:dry-run
+```
+
+### Evaluator CLI Options
+
+| Flag | Description |
+|------|-------------|
+| `--project <id>` | Filter by project (mina/solana/cosmos) |
+| `--tag <tag>` | Filter by tag (e.g., zkapp, concept) |
+| `--difficulty <level>` | Filter by difficulty (basic/intermediate/advanced) |
+| `--output <path>` | Save JSON report to file |
+| `--verbose` | Show detailed output |
+| `--fail-fast` | Stop on first failure |
+| `--dry-run` | List tests without running |
+| `--ci` | Exit with code 1 on failures (for CI/CD) |
+
+### Test Datasets
+
+Test cases are defined in YAML files under `packages/evaluator/datasets/`:
+- **Mina**: primitives, zkapp, proofs, data-structures, tokens-actions
+- **Solana**: accounts, tokens, transactions
+- **Cosmos**: modules, ibc, transactions, accounts, staking
+- **Cross-project**: multi-hop queries, fallback behavior
+
+### Validation Types
+
+- **Basic validators**: Min length, citation presence, keyword checks
+- **Ground truth**: Expected facts and forbidden claims
+- **Code requirements**: Import completeness, setup instructions
+- **LLM Judge**: GPT-4o-mini scores relevance, accuracy, completeness (0-100)
+
 ## Environment Variables
 
 | Variable | Default | Description |
@@ -373,17 +617,19 @@ Tests cover: health check, MCP initialization, all 5 tools, and resources.
 ## How It Works
 
 1. **Project Config** defines documentation URL, GitHub repo, and crawler settings
-2. **Scraper** crawls the documentation site for a specific project
-3. **Parser** converts HTML to structured chunks (prose, code, API reference)
-4. **GitHub Source** fetches and parses source code (TypeScript, Rust, Go)
-5. **Chunker** splits large content with semantic overlap
-6. **Embeddings** are generated via OpenAI text-embedding-3-small
-7. **Qdrant** stores vectors for semantic search (with project tags)
-8. **SQLite FTS5** provides fast full-text search (with project filtering)
-9. **Hybrid Search** combines both using Reciprocal Rank Fusion
-10. **Reranker** (gpt-4o-mini) scores top candidates for relevance
-11. **LLM** (GPT-4o) synthesizes comprehensive answers with citations
-12. **MCP Server** exposes tools via JSON-RPC over HTTP
+2. **Source Registry** (optional) defines multiple GitHub sources with trust levels
+3. **Scraper** crawls the documentation site for a specific project
+4. **Parser** converts HTML to structured chunks (prose, code, API reference)
+5. **Intelligent GitHub Scraper** applies 4-stage quality filtering on code
+6. **Chunker** splits large content with semantic overlap
+7. **Embeddings** are generated via OpenAI text-embedding-3-small
+8. **Qdrant** stores vectors for semantic search (with project tags)
+9. **SQLite FTS5** provides fast full-text search (with project filtering)
+10. **Hybrid Search** combines both using Reciprocal Rank Fusion
+11. **Reranker** (gpt-4o-mini) scores top candidates for relevance
+12. **Corrective RAG** retries with alternative queries if confidence is low
+13. **LLM** (GPT-4o) synthesizes comprehensive answers with citations
+14. **MCP Server** exposes tools via JSON-RPC over HTTP
 
 ## API Reference
 
@@ -401,7 +647,7 @@ Tests cover: health check, MCP initialization, all 5 tools, and resources.
 {
   "status": "ok",
   "server": "crypto-docs-mcp",
-  "version": "2.0.0",
+  "version": "0.1.0",
   "features": ["llm-synthesis", "reranking"],
   "endpoints": {
     "mcp": "/mcp",
@@ -435,7 +681,7 @@ curl http://localhost:6333/health
 ### Empty Search Results
 Run the scraper first to index documentation:
 ```bash
-node packages/scraper/dist/index.js --project mina
+npm run scraper -- -p mina --use-registry
 ```
 
 ### OpenAI API Errors
@@ -457,7 +703,7 @@ Make sure project JSON files exist in `config/projects/` directory.
 ### LLM Synthesis Too Slow
 - Reduce `LLM_MAX_TOKENS` for shorter responses
 - Increase `LLM_TEMPERATURE` for faster (but less focused) generation
-- Use `search_docs` tool for raw results without LLM processing
+- Use `crypto_search_docs` tool for raw results without LLM processing
 
 ## License
 

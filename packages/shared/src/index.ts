@@ -5,6 +5,8 @@ export * from './embeddings.js';
 export * from './search.js';
 export * from './config/project-config.js';
 export * from './config/load-config.js';
+export * from './config/source-registry.js';
+export * from './config/load-sources.js';
 export * from './llm.js';
 export * from './reranker.js';
 export * from './query-analyzer.js';

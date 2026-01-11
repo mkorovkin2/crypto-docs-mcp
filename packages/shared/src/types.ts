@@ -20,6 +20,22 @@ export interface DocumentChunk {
     typeName?: string;
     isStatic?: boolean;
     filePath?: string;
+    // Trust and quality metadata
+    trustLevel?: 'official' | 'verified-community' | 'community';
+    sourceId?: string; // Reference to source registry entry
+    versionHint?: string; // Inferred version compatibility (e.g., "o1js@>=0.15.0")
+    prerequisites?: string[]; // Inferred prerequisites
+    repoStats?: {
+      stars: number;
+      forks: number;
+      lastCommit: string; // ISO timestamp
+    };
+    // Context from surrounding docs
+    readmeContext?: string; // Relevant excerpt from README
+    exampleDescription?: string; // What this example demonstrates
+    // Quality filtering metadata
+    qualityScore?: number; // 0-100 from LLM evaluation
+    indexedReason?: string; // Why this was deemed index-worthy
   };
 }
 

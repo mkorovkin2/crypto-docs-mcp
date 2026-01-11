@@ -1,0 +1,22 @@
+{
+  "id": "mina-zkapp-cli",
+  "type": "github",
+  "repoType": "example-repo",
+  "trustLevel": "official",
+  "repo": "o1-labs/zkapp-cli",
+  "branch": "main",
+  "scrapeStrategy": {
+    "exampleDirs": ["examples", "templates"],
+    "exclude": ["**/*.test.ts", "**/*.spec.ts", "**/node_modules/**", "**/dist/**"],
+    "extensions": [".ts", ".tsx", ".js", ".jsx"]
+  },
+  "qualityThresholds": {
+    "minDocumentationScore": 30,
+    "minLLMRelevanceScore": 50,
+    "requireReadme": true
+  },
+  "versionPackages": ["o1js"],
+  "description": "Official zkApp CLI - project templates and example applications",
+  "maintainer": "o1-labs",
+  "addedAt": "2026-01-10T00:00:00.000Z"
+}

@@ -9,7 +9,7 @@
   "scripts": {
     "build": "npm run build --workspaces",
     "clean": "rm -rf packages/*/dist",
-    "scraper": "npm run start -w packages/scraper",
+    "scraper": "node packages/scraper/dist/index.js",
     "server": "npm run start -w packages/server",
     "dev:server": "npm run dev -w packages/server",
     "test:integration": "node --loader ts-node/esm scripts/test-integration.ts",

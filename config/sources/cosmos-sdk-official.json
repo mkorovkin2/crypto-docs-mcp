@@ -1,0 +1,29 @@
+{
+  "id": "cosmos-sdk-official",
+  "type": "github",
+  "repoType": "sdk",
+  "trustLevel": "official",
+  "repo": "cosmos/cosmos-sdk",
+  "branch": "main",
+  "scrapeStrategy": {
+    "apiPaths": [
+      "x/bank/**/*.go",
+      "x/staking/**/*.go",
+      "x/gov/**/*.go",
+      "x/auth/**/*.go",
+      "x/distribution/**/*.go"
+    ],
+    "exampleDirs": ["examples", "simapp"],
+    "exclude": ["**/*_test.go", "**/testutil/**", "**/mock/**"],
+    "extensions": [".go"]
+  },
+  "qualityThresholds": {
+    "minDocumentationScore": 20,
+    "minLLMRelevanceScore": 40,
+    "requireReadme": false
+  },
+  "versionPackages": ["cosmjs", "@cosmjs/stargate"],
+  "description": "Official Cosmos SDK - core modules for building blockchains",
+  "maintainer": "cosmos",
+  "addedAt": "2026-01-10T00:00:00.000Z"
+}
