@@ -13,14 +13,37 @@
   },
   {
     "projectId": "pirate-chain",
-    "sources": ["pirate-core", "pirate-lightwalletd"]
+    "sources": [
+      "pirate-core",
+      "pirate-lightwalletd",
+      "pirate-piratepay",
+      "pirate-arrrmada"
+    ]
   },
   {
     "projectId": "beam",
-    "sources": ["beam-core", "beam-web-wallet", "beam-shader-sdk"]
+    "sources": [
+      "beam-core",
+      "beam-web-wallet",
+      "beam-shader-sdk",
+      "beam-shaders",
+      "beam-zone",
+      "beam-nft-marketplace",
+      "beam-dapps"
+    ]
   },
   {
     "projectId": "secret",
-    "sources": ["secret-network", "secret-js", "secret-toolkit"]
+    "sources": [
+      "secret-network",
+      "secret-js",
+      "secret-toolkit",
+      "secret-shade-protocol",
+      "secret-shadejs",
+      "secret-secretswap",
+      "secret-snip721-reference",
+      "secret-random-mint-nft",
+      "secret-snips"
+    ]
   }
 ]

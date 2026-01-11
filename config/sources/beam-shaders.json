@@ -1,0 +1,29 @@
+{
+  "id": "beam-shaders",
+  "type": "github",
+  "repoType": "sdk",
+  "trustLevel": "official",
+  "repo": "BeamMW/beam",
+  "branch": "beamX",
+  "scrapeStrategy": {
+    "apiPaths": [
+      "bvm/Shaders/**/*.cpp",
+      "bvm/Shaders/**/*.h"
+    ],
+    "exampleDirs": ["bvm/Shaders/faucet", "bvm/Shaders/vault", "bvm/Shaders/roulette", "bvm/Shaders/oracle", "bvm/Shaders/pipe"],
+    "exclude": [
+      "**/test/**",
+      "**/tests/**"
+    ],
+    "extensions": [".cpp", ".h", ".hpp"]
+  },
+  "qualityThresholds": {
+    "minDocumentationScore": 20,
+    "minLLMRelevanceScore": 40,
+    "requireReadme": false
+  },
+  "versionPackages": [],
+  "description": "Beam Shaders - Smart contract examples (vault, faucet, roulette, oracle) for Beam Virtual Machine",
+  "maintainer": "BeamMW",
+  "addedAt": "2026-01-11T00:00:00.000Z"
+}

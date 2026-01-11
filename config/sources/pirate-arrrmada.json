@@ -1,0 +1,31 @@
+{
+  "id": "pirate-arrrmada",
+  "type": "github",
+  "repoType": "example-repo",
+  "trustLevel": "community",
+  "repo": "ARRRmada/ARRRmada.com",
+  "branch": "main",
+  "scrapeStrategy": {
+    "apiPaths": [
+      "**/*.html",
+      "**/*.js",
+      "**/*.json"
+    ],
+    "exampleDirs": [".", "data"],
+    "exclude": [
+      "**/node_modules/**",
+      "**/*.min.js",
+      "**/vendor/**"
+    ],
+    "extensions": [".html", ".js", ".json", ".md"]
+  },
+  "qualityThresholds": {
+    "minDocumentationScore": 10,
+    "minLLMRelevanceScore": 30,
+    "requireReadme": false
+  },
+  "versionPackages": [],
+  "description": "ARRRmada - Community directory of merchants accepting Pirate Chain (ARRR)",
+  "maintainer": "ARRRmada",
+  "addedAt": "2026-01-11T00:00:00.000Z"
+}

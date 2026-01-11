@@ -1,0 +1,29 @@
+{
+  "id": "beam-zone",
+  "type": "github",
+  "repoType": "example-repo",
+  "trustLevel": "official",
+  "repo": "BeamMW/beam-zone",
+  "branch": "main",
+  "scrapeStrategy": {
+    "apiPaths": [
+      "**/*.json",
+      "**/*.md"
+    ],
+    "exampleDirs": [".", "bans", "nephrite"],
+    "exclude": [
+      "**/node_modules/**",
+      "**/assets/**"
+    ],
+    "extensions": [".json", ".md"]
+  },
+  "qualityThresholds": {
+    "minDocumentationScore": 15,
+    "minLLMRelevanceScore": 35,
+    "requireReadme": false
+  },
+  "versionPackages": [],
+  "description": "BeamZone - Collection of dApps on Beam (DEX, NFTs, stablecoin, naming service, lending)",
+  "maintainer": "BeamMW",
+  "addedAt": "2026-01-11T00:00:00.000Z"
+}

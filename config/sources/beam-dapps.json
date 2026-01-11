@@ -1,0 +1,32 @@
+{
+  "id": "beam-dapps",
+  "type": "github",
+  "repoType": "example-repo",
+  "trustLevel": "official",
+  "repo": "BeamMW/beam-dapps",
+  "branch": "master",
+  "scrapeStrategy": {
+    "apiPaths": [
+      "**/*.cpp",
+      "**/*.h",
+      "**/*.js",
+      "**/*.vue"
+    ],
+    "exampleDirs": ["."],
+    "exclude": [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/build/**"
+    ],
+    "extensions": [".cpp", ".h", ".hpp", ".js", ".vue"]
+  },
+  "qualityThresholds": {
+    "minDocumentationScore": 15,
+    "minLLMRelevanceScore": 35,
+    "requireReadme": false
+  },
+  "versionPackages": [],
+  "description": "Beam dApps repository - DAO voting, BANS name service, asset minter examples",
+  "maintainer": "BeamMW",
+  "addedAt": "2026-01-11T00:00:00.000Z"
+}

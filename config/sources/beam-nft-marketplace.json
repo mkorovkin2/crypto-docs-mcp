@@ -1,0 +1,31 @@
+{
+  "id": "beam-nft-marketplace",
+  "type": "github",
+  "repoType": "example-repo",
+  "trustLevel": "official",
+  "repo": "BeamMW/nft-marketplace",
+  "branch": "master",
+  "scrapeStrategy": {
+    "apiPaths": [
+      "src/**/*.js",
+      "src/**/*.vue"
+    ],
+    "exampleDirs": ["src"],
+    "exclude": [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/*.min.js",
+      "**/html/**"
+    ],
+    "extensions": [".js", ".vue", ".json"]
+  },
+  "qualityThresholds": {
+    "minDocumentationScore": 15,
+    "minLLMRelevanceScore": 35,
+    "requireReadme": false
+  },
+  "versionPackages": [],
+  "description": "BEAM NFT Marketplace - Confidential NFT trading platform (JavaScript/Vue)",
+  "maintainer": "BeamMW",
+  "addedAt": "2026-01-11T00:00:00.000Z"
+}
