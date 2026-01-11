@@ -26,7 +26,10 @@
     "rag-inspector": "npx tsc scripts/rag-inspector.ts --outDir scripts --esModuleInterop --module ESNext --moduleResolution node --target ES2022 && node scripts/rag-inspector.js",
     "rag:mina": "node scripts/rag-inspector.js --project mina",
     "rag:solana": "node scripts/rag-inspector.js --project solana",
-    "rag:cosmos": "node scripts/rag-inspector.js --project cosmos"
+    "rag:cosmos": "node scripts/rag-inspector.js --project cosmos",
+    "rag:secret": "node scripts/rag-inspector.js --project secret",
+    "rag:beam": "node scripts/rag-inspector.js --project beam",
+    "rag:pirate-chain": "node scripts/rag-inspector.js --project pirate-chain"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

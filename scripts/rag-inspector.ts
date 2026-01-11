@@ -116,7 +116,7 @@ function printHelp() {
     ['history', 'Show query history with metrics summary'],
     ['detail <n>', 'Show full details for history item n'],
     ['raw [n]', 'Show full unprocessed MCP response (default: last)'],
-    ['project <id>', 'Switch project (mina/solana/cosmos)'],
+    ['project <id>', 'Switch project (mina/solana/cosmos/secret/beam/pirate-chain)'],
     ['export [file]', 'Export session history to JSON'],
     ['clear', 'Clear screen'],
     ['help', 'Show this help'],
@@ -655,11 +655,11 @@ async function main() {
             break;
 
           case 'project':
-            if (argStr && ['mina', 'solana', 'cosmos'].includes(argStr.toLowerCase())) {
+            if (argStr && ['mina', 'solana', 'cosmos', 'secret', 'beam', 'pirate-chain'].includes(argStr.toLowerCase())) {
               currentProject = argStr.toLowerCase();
               log(colors.green, `Switched to project: ${currentProject}`);
             } else {
-              log(colors.yellow, 'Available projects: mina, solana, cosmos');
+              log(colors.yellow, 'Available projects: mina, solana, cosmos, secret, beam, pirate-chain');
             }
             break;
 
