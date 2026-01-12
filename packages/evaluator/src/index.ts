@@ -23,6 +23,7 @@ import type { TestDataset, TestResult, TestCase } from './types.js';
 import { runTest, initializeMCP, checkServerHealth } from './harness.js';
 import { calculateMetrics } from './metrics.js';
 import { printReport, saveReport, printProgress, printError, printInfo } from './reporter.js';
+import { listProjects } from '@mina-docs/shared';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -53,9 +54,15 @@ async function loadDatasets(projectFilter?: string): Promise<TestDataset[]> {
   const datasetsDir = path.join(__dirname, '..', 'datasets');
   const datasets: TestDataset[] = [];
 
+  // Get projects dynamically from config, with fallback to known projects
+  const availableProjects = listProjects();
+  const defaultProjects = availableProjects.length > 0
+    ? availableProjects
+    : ['mina', 'solana', 'cosmos'];
+
   const projects = projectFilter
     ? [projectFilter]
-    : ['mina', 'solana', 'cosmos'];
+    : defaultProjects;
 
   for (const project of projects) {
     const projectDir = path.join(datasetsDir, project);

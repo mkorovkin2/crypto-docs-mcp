@@ -109,11 +109,18 @@ export class HybridSearch {
     limit: number
   ): SearchResult[] {
     const k = 60; // RRF constant
+    const ORPHAN_PENALTY = 0.5; // Reduce orphaned chunk scores by 50%
     const scores = new Map<string, { chunk: DocumentChunk; score: number; matchType: SearchResult['matchType'] }>();
 
     // Score vector results
     vectorResults.forEach((result, rank) => {
-      const rrfScore = 1 / (k + rank + 1);
+      let rrfScore = 1 / (k + rank + 1);
+
+      // Apply orphan penalty
+      if (result.chunk.metadata.orphaned) {
+        rrfScore *= ORPHAN_PENALTY;
+      }
+
       scores.set(result.chunk.id, {
         chunk: result.chunk,
         score: rrfScore,
@@ -123,7 +130,13 @@ export class HybridSearch {
 
     // Add FTS scores
     ftsResults.forEach((result, rank) => {
-      const rrfScore = 1 / (k + rank + 1);
+      let rrfScore = 1 / (k + rank + 1);
+
+      // Apply orphan penalty
+      if (result.chunk.metadata.orphaned) {
+        rrfScore *= ORPHAN_PENALTY;
+      }
+
       const existing = scores.get(result.chunk.id);
 
       if (existing) {

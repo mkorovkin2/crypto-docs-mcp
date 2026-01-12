@@ -231,34 +231,24 @@ Returns raw documentation chunks for cases where you need:
 
 ## Adding New Projects
 
-Create a new JSON file in `config/projects/`:
+### Quick Method: Use the Onboarding Wizard (Recommended)
 
-```json
-{
-  "id": "myproject",
-  "name": "My Project",
-  "docs": {
-    "baseUrl": "https://docs.myproject.com",
-    "excludePatterns": ["/api/", "/changelog/"],
-    "maxPages": 200
-  },
-  "github": {
-    "repo": "org/myproject",
-    "branch": "main",
-    "include": ["src/**/*.ts"],
-    "exclude": ["**/*.test.ts"]
-  },
-  "crawler": {
-    "concurrency": 5,
-    "delayMs": 500
-  }
-}
+If you're using Claude Code, run the interactive onboarding command:
+
+```
+/onboard_project
 ```
 
-Then run the scraper:
-```bash
-npm run scraper -- -p myproject
+This wizard will:
+1. **Gather project information** - name, ID, documentation URL
+2. **Configure scraping settings** - Cloudflare protection, URL exclusions, page limits
+3. **Set up GitHub sources** - repository, trust level, file patterns (optional)
+4. **Create all config files** - project config, source configs, project-sources mapping
+5. **Validate and verify** - checks JSON syntax and confirms project appears in scraper
+
+Example session:
 ```
+User: /onboard_project
 
 ## Intelligent GitHub Scraping
 

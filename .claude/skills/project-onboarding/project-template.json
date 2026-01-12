@@ -1,0 +1,21 @@
+{
+  "$schema": "Project configuration template - replace {{PLACEHOLDERS}} with actual values",
+  "id": "{{PROJECT_ID}}",
+  "name": "{{PROJECT_NAME}}",
+  "docs": {
+    "baseUrl": "{{DOCS_URL}}",
+    "excludePatterns": ["/api/", "/changelog/", "/releases/"],
+    "maxPages": 200,
+    "useBrowser": false
+  },
+  "github": {
+    "repo": "{{GITHUB_ORG}}/{{GITHUB_REPO}}",
+    "branch": "main",
+    "include": ["src/**/*.ts", "src/**/*.js", "examples/**/*"],
+    "exclude": ["**/*.test.*", "**/test/**", "**/tests/**", "**/__tests__/**"]
+  },
+  "crawler": {
+    "concurrency": 3,
+    "delayMs": 1000
+  }
+}

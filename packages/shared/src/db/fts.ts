@@ -37,6 +37,17 @@ export class FullTextDB {
       CREATE INDEX IF NOT EXISTS idx_chunks_project ON chunks(project)
     `);
 
+    // Add orphaned column if it doesn't exist (migration for existing databases)
+    const columns = this.db.prepare("PRAGMA table_info(chunks)").all() as Array<{name: string}>;
+    if (!columns.some(c => c.name === 'orphaned')) {
+      this.db.exec(`ALTER TABLE chunks ADD COLUMN orphaned INTEGER DEFAULT 0`);
+    }
+
+    // Create index for URL-based deletion
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_chunks_url ON chunks(url)
+    `);
+
     // Create FTS5 virtual table
     this.db.exec(`
       CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
@@ -47,12 +58,28 @@ export class FullTextDB {
         tokenize='porter unicode61'
       )
     `);
+
+    // Create page_hashes table for change detection
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS page_hashes (
+        url TEXT PRIMARY KEY,
+        project TEXT NOT NULL,
+        content_hash TEXT NOT NULL,
+        chunk_count INTEGER NOT NULL,
+        last_indexed TEXT NOT NULL
+      )
+    `);
+
+    // Index for project-based queries on page_hashes
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_page_hashes_project ON page_hashes(project)
+    `);
   }
 
   async upsert(chunks: DocumentChunk[]): Promise<void> {
     const insertChunk = this.db.prepare(`
-      INSERT OR REPLACE INTO chunks (id, url, title, section, content, content_type, project, metadata)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT OR REPLACE INTO chunks (id, url, title, section, content, content_type, project, metadata, orphaned)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const deleteFts = this.db.prepare(`
@@ -74,7 +101,8 @@ export class FullTextDB {
           chunk.content,
           chunk.contentType,
           chunk.project,
-          JSON.stringify(chunk.metadata)
+          JSON.stringify(chunk.metadata),
+          chunk.metadata.orphaned ? 1 : 0
         );
 
         // Update FTS index
@@ -140,7 +168,10 @@ export class FullTextDB {
           content: row.content,
           contentType: row.content_type,
           project: row.project,
-          metadata: JSON.parse(row.metadata)
+          metadata: {
+            ...JSON.parse(row.metadata),
+            orphaned: row.orphaned === 1
+          }
         },
         score: Math.abs(row.score) // BM25 returns negative scores
       }));
@@ -148,6 +179,96 @@ export class FullTextDB {
       console.error('FTS search error:', error);
       return [];
     }
+  }
+
+  /**
+   * Delete all chunks matching a specific URL
+   */
+  async deleteByUrl(url: string): Promise<number> {
+    const chunks = this.db.prepare('SELECT id FROM chunks WHERE url = ?').all(url) as Array<{id: string}>;
+    if (chunks.length === 0) return 0;
+
+    const transaction = this.db.transaction(() => {
+      for (const chunk of chunks) {
+        this.db.prepare('DELETE FROM chunks_fts WHERE content_id = ?').run(chunk.id);
+      }
+      this.db.prepare('DELETE FROM chunks WHERE url = ?').run(url);
+    });
+
+    transaction();
+    return chunks.length;
+  }
+
+  /**
+   * Delete all chunks for a project
+   */
+  async deleteByProject(project: string): Promise<number> {
+    const chunks = this.db.prepare('SELECT id FROM chunks WHERE project = ?').all(project) as Array<{id: string}>;
+    if (chunks.length === 0) return 0;
+
+    const transaction = this.db.transaction(() => {
+      for (const chunk of chunks) {
+        this.db.prepare('DELETE FROM chunks_fts WHERE content_id = ?').run(chunk.id);
+      }
+      this.db.prepare('DELETE FROM chunks WHERE project = ?').run(project);
+    });
+
+    transaction();
+    return chunks.length;
+  }
+
+  /**
+   * Get all unique URLs for a project
+   */
+  async getUrlsForProject(project: string): Promise<string[]> {
+    const rows = this.db.prepare('SELECT DISTINCT url FROM chunks WHERE project = ?').all(project) as Array<{url: string}>;
+    return rows.map(r => r.url);
+  }
+
+  /**
+   * Mark all chunks for given URLs as orphaned
+   */
+  async markOrphaned(urls: string[], orphaned: boolean): Promise<void> {
+    const stmt = this.db.prepare('UPDATE chunks SET orphaned = ? WHERE url = ?');
+    const transaction = this.db.transaction(() => {
+      for (const url of urls) {
+        stmt.run(orphaned ? 1 : 0, url);
+      }
+    });
+    transaction();
+  }
+
+  /**
+   * Get the stored content hash for a URL
+   */
+  async getPageHash(url: string): Promise<string | null> {
+    const row = this.db.prepare('SELECT content_hash FROM page_hashes WHERE url = ?').get(url) as {content_hash: string} | undefined;
+    return row?.content_hash || null;
+  }
+
+  /**
+   * Update or insert the content hash for a URL
+   */
+  async setPageHash(url: string, project: string, contentHash: string, chunkCount: number): Promise<void> {
+    this.db.prepare(`
+      INSERT OR REPLACE INTO page_hashes (url, project, content_hash, chunk_count, last_indexed)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(url, project, contentHash, chunkCount, new Date().toISOString());
+  }
+
+  /**
+   * Get all indexed URLs for a project (from page_hashes table)
+   */
+  async getIndexedUrlsForProject(project: string): Promise<string[]> {
+    const rows = this.db.prepare('SELECT url FROM page_hashes WHERE project = ?').all(project) as Array<{url: string}>;
+    return rows.map(r => r.url);
+  }
+
+  /**
+   * Delete page hash record
+   */
+  async deletePageHash(url: string): Promise<void> {
+    this.db.prepare('DELETE FROM page_hashes WHERE url = ?').run(url);
   }
 
   async close(): Promise<void> {

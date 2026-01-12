@@ -38,6 +38,12 @@ export class VectorDB {
         field_name: 'project',
         field_schema: 'keyword'
       });
+
+      // Create URL index for efficient deletion
+      await this.client.createPayloadIndex(this.collection, {
+        field_name: 'url',
+        field_schema: 'keyword'
+      });
     }
   }
 
@@ -52,7 +58,8 @@ export class VectorDB {
         content: chunk.content,
         contentType: chunk.contentType,
         project: chunk.project,
-        metadata: chunk.metadata
+        metadata: chunk.metadata,
+        orphaned: chunk.metadata.orphaned || false
       }
     }));
 
@@ -95,10 +102,85 @@ export class VectorDB {
         content: result.payload!.content as string,
         contentType: result.payload!.contentType as DocumentChunk['contentType'],
         project: result.payload!.project as string,
-        metadata: result.payload!.metadata as DocumentChunk['metadata']
+        metadata: {
+          ...(result.payload!.metadata as DocumentChunk['metadata']),
+          orphaned: result.payload!.orphaned as boolean || false
+        }
       },
       score: result.score
     }));
+  }
+
+  /**
+   * Delete all points (chunks) matching a specific URL
+   */
+  async deleteByUrl(url: string): Promise<void> {
+    await this.client.delete(this.collection, {
+      filter: {
+        must: [{ key: 'url', match: { value: url } }]
+      }
+    });
+  }
+
+  /**
+   * Delete all points for a project
+   */
+  async deleteByProject(project: string): Promise<void> {
+    await this.client.delete(this.collection, {
+      filter: {
+        must: [{ key: 'project', match: { value: project } }]
+      }
+    });
+  }
+
+  /**
+   * Get all unique URLs for a project (for orphan detection)
+   */
+  async getUrlsForProject(project: string): Promise<string[]> {
+    const urls = new Set<string>();
+    let offsetId: string | number | null = null;
+
+    // Scroll through all points for this project
+    while (true) {
+      const scrollParams: any = {
+        filter: {
+          must: [{ key: 'project', match: { value: project } }]
+        },
+        limit: 100,
+        with_payload: ['url']
+      };
+
+      if (offsetId !== null) {
+        scrollParams.offset = offsetId;
+      }
+
+      const result = await this.client.scroll(this.collection, scrollParams);
+
+      for (const point of result.points) {
+        if (point.payload?.url) {
+          urls.add(point.payload.url as string);
+        }
+      }
+
+      if (!result.next_page_offset) break;
+      offsetId = result.next_page_offset as string | number;
+    }
+
+    return Array.from(urls);
+  }
+
+  /**
+   * Mark all chunks for given URLs as orphaned
+   */
+  async markOrphaned(urls: string[], orphaned: boolean): Promise<void> {
+    for (const url of urls) {
+      await this.client.setPayload(this.collection, {
+        payload: { orphaned },
+        filter: {
+          must: [{ key: 'url', match: { value: url } }]
+        }
+      });
+    }
   }
 
   async close(): Promise<void> {

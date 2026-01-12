@@ -4,7 +4,40 @@ import { explainError, ExplainErrorSchema } from './explain-error.js';
 import { searchDocs, SearchDocsSchema } from './search-docs.js';
 import { listProjectsTool, ListProjectsSchema } from './list-projects.js';
 import type { HybridSearch, FullTextDB, LLMClient } from '@mina-docs/shared';
+import { listProjects, loadProjectConfig } from '@mina-docs/shared';
 import { logger } from '../utils/logger.js';
+
+// Helper functions to generate dynamic project descriptions
+function getProjectDescriptions(): string {
+  try {
+    const projects = listProjects();
+    if (projects.length === 0) {
+      return '- Use crypto_list_projects to see available projects';
+    }
+    return projects.map(id => {
+      try {
+        const config = loadProjectConfig(id);
+        return `- "${id}" - ${config.name}`;
+      } catch {
+        return `- "${id}"`;
+      }
+    }).join('\n');
+  } catch {
+    return '- Use crypto_list_projects to see available projects';
+  }
+}
+
+function getProjectList(): string {
+  try {
+    const projects = listProjects();
+    if (projects.length === 0) {
+      return 'available projects';
+    }
+    return projects.map(id => `"${id}"`).join(', ');
+  } catch {
+    return 'available projects';
+  }
+}
 
 export interface ToolContext {
   search: HybridSearch;
@@ -13,17 +46,18 @@ export interface ToolContext {
 }
 
 export function getToolDefinitions() {
+  const projectDescriptions = getProjectDescriptions();
+  const projectList = getProjectList();
+
   return [
     {
       name: 'crypto_list_projects',
-      description: `List available blockchain documentation projects: Mina Protocol (zkApps, o1js), Solana, and Cosmos SDK.
+      description: `List available blockchain documentation projects.
 
-TRIGGER THIS TOOL WHEN: User mentions blockchain, crypto, web3, smart contracts, zkApps, Mina, Solana, Cosmos, or asks what documentation is available.
+TRIGGER THIS TOOL WHEN: User mentions blockchain, crypto, web3, smart contracts, or asks what documentation is available.
 
 Available projects:
-- "mina" - Mina Protocol: zkApps, o1js, zero-knowledge proofs, snarkyjs
-- "solana" - Solana: programs, @solana/web3.js, Anchor, SPL tokens
-- "cosmos" - Cosmos SDK: CosmJS, IBC, Tendermint, CosmWasm
+${projectDescriptions}
 
 RETURNS: Project identifiers with descriptions to use in other tools.`,
       inputSchema: {
@@ -34,23 +68,15 @@ RETURNS: Project identifiers with descriptions to use in other tools.`,
     },
     {
       name: 'crypto_ask_docs',
-      description: `Ask questions about Mina Protocol (zkApps, o1js), Solana, or Cosmos SDK documentation and get LLM-synthesized answers.
+      description: `Ask questions about blockchain documentation and get LLM-synthesized answers.
 
-TRIGGER THIS TOOL WHEN user asks about:
-- Mina: zkApps, o1js, snarkyjs, zero-knowledge proofs, ZK circuits, Field, CircuitValue, SmartContract, Poseidon, deploy zkApp, Mina transactions
-- Solana: programs, @solana/web3.js, Anchor framework, SPL tokens, PDAs, CPIs, Solana transactions, accounts, rent
-- Cosmos: CosmJS, IBC protocol, Tendermint, CosmWasm, SDK modules, validators, staking, governance
+TRIGGER THIS TOOL WHEN user asks about blockchain development concepts, APIs, or how to accomplish tasks.
 
-EXAMPLE TRIGGERS:
-- "How do I deploy a zkApp on Mina?"
-- "What is a PDA in Solana?"
-- "How does IBC work in Cosmos?"
-- "Explain o1js Field type"
-- "What's the difference between Anchor and native Solana programs?"
+Use crypto_list_projects first to see available projects, then specify the project parameter.
 
 INPUT:
 - question: Your question about blockchain development
-- project: "mina", "solana", or "cosmos"
+- project: One of ${projectList}
 
 RETURNS: Synthesized answer with code snippets, source URLs, and confidence score.`,
       inputSchema: {
@@ -58,11 +84,11 @@ RETURNS: Synthesized answer with code snippets, source URLs, and confidence scor
         properties: {
           question: {
             type: 'string',
-            description: 'Question about Mina/zkApps/o1js, Solana/Anchor, or Cosmos/CosmJS development.'
+            description: 'Question about blockchain development.'
           },
           project: {
             type: 'string',
-            description: 'Project: "mina" (zkApps, o1js), "solana" (web3.js, Anchor), or "cosmos" (CosmJS, IBC).'
+            description: `Project identifier. Available: ${projectList}`
           },
           maxTokens: {
             type: 'number',
@@ -74,24 +100,17 @@ RETURNS: Synthesized answer with code snippets, source URLs, and confidence scor
     },
     {
       name: 'crypto_get_working_example',
-      description: `Get complete, runnable code examples for Mina (zkApps, o1js), Solana (web3.js, Anchor), or Cosmos (CosmJS) development.
+      description: `Get complete, runnable code examples for blockchain development.
 
 TRIGGER THIS TOOL WHEN user wants to:
-- Write a zkApp or smart contract
+- Write a smart contract
 - Implement token transfers, deployments, or transactions
 - See working code for blockchain operations
 - Get boilerplate/starter code
 
-EXAMPLE TRIGGERS:
-- "Show me how to transfer tokens on Solana"
-- "Give me a zkApp example for Mina"
-- "Code example for deploying a smart contract"
-- "How do I sign a transaction with o1js?"
-- "Working example of IBC transfer in Cosmos"
-
 INPUT:
-- task: What you want to accomplish (e.g., "deploy zkApp", "transfer SOL", "stake tokens")
-- project: "mina", "solana", or "cosmos"
+- task: What you want to accomplish (e.g., "deploy contract", "transfer tokens", "sign transaction")
+- project: One of ${projectList}
 
 RETURNS: Complete code with ALL imports, types, setup, implementation, and usage example.
 
@@ -101,11 +120,11 @@ Use this instead of crypto_ask_docs when you need actual code to copy-paste.`,
         properties: {
           task: {
             type: 'string',
-            description: 'Task: "deploy zkApp", "transfer tokens", "create keypair", "sign transaction", "query balance", etc.'
+            description: 'Task: "deploy contract", "transfer tokens", "create keypair", "sign transaction", "query balance", etc.'
           },
           project: {
             type: 'string',
-            description: 'Project: "mina" (zkApps, o1js), "solana" (web3.js, Anchor), or "cosmos" (CosmJS, IBC).'
+            description: `Project identifier. Available: ${projectList}`
           },
           maxTokens: {
             type: 'number',
@@ -117,22 +136,13 @@ Use this instead of crypto_ask_docs when you need actual code to copy-paste.`,
     },
     {
       name: 'crypto_explain_error',
-      description: `Debug blockchain development errors for Mina (zkApps, o1js), Solana, or Cosmos SDK.
+      description: `Debug blockchain development errors.
 
-TRIGGER THIS TOOL WHEN user encounters errors like:
-- Mina/o1js: "Field.assertEquals failed", "ZkProgram compilation error", zkApp transaction failures, snarkyjs type errors
-- Solana: "Program failed to complete", "Account not found", "Instruction error", Anchor IDL issues, insufficient funds
-- Cosmos: "Out of gas", "Signature verification failed", IBC timeout, CosmWasm instantiation errors
-
-EXAMPLE TRIGGERS:
-- "Getting 'Field.assertEquals failed' in my zkApp"
-- "Solana program error: custom program error 0x1"
-- "CosmJS transaction failed with code 5"
-- "Why is my zkApp deploy failing?"
+TRIGGER THIS TOOL WHEN user encounters errors related to smart contracts, transactions, or blockchain operations.
 
 INPUT:
 - error: The full error message/stack trace
-- project: "mina", "solana", or "cosmos"
+- project: One of ${projectList}
 - context (optional): What you were doing
 - codeSnippet (optional): The failing code
 
@@ -146,11 +156,11 @@ RETURNS: Root cause explanation, step-by-step fix, prevention tips, and related 
           },
           project: {
             type: 'string',
-            description: 'Project: "mina" (zkApps, o1js), "solana" (web3.js, Anchor), or "cosmos" (CosmJS, IBC).'
+            description: `Project identifier. Available: ${projectList}`
           },
           context: {
             type: 'string',
-            description: 'What you were doing: "deploying zkApp", "transferring tokens", etc.'
+            description: 'What you were doing: "deploying contract", "transferring tokens", etc.'
           },
           codeSnippet: {
             type: 'string',
@@ -166,7 +176,7 @@ RETURNS: Root cause explanation, step-by-step fix, prevention tips, and related 
     },
     {
       name: 'crypto_search_docs',
-      description: `Search raw documentation for Mina Protocol (zkApps, o1js), Solana, or Cosmos SDK.
+      description: `Search raw documentation for blockchain projects.
 
 TRIGGER THIS TOOL WHEN user wants to:
 - Find specific API signatures or type definitions
@@ -174,15 +184,9 @@ TRIGGER THIS TOOL WHEN user wants to:
 - See the original docs text (not AI-synthesized)
 - Look up function/class/method details
 
-EXAMPLE TRIGGERS:
-- "Search Mina docs for Field methods"
-- "Find Solana docs about PDAs"
-- "Look up CosmJS SigningClient"
-- "What does the o1js documentation say about Poseidon?"
-
 INPUT:
 - query: Keywords to search (function names, concepts, etc.)
-- project: "mina", "solana", or "cosmos"
+- project: One of ${projectList}
 - contentType (optional): "prose", "code", or "api-reference"
 - limit (optional): Number of results (default: 10)
 
@@ -196,7 +200,7 @@ RETURNS: Raw documentation chunks with source URLs. For synthesized answers, use
           },
           project: {
             type: 'string',
-            description: 'Project: "mina" (zkApps, o1js), "solana" (web3.js, Anchor), or "cosmos" (CosmJS, IBC).'
+            description: `Project identifier. Available: ${projectList}`
           },
           contentType: {
             type: 'string',

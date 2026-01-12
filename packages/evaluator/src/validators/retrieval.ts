@@ -3,6 +3,43 @@
  */
 
 import type { ValidationResult } from '../types.js';
+import { listProjects, loadProjectConfig } from '@mina-docs/shared';
+
+// Cache for project patterns to avoid repeated config loading
+let cachedProjectPatterns: Record<string, string[]> | null = null;
+
+/**
+ * Get project patterns dynamically from config
+ * Falls back to hardcoded patterns if config loading fails
+ */
+function getProjectPatterns(): Record<string, string[]> {
+  if (cachedProjectPatterns) {
+    return cachedProjectPatterns;
+  }
+
+  const patterns: Record<string, string[]> = {};
+
+  try {
+    for (const id of listProjects()) {
+      try {
+        const config = loadProjectConfig(id);
+        // Use project name words as patterns, plus the ID
+        const nameWords = config.name.toLowerCase().split(/\s+/);
+        patterns[id] = [id, ...nameWords.filter(w => w.length > 2)];
+      } catch {
+        patterns[id] = [id];
+      }
+    }
+  } catch {
+    // Fallback for when config isn't available
+    patterns['mina'] = ['mina', 'o1js', 'mina protocol'];
+    patterns['solana'] = ['solana', 'anchor', 'spl'];
+    patterns['cosmos'] = ['cosmos', 'cosmos sdk', 'cosmos-sdk', 'ibc'];
+  }
+
+  cachedProjectPatterns = patterns;
+  return patterns;
+}
 
 export const validateRetrieval = {
   confidenceAbove(response: string, threshold: number): ValidationResult {
@@ -76,13 +113,8 @@ export const validateRetrieval = {
       };
     }
 
-    // Check for project name (case-insensitive)
-    const projectPatterns: Record<string, string[]> = {
-      mina: ['mina', 'o1js', 'mina protocol'],
-      solana: ['solana', 'anchor', 'spl'],
-      cosmos: ['cosmos', 'cosmos sdk', 'cosmos-sdk', 'ibc']
-    };
-
+    // Check for project name (case-insensitive) using dynamic patterns
+    const projectPatterns = getProjectPatterns();
     const patterns = projectPatterns[project.toLowerCase()] || [project.toLowerCase()];
     const lowerGuidance = guidanceSection.toLowerCase();
     const found = patterns.some(p => lowerGuidance.includes(p));

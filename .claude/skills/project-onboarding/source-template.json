@@ -1,0 +1,20 @@
+{
+  "$schema": "Source configuration template - replace {{PLACEHOLDERS}} with actual values",
+  "id": "{{SOURCE_ID}}",
+  "type": "github",
+  "repoType": "{{REPO_TYPE}}",
+  "trustLevel": "{{TRUST_LEVEL}}",
+  "repo": "{{GITHUB_ORG}}/{{GITHUB_REPO}}",
+  "branch": "main",
+  "description": "{{SOURCE_DESCRIPTION}}",
+  "scrapeStrategy": {
+    "exampleDirs": ["examples", "demos", "tutorials", "samples"],
+    "exclude": ["**/*.test.*", "**/test/**", "**/tests/**", "**/__tests__/**", "**/node_modules/**"],
+    "extensions": [".ts", ".tsx", ".js", ".jsx", ".rs", ".go", ".py"]
+  },
+  "qualityThresholds": {
+    "minDocumentationScore": 30,
+    "minLLMRelevanceScore": 50,
+    "requireReadme": true
+  }
+}

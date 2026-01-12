@@ -36,6 +36,8 @@ export interface DocumentChunk {
     // Quality filtering metadata
     qualityScore?: number; // 0-100 from LLM evaluation
     indexedReason?: string; // Why this was deemed index-worthy
+    // Re-indexing metadata
+    orphaned?: boolean; // True if source URL was not visited in latest crawl
   };
 }
 

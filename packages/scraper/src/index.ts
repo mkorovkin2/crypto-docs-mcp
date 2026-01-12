@@ -7,6 +7,7 @@ import { parseDocumentation } from './parser.js';
 import { chunkContent } from './chunker.js';
 import { scrapeGitHubSource } from './github-source.js';
 import { scrapeProjectGitHubSources } from './intelligent-github-scraper.js';
+import { computeContentHash } from './hash-utils.js';
 import {
   VectorDB,
   FullTextDB,
@@ -175,7 +176,11 @@ async function main() {
   let totalChunks = 0;
   let processedPages = 0;
   let failedPages = 0;
+  let skippedPages = 0;
   const startTime = Date.now();
+
+  // Track visited URLs for orphan detection
+  const visitedUrls = new Set<string>();
 
   // Batch settings for embedding generation
   const EMBEDDING_BATCH_SIZE = 20;
@@ -222,18 +227,40 @@ async function main() {
 
     console.log('\nStarting documentation crawl...\n');
 
-    // Crawl and process pages
+    // Crawl and process pages with atomic re-indexing
     for await (const page of crawler.crawl()) {
       processedPages++;
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       console.log(`[${elapsed}s] Processing (${processedPages}/${config.maxPages}): ${page.url}`);
 
+      // Track this URL as visited
+      visitedUrls.add(page.url);
+
       try {
+        // Check content hash - skip if unchanged
+        const contentHash = computeContentHash(page.html);
+        const existingHash = await ftsDb.getPageHash(page.url);
+
+        if (existingHash === contentHash) {
+          console.log(`  ⊘ Content unchanged, skipping`);
+          skippedPages++;
+          continue;
+        }
+
+        // Content changed or new - delete old chunks first
+        if (existingHash) {
+          await vectorDb.deleteByUrl(page.url);
+          await ftsDb.deleteByUrl(page.url);
+          console.log(`  ↻ Content changed, deleted old chunks`);
+        }
+
         // Parse HTML into chunks with project identifier
         const rawChunks = parseDocumentation(page.url, page.html, config.project);
 
         if (rawChunks.length === 0) {
           console.log(`  ⚠ No content extracted, skipping`);
+          // Update hash even for empty pages to avoid re-processing
+          await ftsDb.setPageHash(page.url, config.project, contentHash, 0);
           continue;
         }
 
@@ -248,6 +275,10 @@ async function main() {
         if (pendingChunks.length >= EMBEDDING_BATCH_SIZE) {
           await processBatch();
         }
+
+        // Update page hash after successful processing
+        await ftsDb.setPageHash(page.url, config.project, contentHash, chunks.length);
+
       } catch (error) {
         failedPages++;
         console.error(`  ✗ Error:`, error instanceof Error ? error.message : error);
@@ -256,6 +287,26 @@ async function main() {
 
     // Process remaining chunks
     await processBatch();
+
+    // Mark orphaned chunks (pages not visited in this crawl)
+    console.log('\nDetecting orphaned pages...');
+    const indexedUrls = await ftsDb.getIndexedUrlsForProject(config.project);
+    const orphanedUrls = indexedUrls.filter(url => !visitedUrls.has(url));
+
+    if (orphanedUrls.length > 0) {
+      console.log(`  Found ${orphanedUrls.length} orphaned URLs, marking chunks...`);
+      await vectorDb.markOrphaned(orphanedUrls, true);
+      await ftsDb.markOrphaned(orphanedUrls, true);
+      console.log(`  ✓ Marked ${orphanedUrls.length} URLs as orphaned`);
+    } else {
+      console.log(`  ✓ No orphaned pages detected`);
+    }
+
+    // Un-orphan visited URLs that were previously orphaned
+    const revisitedUrls = Array.from(visitedUrls);
+    await vectorDb.markOrphaned(revisitedUrls, false);
+    await ftsDb.markOrphaned(revisitedUrls, false);
+
   } else {
     console.log('\nSkipping documentation crawl (--github-only mode)');
   }
@@ -285,10 +336,19 @@ async function main() {
           }
         );
 
-        // Index all chunks from all sources
+        // Index all chunks from all sources with atomic re-indexing
         for (const result of results) {
           if (result.chunks.length > 0) {
             console.log(`\nIndexing ${result.chunks.length} chunks from ${result.sourceId}...`);
+
+            // Get unique URLs from new chunks and delete old chunks for those URLs
+            const newUrls = [...new Set(result.chunks.map(c => c.url))];
+            console.log(`  Deleting old chunks for ${newUrls.length} URLs...`);
+            for (const url of newUrls) {
+              await vectorDb.deleteByUrl(url);
+              await ftsDb.deleteByUrl(url);
+              visitedUrls.add(url);
+            }
 
             // Process in batches
             for (let i = 0; i < result.chunks.length; i += EMBEDDING_BATCH_SIZE) {
@@ -304,6 +364,12 @@ async function main() {
 
               totalChunks += batch.length;
               console.log(`  Indexed batch ${Math.floor(i / EMBEDDING_BATCH_SIZE) + 1}/${Math.ceil(result.chunks.length / EMBEDDING_BATCH_SIZE)}`);
+            }
+
+            // Update page hashes for GitHub files
+            for (const url of newUrls) {
+              const chunkCount = result.chunks.filter(c => c.url === url).length;
+              await ftsDb.setPageHash(url, config.project, `github:${result.sourceId}:${url}`, chunkCount);
             }
           }
 
@@ -334,6 +400,15 @@ async function main() {
       if (sourceChunks.length > 0) {
         console.log(`\nIndexing ${sourceChunks.length} source code chunks...`);
 
+        // Get unique URLs from new chunks and delete old chunks for those URLs
+        const newUrls = [...new Set(sourceChunks.map(c => c.url))];
+        console.log(`  Deleting old chunks for ${newUrls.length} URLs...`);
+        for (const url of newUrls) {
+          await vectorDb.deleteByUrl(url);
+          await ftsDb.deleteByUrl(url);
+          visitedUrls.add(url);
+        }
+
         // Process in batches
         for (let i = 0; i < sourceChunks.length; i += EMBEDDING_BATCH_SIZE) {
           const batch = sourceChunks.slice(i, i + EMBEDDING_BATCH_SIZE);
@@ -348,6 +423,12 @@ async function main() {
 
           totalChunks += batch.length;
           console.log(`  Indexed source batch ${Math.floor(i / EMBEDDING_BATCH_SIZE) + 1}/${Math.ceil(sourceChunks.length / EMBEDDING_BATCH_SIZE)}`);
+        }
+
+        // Update page hashes for GitHub files
+        for (const url of newUrls) {
+          const chunkCount = sourceChunks.filter(c => c.url === url).length;
+          await ftsDb.setPageHash(url, config.project, `github:legacy:${url}`, chunkCount);
         }
 
         console.log(`  ✓ Source code indexing complete`);
@@ -365,7 +446,7 @@ async function main() {
   console.log('Scraping Complete!');
   console.log('='.repeat(60));
   console.log(`  Project: ${config.project} (${config.projectName})`);
-  console.log(`  Docs crawled: ${config.githubOnly ? 'skipped' : `${processedPages} pages (${failedPages} failed)`}`);
+  console.log(`  Docs crawled: ${config.githubOnly ? 'skipped' : `${processedPages} pages (${skippedPages} unchanged, ${failedPages} failed)`}`);
   console.log(`  GitHub mode: ${useIntelligentScraper ? 'intelligent (registry)' : config.github ? 'legacy' : 'disabled'}`);
   console.log(`  Dry run: ${config.dryRun ? 'yes' : 'no'}`);
   console.log(`  Total chunks indexed: ${totalChunks}`);

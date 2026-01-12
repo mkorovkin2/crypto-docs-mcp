@@ -17,8 +17,32 @@
 
 import * as readline from 'readline';
 import * as fs from 'fs';
+import * as path from 'path';
 
 const MCP_URL = process.env.MCP_URL || 'http://localhost:3000';
+
+// Dynamically discover available projects from config directory
+function getAvailableProjects(): string[] {
+  const configPaths = [
+    path.join(process.cwd(), 'config', 'projects'),
+    path.join(__dirname, '..', 'config', 'projects'),
+  ];
+
+  for (const configPath of configPaths) {
+    try {
+      if (fs.existsSync(configPath)) {
+        return fs.readdirSync(configPath)
+          .filter(f => f.endsWith('.json'))
+          .map(f => f.replace('.json', ''));
+      }
+    } catch {
+      // Try next path
+    }
+  }
+
+  // Fallback to known projects
+  return ['mina', 'solana', 'cosmos', 'secret', 'beam', 'pirate-chain'];
+}
 
 // ANSI color codes
 const colors = {
@@ -655,11 +679,12 @@ async function main() {
             break;
 
           case 'project':
-            if (argStr && ['mina', 'solana', 'cosmos', 'secret', 'beam', 'pirate-chain'].includes(argStr.toLowerCase())) {
+            const availableProjects = getAvailableProjects();
+            if (argStr && availableProjects.includes(argStr.toLowerCase())) {
               currentProject = argStr.toLowerCase();
               log(colors.green, `Switched to project: ${currentProject}`);
             } else {
-              log(colors.yellow, 'Available projects: mina, solana, cosmos, secret, beam, pirate-chain');
+              log(colors.yellow, `Available projects: ${availableProjects.join(', ')}`);
             }
             break;
 
