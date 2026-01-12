@@ -1,0 +1,20 @@
+{
+  "id": "polymarket-clob-client",
+  "type": "github",
+  "repoType": "sdk",
+  "trustLevel": "official",
+  "repo": "Polymarket/clob-client",
+  "branch": "main",
+  "description": "Official Polymarket TypeScript CLOB Client SDK",
+  "scrapeStrategy": {
+    "apiPaths": ["src/**/*.ts"],
+    "exampleDirs": ["examples", "demos", "tutorials", "samples"],
+    "exclude": ["**/*.test.*", "**/test/**", "**/tests/**", "**/__tests__/**", "**/node_modules/**"],
+    "extensions": [".ts", ".tsx", ".js", ".jsx"]
+  },
+  "qualityThresholds": {
+    "minDocumentationScore": 20,
+    "minLLMRelevanceScore": 40,
+    "requireReadme": false
+  }
+}

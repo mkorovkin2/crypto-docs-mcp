@@ -48,5 +48,12 @@
       "secret-random-mint-nft",
       "secret-snips"
     ]
+  },
+  {
+    "projectId": "polymarket",
+    "sources": [
+      "polymarket-py-clob-client",
+      "polymarket-clob-client"
+    ]
   }
 ]

@@ -1,0 +1,20 @@
+{
+  "id": "polymarket-py-clob-client",
+  "type": "github",
+  "repoType": "sdk",
+  "trustLevel": "official",
+  "repo": "Polymarket/py-clob-client",
+  "branch": "main",
+  "description": "Official Polymarket Python CLOB Client SDK",
+  "scrapeStrategy": {
+    "apiPaths": ["py_clob_client/**/*.py"],
+    "exampleDirs": ["examples", "demos", "tutorials", "samples"],
+    "exclude": ["**/*.test.*", "**/test/**", "**/tests/**", "**/__tests__/**", "**/node_modules/**"],
+    "extensions": [".py"]
+  },
+  "qualityThresholds": {
+    "minDocumentationScore": 20,
+    "minLLMRelevanceScore": 40,
+    "requireReadme": false
+  }
+}

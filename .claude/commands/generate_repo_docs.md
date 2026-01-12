@@ -17,53 +17,237 @@ You are tasked with generating comprehensive, deep markdown documentation for a 
 | `standard` | All high+medium priority | 20-50 docs | 12 | Normal documentation |
 | `deep` | All documentable files | 100+ docs | 18+ | Exhaustive documentation |
 
+## Knowledge Handoff Protocol
+
+Each wave MUST pass specific information to subsequent waves using the exact markdown structures below. Do NOT summarize or omit fields - context loss between waves degrades documentation quality.
+
+### Wave 1 Output → Wave 2 Input
+
+Wave 1 agents MUST return this exact structure:
+
+```
+### HANDOFF: Discovery Results
+
+**Repository Identity**
+- Name: [repo name from package.json/Cargo.toml/etc]
+- Type: library | application | cli | service
+- Monorepo: yes | no
+- Primary language: [lang]
+- Package manager: npm | yarn | pip | cargo | go mod
+
+**Entry Points** (full paths, one per line)
+- [path/to/main/entry.ts] - [brief description]
+- [path/to/secondary.ts] - [brief description]
+
+**Module Boundaries** (directories that constitute modules)
+| Module Path | Purpose | File Count |
+|-------------|---------|------------|
+| src/auth/ | Authentication logic | 12 |
+| src/db/ | Database layer | 8 |
+
+**File Classification**
+| Priority | Count | Key Files |
+|----------|-------|-----------|
+| HIGH | N | file1.ts, file2.ts, ... |
+| MEDIUM | N | file3.ts, file4.ts, ... |
+| LOW | N | (tests - note locations only) |
+
+**Test Locations**: tests/, src/**/*.test.ts, __tests__/
+```
+
+### Wave 2 Output → Wave 3 Input
+
+Wave 2 agents MUST return this exact structure:
+
+```
+### HANDOFF: Architecture Results
+
+**Dependency Graph** (internal module dependencies)
+- src/api/ → src/db/, src/auth/
+- src/auth/ → src/db/
+- src/utils/ → (none - leaf module)
+
+**External Dependencies by Category**
+| Category | Packages |
+|----------|----------|
+| HTTP | express, axios |
+| Database | prisma, pg |
+| Testing | jest, vitest |
+
+**Architectural Style**: [MVC | Clean Architecture | Hexagonal | Layered | etc]
+
+**Key Patterns Found**
+| Pattern | Location | Example |
+|---------|----------|---------|
+| Repository | src/db/repos/ | UserRepository at src/db/repos/user.ts:15 |
+| Factory | src/factories/ | createClient at src/factories/client.ts:8 |
+
+**Data Flow Summary**
+- Entry: [how data enters - HTTP/CLI/function calls]
+- Transform: [key transformation points with file:line]
+- Storage: [database/cache/file locations]
+- Output: [how data exits]
+
+**Integration Points**
+| Point | Files | Purpose |
+|-------|-------|---------|
+| API↔DB | src/api/handlers.ts:45 | Query execution |
+| Auth↔API | src/middleware/auth.ts:12 | Request validation |
+```
+
+### Wave 3 Output → Wave 4 Input
+
+Wave 3 agents MUST return this exact structure per module:
+
+```
+### HANDOFF: Module Documentation
+
+**Module**: [path]
+
+**Public Exports**
+| Export | Type | Signature | Line |
+|--------|------|-----------|------|
+| createUser | function | (data: UserInput) => Promise<User> | 45 |
+| User | type | interface | 12 |
+
+**Dependencies**: src/db/, src/utils/
+**Dependents**: src/api/, src/cli/
+
+**Key Internal Functions**
+| Function | Purpose | Line |
+|----------|---------|------|
+| validateInput | Input sanitization | 78 |
+| hashPassword | Security | 92 |
+
+**Config/Env Vars Used**: DATABASE_URL, AUTH_SECRET
+```
+
+### Wave 4 Output → Wave 5 Input
+
+Wave 4 agents MUST return:
+
+```
+### HANDOFF: API & Examples
+
+**APIs Documented** (count by category)
+| Category | Count | Has Examples |
+|----------|-------|--------------|
+| Functions | N | Y/N |
+| Classes | N | Y/N |
+| Types | N | N/A |
+
+**APIs Missing Examples**
+- functionName (src/path.ts:line)
+- ClassName (src/path.ts:line)
+
+**Example Sources Found**
+| Test File | APIs Covered |
+|-----------|--------------|
+| tests/user.test.ts | createUser, deleteUser |
+| tests/auth.test.ts | login, logout |
+```
+
+### Wave 5 Output → Wave 6 Input
+
+Wave 5 agents MUST return:
+
+```
+### HANDOFF: Guides & Concepts
+
+**Guides Written**
+| Guide | Sections | References |
+|-------|----------|------------|
+| getting-started.md | 4 | src/index.ts, README.md |
+| configuration.md | 6 | .env.example, config/ |
+
+**Concepts Documented**
+| Concept | Related Modules |
+|---------|-----------------|
+| Authentication Flow | src/auth/, src/middleware/ |
+| Data Validation | src/validators/, src/types/ |
+
+**Glossary Terms**: N terms defined
+**Files Indexed**: N files catalogued
+```
+
+---
+
 ## Output Structure
+
+Documentation is generated under `[output-dir]/[repo-name]/` where `repo-name` is extracted from the repository's package.json, Cargo.toml, pyproject.toml, go.mod, or directory name.
 
 ```
 [output-dir]/
-├── index.md                      # Main entry point
-├── architecture/
-│   ├── overview.md               # System architecture
-│   ├── data-flow.md              # Data flow diagrams
-│   ├── dependencies.md           # Dependency analysis
-│   └── patterns.md               # Design patterns
-├── modules/
-│   ├── index.md                  # Module listing
-│   └── [module-name]/
-│       ├── README.md             # Module overview
-│       ├── api.md                # Module API
-│       └── examples.md           # Module examples
-├── api/
-│   ├── index.md                  # API overview
-│   └── [category]/
-│       └── [api-name].md         # Individual API docs
-├── guides/
-│   ├── getting-started.md        # Quick start
-│   ├── installation.md           # Setup guide
-│   ├── configuration.md          # Config reference
-│   ├── development.md            # Dev guide
-│   └── contributing.md           # Contribution guide
-├── concepts/
-│   ├── index.md                  # Concepts overview
-│   └── [concept-name].md         # Concept explanations
-├── examples/
-│   ├── index.md                  # Examples overview
-│   └── [category]/
-│       └── [example-name].md     # Individual examples
-└── reference/
-    ├── glossary.md               # Term definitions
-    ├── file-index.md             # All files with descriptions
-    └── changelog-summary.md      # Recent changes
+└── [repo-name]/
+    ├── index.md                      # Main entry point (includes project identity header)
+    ├── architecture/
+    │   ├── overview.md               # System architecture
+    │   ├── data-flow.md              # Data flow diagrams
+    │   ├── dependencies.md           # Dependency analysis
+    │   └── patterns.md               # Design patterns
+    ├── modules/
+    │   ├── index.md                  # Module listing
+    │   └── [module-name]/
+    │       ├── README.md             # Module overview
+    │       ├── api.md                # Module API
+    │       └── examples.md           # Module examples
+    ├── api/
+    │   ├── index.md                  # API overview
+    │   └── [category]/
+    │       └── [api-name].md         # Individual API docs
+    ├── guides/
+    │   ├── getting-started.md        # Quick start
+    │   ├── installation.md           # Setup guide
+    │   ├── configuration.md          # Config reference
+    │   ├── development.md            # Dev guide
+    │   └── contributing.md           # Contribution guide
+    ├── concepts/
+    │   ├── index.md                  # Concepts overview
+    │   └── [concept-name].md         # Concept explanations
+    ├── examples/
+    │   ├── index.md                  # Examples overview
+    │   └── [category]/
+    │       └── [example-name].md     # Individual examples
+    └── reference/
+        ├── glossary.md               # Term definitions
+        ├── file-index.md             # All files with descriptions
+        └── changelog-summary.md      # Recent changes
 ```
+
+## Project Identity Header
+
+**Every generated markdown file MUST start with this header:**
+
+```markdown
+---
+project: [repo-name]
+source: [absolute path to source repo]
+generated: [ISO timestamp]
+---
+```
+
+This ensures:
+- Docs are clearly attributed to their source project
+- Multiple project docs can coexist in the same output directory
+- Readers always know which codebase the docs describe
 
 ## When Invoked
 
-### Step 0: Parse Arguments
+### Step 0: Parse Arguments and Extract Repo Name
 
 Parse the command arguments:
 - `path`: Repository path (default: current directory `.`)
 - `--mode`: `quick` | `standard` | `deep` (default: `standard`)
 - `--output`: Output directory (default: `docs/generated`)
+
+**Extract repo name** (in priority order):
+1. `name` field from package.json
+2. `name` field from Cargo.toml
+3. `name` field from pyproject.toml
+4. Module name from go.mod
+5. Directory name of the repository
+
+Store as `REPO_NAME` - this will be used for the output folder and project identity headers.
 
 Example invocations:
 ```
@@ -71,6 +255,10 @@ Example invocations:
 /generate_repo_docs . --mode deep
 /generate_repo_docs /path/to/repo --mode quick --output docs/api
 ```
+
+Example output paths:
+- `/generate_repo_docs /path/to/my-library` → `docs/generated/my-library/`
+- `/generate_repo_docs . --output docs/api` → `docs/api/[repo-name]/`
 
 ### Step 1: Create Progress Tracker
 
@@ -115,14 +303,12 @@ Discover the complete structure of this repository.
 6. Count total files by extension
 
 ## Return Format
-- Repository name and type (library/application/cli/service)
-- Is monorepo: yes/no
-- Primary language(s)
-- Total file count by extension
-- Directory tree (abbreviated)
-- Entry point files
-- Package manager used
-- Test directory locations
+Use the EXACT "HANDOFF: Discovery Results" structure from the Knowledge Handoff Protocol section. Include:
+- Repository Identity (all 5 fields)
+- Entry Points (full paths with descriptions)
+- Module Boundaries table
+- File Classification table
+- Test Locations
 ```
 
 ### Agent 2: File Classification
@@ -156,16 +342,16 @@ Current mode is: [MODE]
 
 3. Group files by module/package
 
-Return the full classification JSON structure with:
-- projects array (if monorepo)
-- files by priority level
-- categories with counts
-- statistics
+## Return Format
+Merge your results with Agent 1's output to complete the "HANDOFF: Discovery Results" structure. Ensure:
+- File Classification table has accurate counts
+- Module Boundaries table is complete with file counts
+- HIGH priority files are explicitly listed (not just counted)
 ```
 
 **WAIT for both agents to complete.**
 
-Store results as `CLASSIFICATION_RESULTS` for use in subsequent waves.
+**CRITICAL**: Combine Agent 1 and Agent 2 results into a single complete "HANDOFF: Discovery Results" block. This EXACT block will be passed to Wave 2 agents.
 
 ---
 
@@ -182,11 +368,8 @@ Task with subagent_type="codebase-analyzer":
 
 Analyze the dependency structure of this repository.
 
-## Repository Info
-[CLASSIFICATION_RESULTS summary]
-
-## Entry Points
-[List from Wave 1]
+## HANDOFF INPUT (from Wave 1)
+[Paste the COMPLETE "HANDOFF: Discovery Results" block here - do not summarize]
 
 ## Your Job
 1. Map internal dependencies:
@@ -203,11 +386,11 @@ Analyze the dependency structure of this repository.
    - Shared interfaces/types
    - Event buses or message passing
 
-Return:
-- Internal dependency graph (text format)
-- External dependencies by category
-- Key integration points with file:line references
-- Circular dependency warnings if any
+## Return Format
+Return these sections for the "HANDOFF: Architecture Results" structure:
+- Dependency Graph (arrow notation: moduleA → moduleB, moduleC)
+- External Dependencies by Category table
+- Integration Points table
 ```
 
 ### Agent 4: Pattern Analysis
@@ -217,11 +400,8 @@ Task with subagent_type="codebase-pattern-finder":
 
 Identify architectural patterns and conventions in this repository.
 
-## Repository Info
-[CLASSIFICATION_RESULTS summary]
-
-## High Priority Files
-[List from classification]
+## HANDOFF INPUT (from Wave 1)
+[Paste the COMPLETE "HANDOFF: Discovery Results" block here - do not summarize]
 
 ## Your Job
 1. Identify design patterns:
@@ -247,7 +427,10 @@ Identify architectural patterns and conventions in this repository.
    - Config files
    - Feature flags
 
-Return patterns report with concrete examples from the codebase.
+## Return Format
+Return these sections for the "HANDOFF: Architecture Results" structure:
+- Architectural Style (single line)
+- Key Patterns Found table (Pattern | Location | Example with file:line)
 ```
 
 ### Agent 5: Data Flow Analysis
@@ -257,11 +440,8 @@ Task with subagent_type="codebase-analyzer":
 
 Trace the primary data flows through this repository.
 
-## Entry Points
-[From Wave 1]
-
-## Repository Type
-[library/application/cli/service]
+## HANDOFF INPUT (from Wave 1)
+[Paste the COMPLETE "HANDOFF: Discovery Results" block here - do not summarize]
 
 ## Your Job
 1. Start from main entry points
@@ -285,12 +465,14 @@ Trace the primary data flows through this repository.
    - Return values
    - Side effects
 
-Return data flow report with file:line references for each step.
+## Return Format
+Return these sections for the "HANDOFF: Architecture Results" structure:
+- Data Flow Summary (Entry/Transform/Storage/Output with file:line refs)
 ```
 
 **WAIT for all 3 agents to complete.**
 
-Store combined results as `ARCHITECTURE_RESULTS`.
+**CRITICAL**: Combine Agent 3, 4, and 5 results into a single complete "HANDOFF: Architecture Results" block. This EXACT block will be passed to Wave 3 agents.
 
 ---
 
@@ -322,17 +504,16 @@ Task with subagent_type="module-documenter":
 
 Document these modules comprehensively.
 
-## Modules to Document
-[List of module paths for this batch, e.g.:]
+## Modules to Document (this batch)
 - src/auth/
 - src/database/
 - src/utils/
 
-## Repository Context
-[Summary from ARCHITECTURE_RESULTS:]
-- Primary language: [lang]
-- Architectural style: [style]
-- Key patterns: [patterns]
+## HANDOFF INPUT (from Wave 1)
+[Paste the COMPLETE "HANDOFF: Discovery Results" block here - do not summarize]
+
+## HANDOFF INPUT (from Wave 2)
+[Paste the COMPLETE "HANDOFF: Architecture Results" block here - do not summarize]
 
 ## Documentation Mode: [MODE]
 
@@ -368,14 +549,20 @@ For EACH module in your batch, produce complete documentation:
    - Consumers
 
 ## Output Format
-Return complete markdown for each module following the module-documenter format.
-Include file:line references to source code.
+For EACH module documented, return a "HANDOFF: Module Documentation" block following the exact structure from the Knowledge Handoff Protocol. Include:
+- Module path
+- Public Exports table (Export | Type | Signature | Line)
+- Dependencies and Dependents
+- Key Internal Functions table
+- Config/Env Vars Used
+
+ALSO return the full markdown documentation for each module (this goes to final output).
 ```
 
 **Spawn up to 3 agents in parallel.**
 **If more than 3 batches needed, WAIT for first 3 to complete, then spawn next batch.**
 
-Store all module documentation as `MODULE_DOCS`.
+**CRITICAL**: Collect all "HANDOFF: Module Documentation" blocks from all batches. These will be passed to Wave 4 agents.
 
 ---
 
@@ -392,12 +579,11 @@ Task with subagent_type="api-extractor":
 
 Extract complete API documentation from this repository.
 
-## Repository Info
-[CLASSIFICATION_RESULTS summary]
-[List of source files to analyze]
+## HANDOFF INPUT (from Wave 1)
+[Paste the COMPLETE "HANDOFF: Discovery Results" block here - do not summarize]
 
-## Module Documentation Summary
-[Brief summary of modules from MODULE_DOCS]
+## HANDOFF INPUT (from Wave 3)
+[Paste ALL "HANDOFF: Module Documentation" blocks here - do not summarize]
 
 ## Documentation Mode: [MODE]
 - quick: Main APIs only (entry points)
@@ -425,8 +611,12 @@ Extract complete API documentation from this repository.
    - Module/package
    - Category (functions, classes, types, constants)
 
-Return structured API documentation in markdown format.
-Include file:line references for every API.
+## Return Format
+Return a "HANDOFF: API & Examples" block with:
+- APIs Documented table (Category | Count | Has Examples)
+- APIs Missing Examples list (name + file:line)
+
+ALSO return the full API markdown documentation (this goes to final output).
 ```
 
 ### Agent: Test Example Extraction
@@ -436,11 +626,11 @@ Task with subagent_type="example-generator":
 
 Extract usage examples from test files.
 
-## Test File Locations
-[From CLASSIFICATION_RESULTS - test files]
+## HANDOFF INPUT (from Wave 1)
+[Paste the COMPLETE "HANDOFF: Discovery Results" block - includes Test Locations]
 
-## APIs to Find Examples For
-[Key APIs from MODULE_DOCS]
+## HANDOFF INPUT (from Wave 3)
+[Paste ALL "HANDOFF: Module Documentation" blocks - includes Public Exports to find examples for]
 
 ## Your Job
 1. Find all test files:
@@ -464,8 +654,10 @@ Extract usage examples from test files.
    - Module/feature
    - Complexity (basic, intermediate, advanced)
 
-Return examples organized by category.
-Credit source test file for each example.
+## Return Format
+Return:
+- Example Sources Found table (Test File | APIs Covered)
+- Full example markdown organized by category (this goes to final output)
 ```
 
 ### Agent: Example Generation
@@ -475,14 +667,11 @@ Task with subagent_type="example-generator":
 
 Generate new usage examples for APIs lacking examples.
 
-## APIs Documented
-[From API extraction agent]
+## HANDOFF INPUT (from API Extraction Agent)
+[Paste the "APIs Missing Examples" list from the API Extraction agent]
 
-## Existing Examples
-[From test extraction agent]
-
-## APIs Needing Examples
-[APIs without examples from tests]
+## HANDOFF INPUT (from Test Extraction Agent)
+[Paste the "Example Sources Found" table - to avoid duplicating existing examples]
 
 ## Your Job
 1. Identify APIs without examples
@@ -505,13 +694,13 @@ Generate new usage examples for APIs lacking examples.
    - Error handling examples
    - Advanced usage examples
 
-Return generated examples in markdown format.
-Mark as "Generated Example" (vs extracted from tests).
+## Return Format
+Return generated examples in markdown format. Mark each as "Generated Example" (vs extracted from tests).
 ```
 
 **WAIT for all 3 agents to complete.**
 
-Store results as `API_DOCS` and `EXAMPLES`.
+**CRITICAL**: Combine results into a single "HANDOFF: API & Examples" block. This will be passed to Wave 5 agents.
 
 ---
 
@@ -528,11 +717,8 @@ Task with subagent_type="codebase-analyzer":
 
 Identify and document key concepts in this repository.
 
-## Architecture Analysis
-[ARCHITECTURE_RESULTS]
-
-## Patterns Found
-[From pattern analysis]
+## HANDOFF INPUT (from Wave 2)
+[Paste the COMPLETE "HANDOFF: Architecture Results" block - includes patterns and architectural style]
 
 ## Your Job
 1. Identify domain-specific concepts:
@@ -554,7 +740,11 @@ Identify and document key concepts in this repository.
 
 4. Create a glossary of terms
 
-Return concept documentation files.
+## Return Format
+Return:
+- Concepts Documented table (Concept | Related Modules)
+- Glossary Terms count
+- Full concept markdown documentation (this goes to final output)
 ```
 
 ### Agent: Developer Guides
@@ -564,14 +754,14 @@ Task with subagent_type="module-documenter":
 
 Create developer guides for this repository.
 
-## Full Analysis Results
-[Summary of all previous waves]
+## HANDOFF INPUT (from Wave 1)
+[Paste the COMPLETE "HANDOFF: Discovery Results" block - includes repo type, package manager]
 
-## Project Type
-[library/application/cli/service]
+## HANDOFF INPUT (from Wave 2)
+[Paste the COMPLETE "HANDOFF: Architecture Results" block - includes patterns, config info]
 
-## Package Manager
-[npm/yarn/pip/cargo/go mod]
+## HANDOFF INPUT (from Wave 4)
+[Paste the "HANDOFF: API & Examples" block - for referencing in guides]
 
 ## Your Job
 Create these guides:
@@ -609,6 +799,11 @@ Each guide should be:
 - Practical and actionable
 - Include concrete commands
 - Reference actual files in the repo
+
+## Return Format
+Return:
+- Guides Written table (Guide | Sections | References)
+- Full guide markdown documentation (this goes to final output)
 ```
 
 ### Agent: Reference Documentation
@@ -618,11 +813,14 @@ Task with subagent_type="codebase-analyzer":
 
 Create reference documentation.
 
-## Classification Results
-[CLASSIFICATION_RESULTS]
+## HANDOFF INPUT (from Wave 1)
+[Paste the COMPLETE "HANDOFF: Discovery Results" block - includes file classification]
 
-## All Modules and APIs
-[Summary from MODULE_DOCS and API_DOCS]
+## HANDOFF INPUT (from Wave 3)
+[Paste ALL "HANDOFF: Module Documentation" blocks - for file index]
+
+## HANDOFF INPUT (from Wave 4)
+[Paste the "HANDOFF: API & Examples" block - for API reference]
 
 ## Your Job
 Create these reference documents:
@@ -649,12 +847,15 @@ Create these reference documents:
    - Known issues
    - FAQ based on code comments
 
-Return reference documentation files.
+## Return Format
+Return:
+- Files Indexed count
+- Full reference markdown documentation (this goes to final output)
 ```
 
 **WAIT for all 3 agents to complete.**
 
-Store results as `GUIDES` and `REFERENCE_DOCS`.
+**CRITICAL**: Combine results into a single "HANDOFF: Guides & Concepts" block. This will be passed to Wave 6 agents.
 
 ---
 
@@ -671,31 +872,17 @@ Task with subagent_type="doc-synthesizer":
 
 Create navigation structure for all documentation.
 
-## Generated Documentation Inventory
-[List all docs from Waves 3-5:]
+## HANDOFF INPUT (from Wave 1)
+[Paste the "Repository Identity" section from "HANDOFF: Discovery Results"]
 
-Modules:
-- [list of module docs]
+## HANDOFF INPUT (from Wave 3)
+[List all module paths documented - extract from Module Documentation blocks]
 
-APIs:
-- [list of API docs]
+## HANDOFF INPUT (from Wave 4)
+[Paste "APIs Documented" table from "HANDOFF: API & Examples"]
 
-Examples:
-- [list of example docs]
-
-Guides:
-- [list of guide docs]
-
-Concepts:
-- [list of concept docs]
-
-Reference:
-- [list of reference docs]
-
-## Project Info
-- Name: [name]
-- Type: [library/application/etc]
-- Primary Language: [lang]
+## HANDOFF INPUT (from Wave 5)
+[Paste the COMPLETE "HANDOFF: Guides & Concepts" block]
 
 ## Your Job
 1. Create main index.md:
@@ -730,11 +917,17 @@ Task with subagent_type="codebase-analyzer":
 
 Verify documentation quality and completeness.
 
-## Generated Documentation
-[Full list from all waves]
+## HANDOFF INPUT (from Wave 1)
+[Paste "File Classification" table from "HANDOFF: Discovery Results" - for completeness check]
 
-## Classification Results
-[CLASSIFICATION_RESULTS - for comparison]
+## HANDOFF INPUT (from Wave 3)
+[List all module paths documented]
+
+## HANDOFF INPUT (from Wave 4)
+[Paste "APIs Documented" and "APIs Missing Examples" from "HANDOFF: API & Examples"]
+
+## HANDOFF INPUT (from Wave 5)
+[Paste the COMPLETE "HANDOFF: Guides & Concepts" block]
 
 ## Your Job
 1. Check completeness:
@@ -770,7 +963,7 @@ Return quality report:
 
 **WAIT for both agents to complete.**
 
-Store as `NAVIGATION` and `QUALITY_REPORT`.
+Navigation and Quality Check results are used directly for final output - no further handoff needed.
 
 ---
 
@@ -780,59 +973,64 @@ After all waves complete, write all documentation to disk.
 
 ### Create Directory Structure
 
+Use `REPO_NAME` from Step 0:
+
 ```bash
-mkdir -p [output]/architecture
-mkdir -p [output]/modules
-mkdir -p [output]/api
-mkdir -p [output]/guides
-mkdir -p [output]/concepts
-mkdir -p [output]/examples
-mkdir -p [output]/reference
+mkdir -p [output]/[REPO_NAME]/architecture
+mkdir -p [output]/[REPO_NAME]/modules
+mkdir -p [output]/[REPO_NAME]/api
+mkdir -p [output]/[REPO_NAME]/guides
+mkdir -p [output]/[REPO_NAME]/concepts
+mkdir -p [output]/[REPO_NAME]/examples
+mkdir -p [output]/[REPO_NAME]/reference
 ```
 
 ### Write Files by Category
 
-**IMPORTANT**: Write files in parts if content exceeds 50KB to avoid token limits.
+**IMPORTANT**:
+- Write files in parts if content exceeds 50KB to avoid token limits
+- Every file MUST include the Project Identity Header (see above)
+- Use `[output]/[REPO_NAME]/` as the base path
 
 #### Architecture Docs
-- Write `[output]/architecture/overview.md`
-- Write `[output]/architecture/data-flow.md`
-- Write `[output]/architecture/dependencies.md`
-- Write `[output]/architecture/patterns.md`
+- Write `[output]/[REPO_NAME]/architecture/overview.md`
+- Write `[output]/[REPO_NAME]/architecture/data-flow.md`
+- Write `[output]/[REPO_NAME]/architecture/dependencies.md`
+- Write `[output]/[REPO_NAME]/architecture/patterns.md`
 
 #### Module Docs
 For each module in MODULE_DOCS:
-- Create `[output]/modules/[module-name]/` directory
+- Create `[output]/[REPO_NAME]/modules/[module-name]/` directory
 - Write `README.md`, `api.md`, `examples.md`
 
 #### API Docs
-- Write `[output]/api/index.md`
-- Write `[output]/api/functions.md`
-- Write `[output]/api/classes.md`
-- Write `[output]/api/types.md`
+- Write `[output]/[REPO_NAME]/api/index.md`
+- Write `[output]/[REPO_NAME]/api/functions.md`
+- Write `[output]/[REPO_NAME]/api/classes.md`
+- Write `[output]/[REPO_NAME]/api/types.md`
 
 #### Guides
-- Write `[output]/guides/getting-started.md`
-- Write `[output]/guides/installation.md`
-- Write `[output]/guides/configuration.md`
-- Write `[output]/guides/development.md`
-- Write `[output]/guides/contributing.md`
+- Write `[output]/[REPO_NAME]/guides/getting-started.md`
+- Write `[output]/[REPO_NAME]/guides/installation.md`
+- Write `[output]/[REPO_NAME]/guides/configuration.md`
+- Write `[output]/[REPO_NAME]/guides/development.md`
+- Write `[output]/[REPO_NAME]/guides/contributing.md`
 
 #### Concepts
-- Write `[output]/concepts/index.md`
+- Write `[output]/[REPO_NAME]/concepts/index.md`
 - Write individual concept files
 
 #### Examples
-- Write `[output]/examples/index.md`
+- Write `[output]/[REPO_NAME]/examples/index.md`
 - Write example files by category
 
 #### Reference
-- Write `[output]/reference/glossary.md`
-- Write `[output]/reference/file-index.md`
-- Write `[output]/reference/changelog-summary.md`
+- Write `[output]/[REPO_NAME]/reference/glossary.md`
+- Write `[output]/[REPO_NAME]/reference/file-index.md`
+- Write `[output]/[REPO_NAME]/reference/changelog-summary.md`
 
 #### Navigation
-- Write `[output]/index.md` (main entry)
+- Write `[output]/[REPO_NAME]/index.md` (main entry)
 - Write category index files
 - Apply cross-reference edits
 
@@ -843,9 +1041,10 @@ For each module in MODULE_DOCS:
 ```markdown
 ## Documentation Generated Successfully
 
-**Repository**: [path]
+**Project**: [REPO_NAME]
+**Source Repository**: [absolute path]
 **Mode**: [quick|standard|deep]
-**Output**: [output-dir]
+**Output Directory**: [output-dir]/[REPO_NAME]/
 
 ### Statistics
 
@@ -868,33 +1067,34 @@ For each module in MODULE_DOCS:
 
 ```
 [output]/
-├── index.md                    ✓
-├── architecture/
-│   ├── overview.md             ✓
-│   ├── data-flow.md            ✓
-│   ├── dependencies.md         ✓
-│   └── patterns.md             ✓
-├── modules/
-│   ├── index.md                ✓
-│   └── [N] module directories  ✓
-├── api/
-│   ├── index.md                ✓
-│   └── [N] API files           ✓
-├── guides/
-│   └── [N] guides              ✓
-├── concepts/
-│   └── [N] concepts            ✓
-├── examples/
-│   └── [N] examples            ✓
-└── reference/
-    └── [N] reference files     ✓
+└── [REPO_NAME]/
+    ├── index.md                    ✓
+    ├── architecture/
+    │   ├── overview.md             ✓
+    │   ├── data-flow.md            ✓
+    │   ├── dependencies.md         ✓
+    │   └── patterns.md             ✓
+    ├── modules/
+    │   ├── index.md                ✓
+    │   └── [N] module directories  ✓
+    ├── api/
+    │   ├── index.md                ✓
+    │   └── [N] API files           ✓
+    ├── guides/
+    │   └── [N] guides              ✓
+    ├── concepts/
+    │   └── [N] concepts            ✓
+    ├── examples/
+    │   └── [N] examples            ✓
+    └── reference/
+        └── [N] reference files     ✓
 ```
 
 ### Quick Links
 
-- **Start Here**: [`[output]/index.md`]([output]/index.md)
-- **Getting Started**: [`[output]/guides/getting-started.md`]([output]/guides/getting-started.md)
-- **API Reference**: [`[output]/api/index.md`]([output]/api/index.md)
+- **Start Here**: `[output]/[REPO_NAME]/index.md`
+- **Getting Started**: `[output]/[REPO_NAME]/guides/getting-started.md`
+- **API Reference**: `[output]/[REPO_NAME]/api/index.md`
 
 ### Known Gaps
 

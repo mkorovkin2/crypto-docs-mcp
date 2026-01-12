@@ -1,0 +1,14 @@
+{
+  "id": "polymarket",
+  "name": "Polymarket",
+  "docs": {
+    "baseUrl": "https://docs.polymarket.com",
+    "excludePatterns": ["/api/", "/changelog/", "/releases/"],
+    "maxPages": 200,
+    "useBrowser": false
+  },
+  "crawler": {
+    "concurrency": 3,
+    "delayMs": 1000
+  }
+}
