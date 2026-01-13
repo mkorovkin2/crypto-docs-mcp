@@ -110,20 +110,20 @@ Only return the JSON array, nothing else.`;
       }
 
       // Extract JSON array from response (handle potential markdown code blocks)
-      // Try multiple patterns to be more robust
-      let jsonMatch = content.match(/\[[\d,\s]+\]/);
+      // Try multiple patterns to be more robust (use * instead of + to handle empty arrays)
+      let jsonMatch = content.match(/\[[\d,\s]*\]/);
 
       // If simple pattern fails, try to extract from code blocks
       if (!jsonMatch) {
         const codeBlockMatch = content.match(/```(?:json)?\s*(\[[\s\S]*?\])\s*```/);
         if (codeBlockMatch) {
-          jsonMatch = codeBlockMatch[1].match(/\[[\d,\s]+\]/);
+          jsonMatch = codeBlockMatch[1].match(/\[[\d,\s]*\]/);
         }
       }
 
       // Try parsing any array-like structure
       if (!jsonMatch) {
-        const anyArrayMatch = content.match(/\[[\d,\s\n]+\]/);
+        const anyArrayMatch = content.match(/\[[\d,\s\n]*\]/);
         if (anyArrayMatch) {
           jsonMatch = anyArrayMatch;
         }
@@ -143,6 +143,14 @@ Only return the JSON array, nothing else.`;
 
       if (DEBUG_RERANKER) {
         console.log('[Reranker] Parsed indices:', indices);
+      }
+
+      // If model returns empty array (no relevant results), fall back to original order
+      if (indices.length === 0) {
+        if (DEBUG_RERANKER) {
+          console.log('[Reranker] Model returned empty array, falling back to original order');
+        }
+        return results.slice(0, topK);
       }
 
       // Return results in reranked order

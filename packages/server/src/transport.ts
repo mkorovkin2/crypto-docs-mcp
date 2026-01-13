@@ -25,6 +25,9 @@ export interface TransportContext {
   search: HybridSearch;
   ftsDb: FullTextDB;
   llmClient: LLMClient;
+  llmEvaluator?: LLMClient;
+  llmRefiner?: LLMClient;
+  llmAnalyzer?: LLMClient;
   webSearch?: WebSearchClient;
 }
 
@@ -128,6 +131,9 @@ async function handleMCPRequest(
     search: context.search,
     ftsDb: context.ftsDb,
     llmClient: context.llmClient,
+    llmEvaluator: context.llmEvaluator,
+    llmRefiner: context.llmRefiner,
+    llmAnalyzer: context.llmAnalyzer,
     webSearch: context.webSearch
   };
 

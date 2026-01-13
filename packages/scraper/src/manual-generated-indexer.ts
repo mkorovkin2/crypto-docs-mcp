@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-import 'dotenv/config';
+// Load environment variables from repo root .env file (must be first import)
+import '@mina-docs/shared/load-env';
 import { promises as fs, existsSync } from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';

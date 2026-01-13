@@ -4,10 +4,23 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./load-env": {
+      "types": "./dist/load-env.d.ts",
+      "import": "./dist/load-env.js"
+    }
+  },
   "scripts": {
     "build": "tsc"
   },
   "dependencies": {
+    "dotenv": "^16.3.1",
+    "@anthropic-ai/sdk": "^0.32.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.967.0",
     "@qdrant/js-client-rest": "^1.7.0",
     "better-sqlite3": "^11.0.0",
     "openai": "^4.20.0"

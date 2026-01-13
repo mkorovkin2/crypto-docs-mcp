@@ -199,6 +199,9 @@ async function runAgenticEvaluation(
     },
     {
       llmClient: context.llmClient,
+      llmEvaluator: context.llmEvaluator,
+      llmRefiner: context.llmRefiner,
+      llmAnalyzer: context.llmAnalyzer,
       search: context.search,
       webSearch: context.webSearch,
     }

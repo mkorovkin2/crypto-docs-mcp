@@ -16,6 +16,7 @@ export * from './understanding-extractor.js';
 export * from './search-query-generator.js';
 export * from './adjacent-chunks.js';
 export * from './web-search.js';
+export * from './web-result-analyzer.js';
 export * from './evaluation-types.js';
 export * from './evaluator.js';
 export * from './answer-refiner.js';

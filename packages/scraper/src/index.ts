@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-import 'dotenv/config';
+// Load environment variables from repo root .env file (must be first import)
+import '@mina-docs/shared/load-env';
 import { parseArgs } from 'util';
 import { Crawler } from './crawler.js';
 import { parseDocumentation } from './parser.js';

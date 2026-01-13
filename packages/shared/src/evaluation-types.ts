@@ -110,6 +110,12 @@ export interface EvaluationConfig {
   maxWebSearches: number;
   /** Maximum additional doc queries per evaluation (default: 2) */
   maxDocQueries: number;
+  /** Max tokens for evaluator LLM calls (default: 2000) */
+  evaluatorMaxTokens: number;
+  /** Max tokens for refiner LLM calls (default: 4000) */
+  refinerMaxTokens: number;
+  /** Max tokens for analyzer LLM calls (default: 1000) */
+  analyzerMaxTokens: number;
 }
 
 /**
@@ -121,6 +127,9 @@ export const DEFAULT_EVALUATION_CONFIG: EvaluationConfig = {
   enableWebSearch: true,
   maxWebSearches: 2,
   maxDocQueries: 2,
+  evaluatorMaxTokens: 4000,
+  refinerMaxTokens: 8000,
+  analyzerMaxTokens: 4000,
 };
 
 /**

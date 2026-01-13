@@ -16,6 +16,26 @@ import type {
   EvaluatorResponse,
 } from './evaluation-types.js';
 
+// Timestamped logger for evaluator
+const getTimestamp = () => new Date().toISOString();
+const evaluatorLog = {
+  info: (msg: string, startTime?: number) => {
+    const elapsed = startTime ? ` [+${Date.now() - startTime}ms]` : '';
+    console.log(`[${getTimestamp()}] [Evaluator]${elapsed} ${msg}`);
+  },
+  debug: (msg: string) => {
+    if (process.env.LOG_LEVEL === 'debug') {
+      console.log(`[${getTimestamp()}] [Evaluator] ${msg}`);
+    }
+  },
+  step: (stepName: string, durationMs: number) => {
+    console.log(`[${getTimestamp()}] [Evaluator] ✓ ${stepName} completed in ${durationMs}ms`);
+  },
+  warn: (msg: string) => {
+    console.log(`[${getTimestamp()}] [Evaluator] ⚠ ${msg}`);
+  },
+};
+
 /**
  * System prompt for the evaluator LLM
  */
@@ -43,12 +63,21 @@ CRITICAL EVALUATION RULES:
 
 AVAILABLE ACTIONS:
 - RETURN_ANSWER: Answer is sufficient and complete. Return it to the user.
+  Use when: confidence score ≥85 AND answer fully addresses the question.
 - QUERY_MORE_DOCS: Need to search indexed documentation with different/better queries.
   Use when: answer is thin but docs probably exist, queries tried so far were too narrow/broad.
 - SEARCH_WEB: Need external information not in indexed docs.
-  Use when: topic seems newer/advanced, indexed docs clearly don't cover it, need official source.
+  Use when: ANY of these conditions are met:
+  * Confidence score < 70 (indicates indexed docs are insufficient)
+  * Coverage gaps exist (key terms not found in indexed docs)
+  * Topic seems newer/advanced and indexed docs clearly don't cover it
+  * Need official/authoritative source for verification
+  * Answer is incomplete and QUERY_MORE_DOCS has already been tried
+  STRONGLY PREFER SEARCH_WEB when confidence is below 70!
 - REFINE_ANSWER: Have enough information but answer needs improvement.
   Use when: info is there but answer is poorly structured, incomplete code, missing context.
+
+IMPORTANT: If confidence is below 70 and web search is available, you should almost always choose SEARCH_WEB rather than RETURN_ANSWER or QUERY_MORE_DOCS.
 
 OUTPUT FORMAT - Respond with valid JSON only:
 {
@@ -62,10 +91,11 @@ OUTPUT FORMAT - Respond with valid JSON only:
     "action": "RETURN_ANSWER" | "QUERY_MORE_DOCS" | "SEARCH_WEB" | "REFINE_ANSWER",
     "reason": "why this action makes sense given the assessment",
     "actionDetails": {
-      // For QUERY_MORE_DOCS: { "queries": ["query1", "query2"] }
-      // For SEARCH_WEB: { "queries": ["search1", "search2"] }
-      // For REFINE_ANSWER: { "focusAreas": ["area1", "area2"] }
-      // For RETURN_ANSWER: {}
+      // IMPORTANT: Always include queries/focusAreas arrays with 1-2 items for the action!
+      // For QUERY_MORE_DOCS: { "queries": ["query1", "query2"] } - REQUIRED
+      // For SEARCH_WEB: { "queries": ["search query 1", "search query 2"] } - REQUIRED
+      // For REFINE_ANSWER: { "focusAreas": ["area1", "area2"] } - REQUIRED
+      // For RETURN_ANSWER: {} - no additional details needed
     }
   },
   "contextCompression": {
@@ -78,94 +108,103 @@ OUTPUT FORMAT - Respond with valid JSON only:
 
 /**
  * Build the user prompt for evaluation
+ * Uses XML-style tags for clear section delineation
  */
 function buildEvaluatorUserPrompt(context: EvaluatorContext): string {
   const parts: string[] = [];
 
   // Original question
-  parts.push('## Original Question');
-  parts.push(`Query: "${context.query.text}"`);
-  parts.push(`Type: ${context.query.type}`);
-  parts.push(`Intent: ${context.query.intent}`);
+  parts.push('<original_question>');
+  parts.push(`<query>${context.query.text}</query>`);
+  parts.push(`<type>${context.query.type}</type>`);
+  parts.push(`<intent>${context.query.intent}</intent>`);
   if (context.query.technicalTerms.length > 0) {
-    parts.push(`Key Terms: ${context.query.technicalTerms.join(', ')}`);
+    parts.push(`<technical_terms>${context.query.technicalTerms.join(', ')}</technical_terms>`);
   }
+  parts.push('</original_question>');
   parts.push('');
 
-  // Current answer
-  parts.push('## Current Answer Being Evaluated');
-  parts.push('```');
-  // Truncate very long answers to stay within context
-  const truncatedAnswer = context.currentAnswer.length > 4000
-    ? context.currentAnswer.slice(0, 4000) + '\n... [truncated for evaluation]'
-    : context.currentAnswer;
-  parts.push(truncatedAnswer);
-  parts.push('```');
+  // Current answer - full context, never truncate
+  parts.push('<current_answer>');
+  parts.push(context.currentAnswer);
+  parts.push('</current_answer>');
   parts.push('');
 
   // Confidence scores
-  parts.push('## Confidence Assessment');
-  parts.push(`Overall Score: ${context.confidence.score}/100`);
-  parts.push('Factor Breakdown:');
-  parts.push(`- Retrieval Quality: ${context.confidence.factors.retrievalScore}/100`);
-  parts.push(`- Query Coverage: ${context.confidence.factors.coverageScore}/100`);
-  parts.push(`- Answer Quality: ${context.confidence.factors.answerQualityScore}/100`);
-  parts.push(`- Source Consistency: ${context.confidence.factors.sourceConsistency}/100`);
-  parts.push(`System Explanation: ${context.confidence.explanation}`);
+  parts.push('<confidence_assessment>');
+  parts.push(`<overall_score>${context.confidence.score}</overall_score>`);
+  parts.push('<factors>');
+  parts.push(`<retrieval_quality>${context.confidence.factors.retrievalScore}</retrieval_quality>`);
+  parts.push(`<query_coverage>${context.confidence.factors.coverageScore}</query_coverage>`);
+  parts.push(`<answer_quality>${context.confidence.factors.answerQualityScore}</answer_quality>`);
+  parts.push(`<source_consistency>${context.confidence.factors.sourceConsistency}</source_consistency>`);
+  parts.push('</factors>');
+  parts.push(`<explanation>${context.confidence.explanation}</explanation>`);
+  parts.push('</confidence_assessment>');
   parts.push('');
 
   // Indexed results summary
-  parts.push('## Indexed Documentation Results');
-  parts.push(`Total results found: ${context.indexedResults.count}`);
+  parts.push('<indexed_documentation_results>');
+  parts.push(`<total_results>${context.indexedResults.count}</total_results>`);
   if (context.indexedResults.topTopics.length > 0) {
-    parts.push(`Topics covered: ${context.indexedResults.topTopics.join(', ')}`);
+    parts.push(`<topics_covered>${context.indexedResults.topTopics.join(', ')}</topics_covered>`);
   }
   if (context.indexedResults.coverageGaps.length > 0) {
-    parts.push(`Coverage gaps (terms not found): ${context.indexedResults.coverageGaps.join(', ')}`);
+    parts.push(`<coverage_gaps>${context.indexedResults.coverageGaps.join(', ')}</coverage_gaps>`);
   } else {
-    parts.push('Coverage gaps: None detected');
+    parts.push('<coverage_gaps>None detected</coverage_gaps>');
   }
+  parts.push('</indexed_documentation_results>');
   parts.push('');
 
   // Previous context if exists
   if (context.previousContext) {
-    parts.push('## Previous Evaluation Context');
-    parts.push(`Summary: ${context.previousContext.summary}`);
+    parts.push('<previous_evaluation_context>');
+    parts.push(`<summary>${context.previousContext.summary}</summary>`);
     if (context.previousContext.structured.establishedFacts.length > 0) {
-      parts.push(`Established facts: ${context.previousContext.structured.establishedFacts.join('; ')}`);
+      parts.push(`<established_facts>${context.previousContext.structured.establishedFacts.join('; ')}</established_facts>`);
     }
     if (context.previousContext.structured.queriesTried.length > 0) {
-      parts.push(`Doc queries tried: ${context.previousContext.structured.queriesTried.join(', ')}`);
+      parts.push(`<doc_queries_tried>${context.previousContext.structured.queriesTried.join(', ')}</doc_queries_tried>`);
     }
     if (context.previousContext.structured.webSearchesDone.length > 0) {
-      parts.push(`Web searches done: ${context.previousContext.structured.webSearchesDone.join(', ')}`);
+      parts.push(`<web_searches_done>${context.previousContext.structured.webSearchesDone.join(', ')}</web_searches_done>`);
     }
     if (context.previousContext.stillNeeded.length > 0) {
-      parts.push(`Still needed: ${context.previousContext.stillNeeded.join(', ')}`);
+      parts.push(`<still_needed>${context.previousContext.stillNeeded.join(', ')}</still_needed>`);
     }
+    parts.push('</previous_evaluation_context>');
     parts.push('');
   }
 
   // Web search results if any
   if (context.webResults && context.webResults.length > 0) {
-    parts.push('## Web Search Results Available');
+    parts.push('<web_search_results>');
     for (const ws of context.webResults) {
-      parts.push(`Query: "${ws.query}"`);
-      for (const r of ws.results.slice(0, 3)) {
-        parts.push(`- [${r.title}](${r.url})`);
-        parts.push(`  ${r.content.slice(0, 300)}...`);
+      parts.push(`<search query="${ws.query}">`);
+      for (const r of ws.results) {
+        parts.push(`<result>`);
+        parts.push(`<title>${r.title}</title>`);
+        parts.push(`<url>${r.url}</url>`);
+        parts.push(`<content>${r.content}</content>`);
+        parts.push(`</result>`);
       }
+      parts.push(`</search>`);
     }
+    parts.push('</web_search_results>');
     parts.push('');
   }
 
   // Available actions
-  parts.push('## Available Actions');
-  parts.push(`Can query more docs: ${context.availableActions.canQueryMoreDocs ? 'Yes' : 'No'} (${context.availableActions.docQueriesRemaining} remaining)`);
-  parts.push(`Can search web: ${context.availableActions.canSearchWeb ? 'Yes' : 'No'} (${context.availableActions.webSearchesRemaining} remaining)`);
+  parts.push('<available_actions>');
+  parts.push(`<can_query_more_docs>${context.availableActions.canQueryMoreDocs}</can_query_more_docs>`);
+  parts.push(`<doc_queries_remaining>${context.availableActions.docQueriesRemaining}</doc_queries_remaining>`);
+  parts.push(`<can_search_web>${context.availableActions.canSearchWeb}</can_search_web>`);
+  parts.push(`<web_searches_remaining>${context.availableActions.webSearchesRemaining}</web_searches_remaining>`);
+  parts.push('</available_actions>');
   parts.push('');
 
-  parts.push('Evaluate the answer critically and decide what action to take. Output valid JSON only.');
+  parts.push('<instructions>Evaluate the answer critically and decide what action to take. Output valid JSON only.</instructions>');
 
   return parts.join('\n');
 }
@@ -174,12 +213,16 @@ function buildEvaluatorUserPrompt(context: EvaluatorContext): string {
  * Parse the evaluator's JSON response, handling various formats
  */
 function parseEvaluatorResponse(response: string): EvaluatorResponse {
+  const parseStart = Date.now();
+  evaluatorLog.debug('Parsing evaluator response...');
+
   // Try to extract JSON from the response (handle markdown code blocks)
   let jsonStr = response.trim();
 
   // Check for ```json ... ``` or ``` ... ``` blocks
   const jsonBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (jsonBlockMatch) {
+    evaluatorLog.debug('Extracted JSON from markdown code block');
     jsonStr = jsonBlockMatch[1].trim();
   }
 
@@ -191,7 +234,7 @@ function parseEvaluatorResponse(response: string): EvaluatorResponse {
       throw new Error('Missing required fields in evaluator response');
     }
 
-    return {
+    const result: EvaluatorResponse = {
       assessment: {
         answersQuestion: Boolean(parsed.assessment.answersQuestion),
         completeness: parsed.assessment.completeness || 'partial',
@@ -218,10 +261,15 @@ function parseEvaluatorResponse(response: string): EvaluatorResponse {
         summary: parsed.contextCompression.summary || 'No summary provided',
       },
     };
+
+    evaluatorLog.debug(`Parsed response: action=${result.decision.action}, completeness=${result.assessment.completeness}, issues=${result.assessment.specificIssues.length}`);
+    evaluatorLog.debug(`Response parsing completed in ${Date.now() - parseStart}ms`);
+
+    return result;
   } catch (e) {
     // If JSON parsing fails, return a safe default
-    console.error('Failed to parse evaluator response:', e);
-    console.error('Raw response:', response.slice(0, 500));
+    evaluatorLog.warn(`Failed to parse evaluator response: ${e instanceof Error ? e.message : String(e)}`);
+    evaluatorLog.debug(`Raw response (first 500 chars): ${response.slice(0, 500)}`);
 
     return {
       assessment: {
@@ -249,38 +297,51 @@ function parseEvaluatorResponse(response: string): EvaluatorResponse {
  * Convert parsed response to our action type
  */
 function responseToAction(parsed: EvaluatorResponse): EvaluationAction {
+  evaluatorLog.debug(`Converting response action: ${parsed.decision.action}`);
+
   switch (parsed.decision.action) {
     case 'RETURN_ANSWER':
+      evaluatorLog.debug(`Action: RETURN_ANSWER - ${parsed.decision.reason}`);
       return { type: 'RETURN_ANSWER', reason: parsed.decision.reason };
 
-    case 'QUERY_MORE_DOCS':
+    case 'QUERY_MORE_DOCS': {
+      const queries = Array.isArray(parsed.decision.actionDetails.queries)
+        ? parsed.decision.actionDetails.queries
+        : [];
+      evaluatorLog.debug(`Action: QUERY_MORE_DOCS - ${queries.length} queries: [${queries.join(', ')}]`);
       return {
         type: 'QUERY_MORE_DOCS',
-        queries: Array.isArray(parsed.decision.actionDetails.queries)
-          ? parsed.decision.actionDetails.queries
-          : [],
+        queries,
         reason: parsed.decision.reason,
       };
+    }
 
-    case 'SEARCH_WEB':
+    case 'SEARCH_WEB': {
+      const queries = Array.isArray(parsed.decision.actionDetails.queries)
+        ? parsed.decision.actionDetails.queries
+        : [];
+      evaluatorLog.debug(`Action: SEARCH_WEB - ${queries.length} queries: [${queries.join(', ')}]`);
       return {
         type: 'SEARCH_WEB',
-        queries: Array.isArray(parsed.decision.actionDetails.queries)
-          ? parsed.decision.actionDetails.queries
-          : [],
+        queries,
         reason: parsed.decision.reason,
       };
+    }
 
-    case 'REFINE_ANSWER':
+    case 'REFINE_ANSWER': {
+      const focusAreas = Array.isArray(parsed.decision.actionDetails.focusAreas)
+        ? parsed.decision.actionDetails.focusAreas
+        : [];
+      evaluatorLog.debug(`Action: REFINE_ANSWER - ${focusAreas.length} focus areas: [${focusAreas.join(', ')}]`);
       return {
         type: 'REFINE_ANSWER',
-        focusAreas: Array.isArray(parsed.decision.actionDetails.focusAreas)
-          ? parsed.decision.actionDetails.focusAreas
-          : [],
+        focusAreas,
         reason: parsed.decision.reason,
       };
+    }
 
     default:
+      evaluatorLog.debug(`Unknown action type: ${parsed.decision.action}, falling back to RETURN_ANSWER`);
       return { type: 'RETURN_ANSWER', reason: 'Unknown action type, returning answer' };
   }
 }
@@ -291,16 +352,31 @@ function responseToAction(parsed: EvaluatorResponse): EvaluationAction {
 export async function runEvaluationStep(
   llmClient: LLMClient,
   context: EvaluatorContext,
-  stepNumber: number
+  stepNumber: number,
+  maxTokens: number = 2000
 ): Promise<EvaluationStepResult> {
   const startTime = Date.now();
 
+  evaluatorLog.debug(`=== EVALUATION STEP ${stepNumber} ===`);
+  evaluatorLog.debug(`Query: "${context.query.text}" (type: ${context.query.type})`);
+  evaluatorLog.debug(`Current confidence: ${context.confidence.score}%`);
+  evaluatorLog.debug(`Available actions: docs=${context.availableActions.canQueryMoreDocs} (${context.availableActions.docQueriesRemaining} left), web=${context.availableActions.canSearchWeb} (${context.availableActions.webSearchesRemaining} left)`);
+
+  // Build prompt
+  const promptBuildStart = Date.now();
+  const userPrompt = buildEvaluatorUserPrompt(context);
+  evaluatorLog.debug(`Prompt built in ${Date.now() - promptBuildStart}ms (${userPrompt.length} chars)`);
+
   // Call the LLM for evaluation
+  evaluatorLog.debug(`Calling LLM for evaluation (maxTokens=${maxTokens})...`);
+  const llmCallStart = Date.now();
   const response = await llmClient.synthesize(
     EVALUATOR_SYSTEM_PROMPT,
-    buildEvaluatorUserPrompt(context),
-    { temperature: 0.2, maxTokens: 2000 }
+    userPrompt,
+    { temperature: 0.2, maxTokens }
   );
+  evaluatorLog.debug(`LLM evaluation call completed in ${Date.now() - llmCallStart}ms`);
+  evaluatorLog.debug(`Response length: ${response.length} chars`);
 
   // Parse the response
   const parsed = parseEvaluatorResponse(response);
@@ -321,6 +397,11 @@ export async function runEvaluationStep(
     stillNeeded: parsed.contextCompression.stillNeeded,
   };
 
+  const totalDuration = Date.now() - startTime;
+  evaluatorLog.debug(`Assessment: answersQuestion=${parsed.assessment.answersQuestion}, completeness=${parsed.assessment.completeness}`);
+  evaluatorLog.debug(`Context: ${parsed.contextCompression.establishedFacts.length} facts, ${parsed.contextCompression.identifiedGaps.length} gaps, ${parsed.contextCompression.stillNeeded.length} still needed`);
+  evaluatorLog.debug(`Evaluation step ${stepNumber} completed in ${totalDuration}ms`);
+
   return {
     step: stepNumber,
     action,
@@ -332,7 +413,7 @@ export async function runEvaluationStep(
       gaps: parsed.assessment.specificIssues,
     },
     compressedContext,
-    durationMs: Date.now() - startTime,
+    durationMs: totalDuration,
   };
 }
 

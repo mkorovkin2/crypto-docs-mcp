@@ -42,7 +42,14 @@ function getProjectList(): string {
 export interface ToolContext {
   search: HybridSearch;
   ftsDb: FullTextDB;
+  /** LLM client for main synthesis (answer generation) */
   llmClient: LLMClient;
+  /** LLM client for evaluation (answer quality assessment) - may be a smaller/faster model */
+  llmEvaluator?: LLMClient;
+  /** LLM client for refinement (answer improvement) */
+  llmRefiner?: LLMClient;
+  /** LLM client for web result analysis (parallel relevance filtering) - fast model recommended */
+  llmAnalyzer?: LLMClient;
   webSearch?: WebSearchClient;
 }
 

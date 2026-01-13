@@ -25,14 +25,44 @@ import {
   identifyCoverageGaps,
 } from './evaluator.js';
 import { refineAnswer, synthesizeFromWebResults } from './answer-refiner.js';
+import { analyzeWebResults, type WebAnalysisOutput, type AnalyzerContext } from './web-result-analyzer.js';
 import { extractQueryUnderstanding } from './understanding-extractor.js';
 import { calculateConfidenceScore } from './confidence.js';
+
+// Timestamped logger for evaluation loop
+const getTimestamp = () => new Date().toISOString();
+const evalLog = {
+  info: (msg: string, startTime?: number) => {
+    const elapsed = startTime ? ` [+${Date.now() - startTime}ms]` : '';
+    console.log(`[${getTimestamp()}] [EvalLoop]${elapsed} ${msg}`);
+  },
+  debug: (msg: string, startTime?: number) => {
+    if (process.env.LOG_LEVEL === 'debug') {
+      const elapsed = startTime ? ` [+${Date.now() - startTime}ms]` : '';
+      console.log(`[${getTimestamp()}] [EvalLoop]${elapsed} ${msg}`);
+    }
+  },
+  action: (action: string, detail: string, startTime?: number) => {
+    const elapsed = startTime ? ` [+${Date.now() - startTime}ms]` : '';
+    console.log(`[${getTimestamp()}] [EvalLoop]${elapsed} → ${action}: ${detail}`);
+  },
+  step: (stepName: string, durationMs: number) => {
+    console.log(`[${getTimestamp()}] [EvalLoop] ✓ ${stepName} completed in ${durationMs}ms`);
+  },
+};
 
 /**
  * Dependencies for the orchestrator
  */
 export interface OrchestratorDependencies {
+  /** Main LLM client for synthesis */
   llmClient: LLMClient;
+  /** LLM client for evaluation (defaults to llmClient if not provided) */
+  llmEvaluator?: LLMClient;
+  /** LLM client for refinement (defaults to llmClient if not provided) */
+  llmRefiner?: LLMClient;
+  /** LLM client for web result analysis (defaults to llmEvaluator if not provided) */
+  llmAnalyzer?: LLMClient;
   search: HybridSearch;
   webSearch?: WebSearchClient;
 }
@@ -50,13 +80,20 @@ export async function runEvaluationLoop(
   input: EvaluationInput,
   deps: OrchestratorDependencies
 ): Promise<EvaluationOutput> {
-  const startTime = Date.now();
+  const loopStartTime = Date.now();
+
+  evalLog.info('=== EVALUATION LOOP STARTED ===');
+  evalLog.info(`Query: "${input.query}"`);
+  evalLog.info(`Project: ${input.project}`);
 
   // Merge config with defaults
   const config: EvaluationConfig = {
     ...DEFAULT_EVALUATION_CONFIG,
     ...input.config,
   };
+
+  evalLog.info(`Config: maxIterations=${config.maxIterations}, threshold=${config.autoReturnConfidenceThreshold}%, webSearch=${config.enableWebSearch}`);
+  evalLog.info(`MaxTokens: evaluator=${config.evaluatorMaxTokens}, refiner=${config.refinerMaxTokens}, analyzer=${config.analyzerMaxTokens}`);
 
   // Initialize trace for observability
   const trace: EvaluationTrace = {
@@ -85,7 +122,9 @@ export async function runEvaluationLoop(
 
   // Quick return for very high confidence
   if (input.initialConfidence.score >= config.autoReturnConfidenceThreshold) {
-    trace.totalDurationMs = Date.now() - startTime;
+    evalLog.info(`HIGH CONFIDENCE (${input.initialConfidence.score}%) >= threshold (${config.autoReturnConfidenceThreshold}%) - returning immediately`, loopStartTime);
+    trace.totalDurationMs = Date.now() - loopStartTime;
+    evalLog.step('Quick return (high confidence)', trace.totalDurationMs);
     return {
       answer: input.initialAnswer,
       confidence: input.initialConfidence.score,
@@ -95,6 +134,9 @@ export async function runEvaluationLoop(
       warnings: [],
     };
   }
+
+  evalLog.info(`Initial confidence: ${input.initialConfidence.score}% (below threshold ${config.autoReturnConfidenceThreshold}%)`);
+  evalLog.info(`Starting evaluation loop (max ${config.maxIterations} iterations)`, loopStartTime);
 
   // State for the loop
   let currentAnswer = input.initialAnswer;
@@ -106,7 +148,11 @@ export async function runEvaluationLoop(
 
   // Main evaluation loop
   for (let step = 1; step <= config.maxIterations; step++) {
+    const stepStartTime = Date.now();
+    evalLog.info(`--- STEP ${step}/${config.maxIterations} STARTED ---`, loopStartTime);
+
     // Build context for evaluator
+    const understandingStart = Date.now();
     const understanding = extractQueryUnderstanding(
       input.query,
       input.project,
@@ -114,16 +160,20 @@ export async function runEvaluationLoop(
       currentResults,
       input.initialConfidence
     );
+    evalLog.step('Extract query understanding', Date.now() - understandingStart);
 
     // Recalculate confidence if answer was refined
     let currentConfidence = input.initialConfidence;
     if (step > 1) {
+      const confidenceStart = Date.now();
       currentConfidence = calculateConfidenceScore(
         input.query,
         input.analysis,
         currentResults,
         currentAnswer
       );
+      evalLog.step('Recalculate confidence', Date.now() - confidenceStart);
+      evalLog.info(`Recalculated confidence: ${currentConfidence.score}%`);
     }
 
     const evaluatorContext: EvaluatorContext = {
@@ -149,14 +199,24 @@ export async function runEvaluationLoop(
       },
       webResults: allWebResults.length > 0 ? [{
         query: previousContext?.structured.webSearchesDone.slice(-1)[0] || '',
-        results: allWebResults.slice(-5), // Last 5 web results
+        results: allWebResults,
       }] : undefined,
     };
 
-    // Run evaluation step
-    const stepResult = await runEvaluationStep(deps.llmClient, evaluatorContext, step);
+    // Run evaluation step (use dedicated evaluator LLM if available)
+    evalLog.info(`Running evaluator LLM (maxTokens=${config.evaluatorMaxTokens})...`, loopStartTime);
+    const evaluatorStart = Date.now();
+    const evaluatorLLM = deps.llmEvaluator || deps.llmClient;
+    const stepResult = await runEvaluationStep(evaluatorLLM, evaluatorContext, step, config.evaluatorMaxTokens);
+    evalLog.step('Evaluator LLM call', Date.now() - evaluatorStart);
     trace.steps.push(stepResult);
     trace.resourcesUsed.llmCalls++;
+
+    evalLog.info(`DECISION: ${stepResult.action.type}`, loopStartTime);
+    evalLog.info(`  Confidence: ${stepResult.confidence.score}%`);
+    evalLog.info(`  Reason: ${stepResult.action.reason || 'No reason provided'}`);
+    evalLog.info(`  Web search available: ${evaluatorContext.availableActions.canSearchWeb} (${webSearchesRemaining} remaining)`);
+    evalLog.info(`  Doc queries available: ${evaluatorContext.availableActions.canQueryMoreDocs} (${docQueriesRemaining} remaining)`);
 
     // Update previous context
     previousContext = stepResult.compressedContext;
@@ -165,8 +225,10 @@ export async function runEvaluationLoop(
     switch (stepResult.action.type) {
       case 'RETURN_ANSWER':
         // Done - return the answer
+        evalLog.action('RETURN_ANSWER', `Final confidence: ${stepResult.confidence.score}%`, loopStartTime);
         trace.finalAction = 'returned';
-        trace.totalDurationMs = Date.now() - startTime;
+        trace.totalDurationMs = Date.now() - loopStartTime;
+        evalLog.info(`=== EVALUATION LOOP COMPLETED === Total time: ${trace.totalDurationMs}ms`);
         return {
           answer: currentAnswer,
           confidence: stepResult.confidence.score,
@@ -178,15 +240,20 @@ export async function runEvaluationLoop(
 
       case 'QUERY_MORE_DOCS':
         if (docQueriesRemaining > 0 && stepResult.action.queries.length > 0) {
+          evalLog.action('QUERY_MORE_DOCS', `Queries: ${stepResult.action.queries.join(', ')}`, loopStartTime);
+          const docQueryStart = Date.now();
           const newResults = await executeDocQueries(
             deps.search,
             stepResult.action.queries,
             input.project,
             currentResults
           );
+          evalLog.step('Execute doc queries', Date.now() - docQueryStart);
 
           trace.resourcesUsed.docQueries += stepResult.action.queries.length;
           docQueriesRemaining -= stepResult.action.queries.length;
+
+          evalLog.info(`Found ${newResults.added.length} new results (total: ${newResults.merged.length})`, loopStartTime);
 
           // Track new sources
           for (const r of newResults.added) {
@@ -208,62 +275,122 @@ export async function runEvaluationLoop(
         break;
 
       case 'SEARCH_WEB':
+        // Log when SEARCH_WEB is chosen
+        evalLog.info(`SEARCH_WEB action received with ${stepResult.action.queries?.length || 0} queries`, loopStartTime);
         if (config.enableWebSearch && deps.webSearch && webSearchesRemaining > 0 && stepResult.action.queries.length > 0) {
+          evalLog.action('SEARCH_WEB', `Queries: ${stepResult.action.queries.join(', ')}`, loopStartTime);
+
+          const webSearchStart = Date.now();
           const webResults = await executeWebSearches(
             deps.webSearch,
             stepResult.action.queries,
             input.project
           );
+          evalLog.step('Execute web searches', Date.now() - webSearchStart);
 
           trace.resourcesUsed.webSearches += webResults.searchesPerformed;
           webSearchesRemaining -= webResults.searchesPerformed;
 
-          // Track web sources
-          for (const r of webResults.results) {
-            allSources.push({
-              type: 'web',
-              url: r.url,
-              title: r.title,
-            });
-          }
-
-          allWebResults = [...allWebResults, ...webResults.results];
+          evalLog.info(`Web search returned ${webResults.results.length} results`, loopStartTime);
 
           // Update context with web searches done
           if (previousContext) {
             previousContext.structured.webSearchesDone.push(...webResults.queriesUsed);
           }
 
-          // If this is the first web search and we have significant results,
-          // synthesize an improved answer
-          if (allWebResults.length > 0 && currentResults.length < 3) {
-            const webSynthesized = await synthesizeFromWebResults(
-              deps.llmClient,
-              input.query,
-              input.project,
-              allWebResults,
-              previousContext || undefined
+          // Analyze web results in parallel to filter for relevance
+          if (webResults.results.length > 0) {
+            evalLog.info(`Analyzing ${webResults.results.length} web results in parallel (maxTokens=${config.analyzerMaxTokens})...`, loopStartTime);
+            const analyzerStart = Date.now();
+            const analyzerLLM = deps.llmAnalyzer || deps.llmEvaluator || deps.llmClient;
+
+            // Build full context for the analyzer - NO TRUNCATION
+            const analyzerContext: AnalyzerContext = {
+              query: input.query,
+              intent: evaluatorContext.query.intent,
+              technicalTerms: evaluatorContext.query.technicalTerms,
+              knowledgeGaps: previousContext?.structured.identifiedGaps || evaluatorContext.indexedResults.coverageGaps,
+              establishedFacts: previousContext?.structured.establishedFacts || [],
+              stillNeeded: previousContext?.stillNeeded || [],
+              currentAnswerSummary: currentAnswer, // Full answer, never truncate
+            };
+
+            const analysis = await analyzeWebResults(
+              analyzerLLM,
+              analyzerContext,
+              webResults.results,
+              { minRelevanceScore: 50, maxRelevant: 5, maxTokens: config.analyzerMaxTokens }
             );
-            trace.resourcesUsed.llmCalls++;
-            currentAnswer = webSynthesized;
+            evalLog.step(`Parallel web result analysis (${webResults.results.length} results)`, Date.now() - analyzerStart);
+
+            // Track LLM calls for analysis (one per result analyzed)
+            trace.resourcesUsed.llmCalls += analysis.stats.totalResults;
+
+            evalLog.info(
+              `Analysis complete: ${analysis.stats.relevantCount}/${analysis.stats.totalResults} relevant ` +
+              `(avg score: ${analysis.stats.avgRelevanceScore.toFixed(1)}, took ${analysis.stats.analysisTimeMs}ms)`,
+              loopStartTime
+            );
+
+            // Only track relevant sources
+            for (const analyzed of analysis.relevantResults) {
+              allSources.push({
+                type: 'web',
+                url: analyzed.result.url,
+                title: analyzed.result.title,
+              });
+            }
+
+            // Store relevant results for refinement
+            const relevantWebResults = analysis.relevantResults.map(a => a.result);
+            allWebResults = [...allWebResults, ...relevantWebResults];
+
+            // If we have relevant results and indexed docs are thin,
+            // synthesize an improved answer using the pre-analyzed context
+            if (analysis.relevantResults.length > 0 && currentResults.length < 3) {
+              evalLog.info(`Synthesizing answer from ${analysis.relevantResults.length} analyzed web results (maxTokens=${config.refinerMaxTokens})...`, loopStartTime);
+              const synthesisStart = Date.now();
+              const refinerLLM = deps.llmRefiner || deps.llmClient;
+
+              // Use the synthesized context from analysis for more focused refinement
+              const webSynthesized = await synthesizeFromWebResults(
+                refinerLLM,
+                input.query,
+                input.project,
+                relevantWebResults,
+                previousContext || undefined,
+                analysis.synthesizedContext, // Pass pre-analyzed context
+                config.refinerMaxTokens
+              );
+              evalLog.step('Synthesize from web results', Date.now() - synthesisStart);
+              trace.resourcesUsed.llmCalls++;
+              currentAnswer = webSynthesized;
+            }
           }
 
           for (const err of webResults.errors) {
+            evalLog.info(`Web search warning: ${err}`);
             warnings.push(`Web search issue: ${err}`);
           }
         } else if (!deps.webSearch) {
+          evalLog.info('Web search requested but not configured (no TAVILY_API_KEY)');
           warnings.push('Web search requested but not configured (no TAVILY_API_KEY)');
         }
         break;
 
       case 'REFINE_ANSWER':
         if (stepResult.action.focusAreas.length > 0) {
+          evalLog.action('REFINE_ANSWER', `Focus: ${stepResult.action.focusAreas.join(', ')}`);
           // Get any new results since initial
           const newDocResults = currentResults.filter(
             r => !input.initialResults.some(ir => ir.chunk.url === r.chunk.url)
           );
 
-          currentAnswer = await refineAnswer(deps.llmClient, {
+          evalLog.info(`Refining with ${newDocResults.length} new docs, ${allWebResults.length} web results`);
+
+          // Use dedicated refiner LLM if available
+          const refinerLLMForAnswer = deps.llmRefiner || deps.llmClient;
+          currentAnswer = await refineAnswer(refinerLLMForAnswer, {
             originalQuery: input.query,
             currentAnswer,
             focusAreas: stepResult.action.focusAreas,
@@ -275,14 +402,16 @@ export async function runEvaluationLoop(
             project: input.project,
           });
           trace.resourcesUsed.llmCalls++;
+          evalLog.info('Answer refined');
         }
         break;
     }
   }
 
   // Max iterations reached
+  evalLog.info(`Max iterations (${config.maxIterations}) reached - returning best answer`);
   trace.finalAction = 'max_iterations';
-  trace.totalDurationMs = Date.now() - startTime;
+  trace.totalDurationMs = Date.now() - loopStartTime;
   warnings.push(`Reached maximum ${config.maxIterations} evaluation iterations`);
 
   // Return best answer we have
