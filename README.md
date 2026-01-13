@@ -42,6 +42,32 @@ npm run scraper -- -p pirate-chain --use-registry
 
 Add more projects by creating a configuration file in `config/projects/`.
 
+### Index Generated Repository Docs
+
+Index locally generated documentation (e.g. from `/generate_repo_docs`) under an existing project:
+
+```bash
+npm run index:generated-docs -- --project polymarket --custom Polymarket-Kalshi-Arbitrage-bot
+# Or point directly at a folder:
+npm run index:generated-docs -- --project polymarket --dir docs/generated/Polymarket-Kalshi-Arbitrage-bot
+```
+
+For the existing generated docs in this repo, run:
+
+```bash
+npm run index:generated-docs -- --project polymarket --dir docs/generated/Polymarket-Kalshi-Arbitrage-bot
+```
+
+This uses the same chunking/embedding pipeline and tags the chunks under the official project id.
+
+How it works (quick version):
+- Reads markdown files in the generated docs folder (default `docs/generated/<custom>`).
+- Converts headings/code fences into chunks, splits long prose, generates embeddings, and upserts into Qdrant + SQLite with the provided `--project` id.
+- Uses content hashes to skip unchanged files and marks missing files from the folder as orphaned.
+
+Prereqs:
+- `OPENAI_API_KEY` plus running Qdrant/SQLite (same as the normal scraper).
+
 ## Architecture
 
 ```

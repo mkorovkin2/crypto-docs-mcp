@@ -478,7 +478,15 @@ Return these sections for the "HANDOFF: Architecture Results" structure:
 
 ## WAVE 3: Module Documentation (3+ agents, batched)
 
-**Purpose**: Document each module/component in detail.
+**Purpose**: Document each module EXHAUSTIVELY with full source code and implementation details.
+
+### Depth Requirements by Mode
+
+| Mode | Target Lines/Module | Source Code | Internals | Functions Coverage |
+|------|---------------------|-------------|-----------|-------------------|
+| `quick` | 200+ lines | Signatures only | No | Public exports only |
+| `standard` | 400+ lines | Key implementations | Key internals | 80% of functions |
+| `deep` | 800+ lines | Full source code | All internals | 100% of functions |
 
 ### Determine Batching Strategy
 
@@ -487,8 +495,8 @@ Based on mode and file count:
 | Mode | Modules per Agent | Max Agents |
 |------|-------------------|------------|
 | `quick` | 5 | 1 |
-| `standard` | 10 | 3 |
-| `deep` | 15 | 6 |
+| `standard` | 5 | 3 |
+| `deep` | 3 | 6 |
 
 Calculate batches:
 ```
@@ -502,67 +510,102 @@ agents_to_spawn = min(agents_needed, max_agents)
 ```
 Task with subagent_type="module-documenter":
 
-Document these modules comprehensively.
+## CRITICAL: You MUST produce EXHAUSTIVE documentation
 
-## Modules to Document (this batch)
+### Depth Requirements (Mode: [MODE])
+- **Minimum output: 800+ lines per module** (for deep mode)
+- **Document EVERY function** - public AND private/internal
+- **Include FULL source code** - embed actual implementations
+- **Explain algorithms** - step-by-step for complex logic
+- **Tag internal functions** - use [Internal] prefix
+
+### Modules to Document (this batch)
 - src/auth/
 - src/database/
 - src/utils/
 
-## HANDOFF INPUT (from Wave 1)
+### HANDOFF INPUT (from Wave 1)
 [Paste the COMPLETE "HANDOFF: Discovery Results" block here - do not summarize]
 
-## HANDOFF INPUT (from Wave 2)
+### HANDOFF INPUT (from Wave 2)
 [Paste the COMPLETE "HANDOFF: Architecture Results" block here - do not summarize]
 
-## Documentation Mode: [MODE]
+### Documentation Mode: [MODE]
 
-## Your Job
-For EACH module in your batch, produce complete documentation:
+### For EACH module, you MUST:
 
-1. **Module Overview**
-   - Purpose (why does this exist?)
-   - Responsibility (what does it do?)
-   - Position in architecture (what depends on it? what does it depend on?)
+1. **Read the ENTIRE source file(s)**
+   - Use Read tool to get COMPLETE file contents
+   - Do NOT skip any lines
+   - Parse every function, class, type, constant
 
-2. **Public API**
-   - All exports with full signatures
-   - Parameter descriptions
-   - Return values
-   - Exceptions thrown
+2. **Document EVERY function** (both public AND private)
+   - Public functions: full documentation with implementation
+   - Private functions: tag as [Internal], document fully including source code
+   - Include FULL implementation code in code blocks
 
-3. **Internal Architecture**
-   - Key internal functions
-   - Data structures
-   - Algorithms used
+3. **Include source code blocks**
+   - Copy actual function implementations (not just signatures)
+   - Preserve original comments
+   - Add explanatory comments for complex sections
 
-4. **Configuration**
-   - Environment variables read
-   - Config options
+4. **Document with these sections (REQUIRED)**:
+   - **Overview**: 3-5 paragraphs on purpose, design, architecture fit
+   - **Quick Reference**: Table of ALL exports AND internal functions
+   - **Detailed API Reference**: Full documentation per function with:
+     - Full signature
+     - Source location (file:line-range)
+     - Parameters table (name, type, required, default, description)
+     - Returns description
+     - Throws table
+     - **FULL Implementation code block**
+     - Implementation notes explaining key lines
+     - Complexity analysis
+     - Usage examples
+   - **[Internal] Functions**: Same detail level, tagged as [Internal]
+   - **Types and Interfaces**: Full definitions with field tables
+   - **Constants and Enums**: Values, purposes, usage locations
+   - **Internal Implementation Details**: Data flow, algorithms, error handling
+   - **Dependencies**: Internal and external with purposes
+   - **Used By**: Where this module is imported
 
-5. **Usage Examples**
-   - Extract from tests if available
-   - Generate basic examples if not
+5. **Trace ALL dependencies**
+   - Where each function is called from (grep for usages)
+   - What each function calls
 
-6. **Related Modules**
-   - Dependencies
-   - Consumers
+### Validation Checklist (verify before returning)
+- [ ] Every export from the module is documented
+- [ ] Every private function is documented with [Internal] tag
+- [ ] Full source code is included for all functions
+- [ ] Output is 800+ lines (for deep mode)
+- [ ] All parameters have type and detailed description
+- [ ] All return values documented with possible values
+- [ ] All errors/exceptions documented with conditions
+- [ ] Implementation notes explain complex logic
+- [ ] Line references point to actual source locations
 
-## Output Format
-For EACH module documented, return a "HANDOFF: Module Documentation" block following the exact structure from the Knowledge Handoff Protocol. Include:
-- Module path
-- Public Exports table (Export | Type | Signature | Line)
-- Dependencies and Dependents
-- Key Internal Functions table
-- Config/Env Vars Used
+**Return ONLY when this checklist is complete.**
 
-ALSO return the full markdown documentation for each module (this goes to final output).
+### Output Format
+For EACH module documented, return:
+
+1. A "HANDOFF: Module Documentation" block following the Knowledge Handoff Protocol:
+   - Module path
+   - Public Exports table (Export | Type | Signature | Line)
+   - Internal Functions table (Function | Purpose | Line) - NEW
+   - Dependencies and Dependents
+   - Key Internal Functions table
+   - Config/Env Vars Used
+   - Line Count of generated documentation
+
+2. The FULL markdown documentation (800+ lines for deep mode) for final output
 ```
 
 **Spawn up to 3 agents in parallel.**
 **If more than 3 batches needed, WAIT for first 3 to complete, then spawn next batch.**
 
 **CRITICAL**: Collect all "HANDOFF: Module Documentation" blocks from all batches. These will be passed to Wave 4 agents.
+**CRITICAL**: If any module documentation is under the line threshold, RE-RUN the agent for that module with explicit instruction to add more detail.
 
 ---
 
@@ -910,18 +953,18 @@ Create navigation structure for all documentation.
 Return all index files and list of cross-reference edits needed.
 ```
 
-### Agent: Quality Check
+### Agent: Quality Check & Depth Validation
 
 ```
 Task with subagent_type="codebase-analyzer":
 
-Verify documentation quality and completeness.
+Verify documentation quality, completeness, AND DEPTH.
 
 ## HANDOFF INPUT (from Wave 1)
 [Paste "File Classification" table from "HANDOFF: Discovery Results" - for completeness check]
 
 ## HANDOFF INPUT (from Wave 3)
-[List all module paths documented]
+[List all module paths documented WITH their line counts]
 
 ## HANDOFF INPUT (from Wave 4)
 [Paste "APIs Documented" and "APIs Missing Examples" from "HANDOFF: API & Examples"]
@@ -929,39 +972,142 @@ Verify documentation quality and completeness.
 ## HANDOFF INPUT (from Wave 5)
 [Paste the COMPLETE "HANDOFF: Guides & Concepts" block]
 
+## Documentation Mode: [MODE]
+
 ## Your Job
-1. Check completeness:
+
+### 1. DEPTH VALIDATION (CRITICAL)
+
+Verify each module documentation meets minimum line requirements:
+
+| Mode | Minimum Lines/Module | Source Code Required | Internals Required |
+|------|---------------------|---------------------|-------------------|
+| `quick` | 200 lines | No | No |
+| `standard` | 400 lines | Key functions | Key internals |
+| `deep` | 800 lines | ALL functions | ALL internals |
+
+For each module documentation file:
+- Count total lines
+- Flag any under threshold
+- Check for full source code blocks (not just signatures)
+- Verify [Internal] tags exist for private functions
+
+### 2. COVERAGE VALIDATION
+
+Count functions in source files vs functions in documentation:
+- Parse source files for function definitions
+- Parse documentation for function documentation
+- Calculate coverage percentage
+- Flag modules with <100% coverage (for deep mode)
+
+### 3. SOURCE CODE VALIDATION
+
+Verify documentation contains actual implementations:
+- Check for code blocks longer than 10 lines (actual implementations)
+- Verify code blocks contain function bodies, not just signatures
+- Flag documentation that only has signature-level code
+
+### 4. INTERNAL FUNCTION VALIDATION
+
+For deep mode, verify:
+- All private/internal functions are documented
+- Each has [Internal] tag in heading
+- Each has full implementation code
+
+### 5. Check completeness:
    - Are all HIGH priority files documented?
    - Are all public APIs documented?
    - Do all modules have documentation?
 
-2. Check internal links:
+### 6. Check internal links:
    - List all internal links in docs
    - Verify target files exist
 
-3. Check file:line references:
+### 7. Check file:line references:
    - Do referenced files exist?
    - Are line numbers reasonable?
 
-4. Check consistency:
+### 8. Check consistency:
    - Consistent heading levels?
    - Consistent formatting?
    - Consistent terminology?
 
-5. Identify gaps:
+### 9. Identify gaps:
    - Important files not documented
    - APIs without examples
    - Modules without usage docs
+   - **Functions missing documentation**
+   - **Functions missing source code**
 
-Return quality report:
-- Completeness score (percentage)
-- Broken links (if any)
-- Invalid references (if any)
-- Gaps to address
-- Consistency issues
+## Return Format
+
+Return comprehensive quality report:
+
+```json
+{
+  "depth_validation": {
+    "mode": "[MODE]",
+    "min_lines_required": 800,
+    "modules_checked": 10,
+    "modules_passing": 8,
+    "modules_failing": [
+      {
+        "module": "src/auth/",
+        "lines": 350,
+        "required": 800,
+        "issues": [
+          "Under line threshold (350 < 800)",
+          "Missing internal function _validateToken",
+          "No source code for hashPassword()"
+        ]
+      }
+    ]
+  },
+  "coverage_validation": {
+    "total_functions_in_source": 45,
+    "total_functions_documented": 42,
+    "coverage_percentage": 93,
+    "missing_functions": [
+      {"name": "_helperA", "file": "src/utils.ts", "line": 45},
+      {"name": "_helperB", "file": "src/utils.ts", "line": 78}
+    ]
+  },
+  "source_code_validation": {
+    "modules_with_full_code": 8,
+    "modules_with_signatures_only": 2,
+    "modules_needing_code": ["src/config/", "src/types/"]
+  },
+  "internal_function_validation": {
+    "internal_functions_found": 15,
+    "internal_functions_documented": 12,
+    "missing_internal_docs": [
+      {"name": "_parseConfig", "file": "src/config.ts", "line": 23}
+    ]
+  },
+  "completeness_score": 85,
+  "broken_links": [],
+  "invalid_references": [],
+  "gaps": [
+    "Module src/utils/ has only 350 lines, needs expansion",
+    "Function processData() missing source code"
+  ],
+  "consistency_issues": [],
+  "recommendations": [
+    "Re-run module-documenter on src/auth/ with instruction to include all internal functions",
+    "Add source code to src/config/ documentation"
+  ]
+}
+```
+
+**If any module fails depth validation, list it in recommendations for re-documentation.**
 ```
 
 **WAIT for both agents to complete.**
+
+**CRITICAL POST-WAVE-6 STEP**:
+If the Quality Check identifies modules failing depth validation:
+1. Re-run module-documenter for those specific modules with explicit instruction to increase depth
+2. Repeat until all modules pass depth validation or 3 retry attempts exhausted
 
 Navigation and Quality Check results are used directly for final output - no further handoff needed.
 

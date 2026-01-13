@@ -10,6 +10,7 @@
     "build": "npm run build --workspaces",
     "clean": "rm -rf packages/*/dist",
     "scraper": "node packages/scraper/dist/index.js",
+    "index:generated-docs": "node --loader ts-node/esm packages/scraper/src/manual-generated-indexer.ts",
     "server": "npm run start -w packages/server",
     "dev:server": "npm run dev -w packages/server",
     "test:integration": "node --loader ts-node/esm scripts/test-integration.ts",
