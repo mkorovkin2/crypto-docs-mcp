@@ -188,6 +188,20 @@ export class LLMClient {
   }
 
   /**
+   * Check if model is a reasoning model with restricted parameters.
+   * These models (gpt-5, o-series) require:
+   * - max_completion_tokens instead of max_tokens
+   * - temperature must be omitted (only default 1 is supported)
+   */
+  private isReasoningModel(model: string): boolean {
+    const lowerModel = model.toLowerCase();
+    return lowerModel.startsWith('gpt-5') ||
+           lowerModel.startsWith('o1') ||
+           lowerModel.startsWith('o3') ||
+           lowerModel.startsWith('o4');
+  }
+
+  /**
    * OpenAI/XAI synthesis (both use OpenAI SDK)
    */
   private async synthesizeOpenAI(
@@ -201,17 +215,32 @@ export class LLMClient {
     }
 
     const callStart = Date.now();
-    llmLog.debug(`OpenAI API call starting (model=${this.model})...`);
+    const isReasoning = this.isReasoningModel(this.model);
+    llmLog.debug(`OpenAI API call starting (model=${this.model}, reasoning=${isReasoning})...`);
 
-    const response = await this.openaiClient.chat.completions.create({
-      model: this.model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      max_tokens: maxTokens,
-      temperature,
-    });
+    // Build request based on model type
+    // Reasoning models (gpt-5, o-series) have restricted parameters:
+    // - Use max_completion_tokens instead of max_tokens
+    // - Cannot set temperature (only default 1 is allowed)
+    const response = isReasoning
+      ? await this.openaiClient.chat.completions.create({
+          model: this.model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          max_completion_tokens: maxTokens,
+          // Do not set temperature - reasoning models only support default (1)
+        })
+      : await this.openaiClient.chat.completions.create({
+          model: this.model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          max_tokens: maxTokens,
+          temperature,
+        });
 
     const content = response.choices[0]?.message?.content || '';
     const usage = response.usage;

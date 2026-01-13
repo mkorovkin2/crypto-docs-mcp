@@ -261,7 +261,7 @@ export async function analyzeWebResults(
   options: {
     /** Minimum relevance score to include (default: 50) */
     minRelevanceScore?: number;
-    /** Maximum results to analyze (default: 10) */
+    /** Maximum results to analyze (default: 3) */
     maxToAnalyze?: number;
     /** Maximum relevant results to return (default: 5) */
     maxRelevant?: number;
@@ -271,7 +271,7 @@ export async function analyzeWebResults(
 ): Promise<WebAnalysisOutput> {
   const analysisStartTime = Date.now();
   const minScore = options.minRelevanceScore ?? 50;
-  const maxAnalyze = options.maxToAnalyze ?? 10;
+  const maxAnalyze = options.maxToAnalyze ?? 3;
   const maxRelevant = options.maxRelevant ?? 5;
   const maxTokens = options.maxTokens ?? 1000;
 
