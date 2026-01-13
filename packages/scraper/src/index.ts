@@ -27,7 +27,8 @@ const { values: args } = parseArgs({
     help: { type: 'boolean', short: 'h' },
     'use-registry': { type: 'boolean', short: 'r' },
     'dry-run': { type: 'boolean', short: 'd' },
-    'github-only': { type: 'boolean', short: 'g' }
+    'github-only': { type: 'boolean', short: 'g' },
+    'reindex': { type: 'boolean' }  // Force re-index all documents
   },
   allowPositionals: true // Allow positional args to be ignored
 });
@@ -43,12 +44,14 @@ Options:
   -r, --use-registry   Use source registry for intelligent GitHub scraping
   -d, --dry-run        Dry run (skip LLM calls, just show what would be indexed)
   -g, --github-only    Only scrape GitHub sources (skip documentation)
+  --reindex            Clear existing data and re-index all documents (use after schema changes)
 
 Examples:
   npm run scraper -- --project mina
   npm run scraper -- -p mina --use-registry
   npm run scraper -- -p mina --use-registry --dry-run
   npm run scraper -- -p mina --github-only --use-registry
+  npm run scraper -- -p mina --reindex    # Full re-index with new ordering metadata
   npm run scraper -- --list
   `);
   process.exit(0);
@@ -109,7 +112,8 @@ const config = {
   // New options
   useRegistry: args['use-registry'] || false,
   dryRun: args['dry-run'] || false,
-  githubOnly: args['github-only'] || false
+  githubOnly: args['github-only'] || false,
+  reindex: args['reindex'] || false
 };
 
 async function main() {
@@ -135,6 +139,7 @@ async function main() {
   console.log(`  Use Registry: ${config.useRegistry}`);
   console.log(`  Dry Run: ${config.dryRun}`);
   console.log(`  GitHub Only: ${config.githubOnly}`);
+  console.log(`  Re-index: ${config.reindex}`);
   if (config.github) {
     console.log(`  GitHub (legacy): ${config.github.repo}@${config.github.branch}`);
   }
@@ -171,6 +176,21 @@ async function main() {
   } catch (error) {
     console.error('  ✗ Failed to initialize SQLite:', error);
     process.exit(1);
+  }
+
+  // Handle reindex: clear existing data for this project
+  if (config.reindex) {
+    console.log('\n⚠️  Re-index mode: Clearing existing data for project...');
+    try {
+      await vectorDb.deleteByProject(config.project);
+      console.log('  ✓ Cleared Qdrant data');
+      await ftsDb.deleteByProject(config.project);
+      console.log('  ✓ Cleared SQLite data');
+      console.log('  ✓ Ready for full re-index with ordering metadata');
+    } catch (error) {
+      console.error('  ✗ Failed to clear existing data:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
   }
 
   let totalChunks = 0;

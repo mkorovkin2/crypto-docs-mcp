@@ -47,15 +47,21 @@ export async function askDocs(
     logger.debug(`Enhanced query: "${enhancedQuery}"`);
   }
 
-  // 3. Initial retrieval
-  logger.info('Performing initial search...');
+  // 3. Initial retrieval with adjacent chunk expansion
+  logger.info('Performing initial search with adjacent chunk expansion...');
   const searchStart = Date.now();
   const initialResults = await context.search.search(enhancedQuery, {
     limit: analysis.suggestedLimit,
     project: args.project,
     contentType: analysis.suggestedContentType,
     rerank: true,
-    rerankTopK: Math.min(analysis.suggestedLimit, 10)
+    rerankTopK: Math.min(analysis.suggestedLimit, 10),
+    expandAdjacent: true,
+    adjacentConfig: {
+      prose: 2,           // 2 chunks each direction for prose
+      code: 3,            // 3 chunks each direction for code
+      'api-reference': 1  // 1 chunk each direction for API docs
+    }
   });
   logger.search(enhancedQuery, initialResults.length, Date.now() - searchStart);
 

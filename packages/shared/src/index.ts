@@ -14,3 +14,4 @@ export * from './confidence.js';
 export * from './corrective-rag.js';
 export * from './understanding-extractor.js';
 export * from './search-query-generator.js';
+export * from './adjacent-chunks.js';

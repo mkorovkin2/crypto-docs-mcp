@@ -44,6 +44,12 @@ export class VectorDB {
         field_name: 'url',
         field_schema: 'keyword'
       });
+
+      // Create documentId index for adjacent chunk queries
+      await this.client.createPayloadIndex(this.collection, {
+        field_name: 'documentId',
+        field_schema: 'keyword'
+      });
     }
   }
 
@@ -59,7 +65,11 @@ export class VectorDB {
         contentType: chunk.contentType,
         project: chunk.project,
         metadata: chunk.metadata,
-        orphaned: chunk.metadata.orphaned || false
+        orphaned: chunk.metadata.orphaned || false,
+        // Ordering metadata for adjacent chunk retrieval
+        documentId: chunk.documentId ?? null,
+        chunkIndex: chunk.chunkIndex ?? null,
+        totalChunks: chunk.totalChunks ?? null
       }
     }));
 
@@ -102,6 +112,9 @@ export class VectorDB {
         content: result.payload!.content as string,
         contentType: result.payload!.contentType as DocumentChunk['contentType'],
         project: result.payload!.project as string,
+        documentId: (result.payload!.documentId as string) ?? undefined,
+        chunkIndex: (result.payload!.chunkIndex as number) ?? undefined,
+        totalChunks: (result.payload!.totalChunks as number) ?? undefined,
         metadata: {
           ...(result.payload!.metadata as DocumentChunk['metadata']),
           orphaned: result.payload!.orphaned as boolean || false
@@ -181,6 +194,56 @@ export class VectorDB {
         }
       });
     }
+  }
+
+  /**
+   * Get adjacent chunks by document ID and index range
+   * @param documentId - The document ID to query
+   * @param chunkIndex - The center chunk index
+   * @param windowSize - Number of chunks to fetch in each direction
+   * @returns Chunks ordered by index
+   */
+  async getAdjacentChunks(
+    documentId: string,
+    chunkIndex: number,
+    windowSize: number
+  ): Promise<DocumentChunk[]> {
+    const minIndex = Math.max(0, chunkIndex - windowSize);
+    const maxIndex = chunkIndex + windowSize;
+
+    const result = await this.client.scroll(this.collection, {
+      filter: {
+        must: [
+          { key: 'documentId', match: { value: documentId } }
+        ]
+      },
+      limit: windowSize * 2 + 10, // Fetch extra to ensure we get the range we need
+      with_payload: true
+    });
+
+    // Filter by index range and sort
+    return result.points
+      .filter(p => {
+        const idx = p.payload?.chunkIndex as number | null;
+        return idx !== null && idx >= minIndex && idx <= maxIndex;
+      })
+      .sort((a, b) => (a.payload?.chunkIndex as number) - (b.payload?.chunkIndex as number))
+      .map(p => ({
+        id: p.id as string,
+        url: p.payload!.url as string,
+        title: p.payload!.title as string,
+        section: p.payload!.section as string,
+        content: p.payload!.content as string,
+        contentType: p.payload!.contentType as DocumentChunk['contentType'],
+        project: p.payload!.project as string,
+        documentId: (p.payload!.documentId as string) ?? undefined,
+        chunkIndex: (p.payload!.chunkIndex as number) ?? undefined,
+        totalChunks: (p.payload!.totalChunks as number) ?? undefined,
+        metadata: {
+          ...(p.payload!.metadata as DocumentChunk['metadata']),
+          orphaned: p.payload!.orphaned as boolean || false
+        }
+      }));
   }
 
   async close(): Promise<void> {

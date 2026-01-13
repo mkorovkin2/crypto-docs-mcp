@@ -29,8 +29,8 @@ export async function getWorkingExample(
   builder.setQueryType('howto');
   logger.queryAnalysis(analysis);
 
-  // 1. Search for code examples and related prose in parallel
-  logger.info('Searching for code, prose, and API reference in parallel...');
+  // 1. Search for code examples and related prose in parallel (with adjacent chunk expansion)
+  logger.info('Searching for code, prose, and API reference in parallel with adjacent expansion...');
   const searchStart = Date.now();
   const [codeResults, proseResults, apiResults] = await Promise.all([
     context.search.search(args.task, {
@@ -38,14 +38,18 @@ export async function getWorkingExample(
       project: args.project,
       contentType: 'code',
       rerank: true,
-      rerankTopK: 8
+      rerankTopK: 8,
+      expandAdjacent: true,
+      adjacentConfig: { code: 4 }  // More context for code examples
     }),
     context.search.search(`${args.task} tutorial guide how to`, {
       limit: 10,
       project: args.project,
       contentType: 'prose',
       rerank: true,
-      rerankTopK: 5
+      rerankTopK: 5,
+      expandAdjacent: true,
+      adjacentConfig: { prose: 2 }
     }),
     // Also search API reference for complete type info
     context.search.search(`${args.task} interface type`, {
@@ -53,7 +57,9 @@ export async function getWorkingExample(
       project: args.project,
       contentType: 'api-reference',
       rerank: true,
-      rerankTopK: 3
+      rerankTopK: 3,
+      expandAdjacent: true,
+      adjacentConfig: { 'api-reference': 1 }
     })
   ]);
   logger.info(`Parallel search completed in ${Date.now() - searchStart}ms`);

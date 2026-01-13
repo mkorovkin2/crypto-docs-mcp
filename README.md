@@ -666,7 +666,13 @@ npm run rag-inspector
 npm run rag:mina
 npm run rag:solana
 npm run rag:cosmos
+npm run rag:secret
+npm run rag:beam
+npm run rag:pirate-chain
+npm run rag:polymarket
 ```
+
+See `docs/RAG_TESTING.md` for prerequisites and per-project commands for every onboarded platform.
 
 ### Inspector Commands
 
@@ -679,7 +685,7 @@ npm run rag:cosmos
 | `retry` | Re-run the last query |
 | `history` | Show query history with metrics summary |
 | `detail <n>` | Show full details for history item n |
-| `project <id>` | Switch project (mina/solana/cosmos) |
+| `project <id>` | Switch project (mina/solana/cosmos/secret/beam/pirate-chain/polymarket) |
 | `export [file]` | Export session history to JSON |
 | `clear` | Clear screen |
 | `help` | Show help |

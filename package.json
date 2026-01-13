@@ -31,7 +31,8 @@
     "rag:cosmos": "node scripts/rag-inspector.js --project cosmos",
     "rag:secret": "node scripts/rag-inspector.js --project secret",
     "rag:beam": "node scripts/rag-inspector.js --project beam",
-    "rag:pirate-chain": "node scripts/rag-inspector.js --project pirate-chain"
+    "rag:pirate-chain": "node scripts/rag-inspector.js --project pirate-chain",
+    "rag:polymarket": "node scripts/rag-inspector.js --project polymarket"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
