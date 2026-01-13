@@ -22,6 +22,22 @@ export const config = {
     model: process.env.LLM_MODEL || 'gpt-4o',
     maxTokens: parseInt(process.env.LLM_MAX_TOKENS || '4000'),
     temperature: parseFloat(process.env.LLM_TEMPERATURE || '0.3')
+  },
+
+  // Tavily web search configuration (optional)
+  tavily: {
+    apiKey: process.env.TAVILY_API_KEY || '',
+    searchDepth: (process.env.TAVILY_SEARCH_DEPTH as 'basic' | 'advanced') || 'basic',
+    maxResults: parseInt(process.env.TAVILY_MAX_RESULTS || '5')
+  },
+
+  // Agentic evaluation loop configuration
+  agenticEvaluation: {
+    enabled: process.env.AGENTIC_EVALUATION_ENABLED !== 'false', // Enabled by default
+    maxIterations: parseInt(process.env.AGENTIC_MAX_ITERATIONS || '3'),
+    autoReturnConfidenceThreshold: parseInt(process.env.AGENTIC_AUTO_RETURN_THRESHOLD || '85'),
+    maxWebSearches: parseInt(process.env.AGENTIC_MAX_WEB_SEARCHES || '2'),
+    maxDocQueries: parseInt(process.env.AGENTIC_MAX_DOC_QUERIES || '2')
   }
 };
 

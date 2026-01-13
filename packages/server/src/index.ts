@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import 'dotenv/config';
-import { VectorDB, FullTextDB, HybridSearch, Reranker, LLMClient, listProjects } from '@mina-docs/shared';
+import { VectorDB, FullTextDB, HybridSearch, Reranker, LLMClient, WebSearchClient, listProjects } from '@mina-docs/shared';
 import { config, validateConfig } from './config.js';
 import { createHttpTransport } from './transport.js';
 
@@ -89,10 +89,30 @@ async function main() {
   });
   console.error('  ✓ Hybrid search initialized (with reranking)');
 
+  // Initialize web search client if Tavily API key is configured
+  let webSearch: WebSearchClient | undefined;
+  if (config.tavily.apiKey) {
+    webSearch = new WebSearchClient({
+      apiKey: config.tavily.apiKey,
+      searchDepth: config.tavily.searchDepth,
+      maxResults: config.tavily.maxResults
+    });
+    console.error('  ✓ Web search client initialized (Tavily)');
+  } else {
+    console.error('  - Web search disabled (no TAVILY_API_KEY)');
+  }
+
+  // Log agentic evaluation settings
+  if (config.agenticEvaluation.enabled) {
+    console.error(`  ✓ Agentic evaluation enabled (max ${config.agenticEvaluation.maxIterations} iterations)`);
+  } else {
+    console.error('  - Agentic evaluation disabled');
+  }
+
   // Start HTTP server
   try {
     await createHttpTransport(
-      { search, ftsDb, llmClient },
+      { search, ftsDb, llmClient, webSearch },
       config.port,
       config.host
     );

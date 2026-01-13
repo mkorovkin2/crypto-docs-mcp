@@ -15,3 +15,8 @@ export * from './corrective-rag.js';
 export * from './understanding-extractor.js';
 export * from './search-query-generator.js';
 export * from './adjacent-chunks.js';
+export * from './web-search.js';
+export * from './evaluation-types.js';
+export * from './evaluator.js';
+export * from './answer-refiner.js';
+export * from './evaluation-orchestrator.js';

@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { getToolDefinitions, handleToolCall, type ToolContext } from './tools/index.js';
 import { getResourceDefinitions, handleResourceRead } from './resources/index.js';
-import type { HybridSearch, FullTextDB, LLMClient } from '@mina-docs/shared';
+import type { HybridSearch, FullTextDB, LLMClient, WebSearchClient } from '@mina-docs/shared';
 
 interface JSONRPCRequest {
   jsonrpc: '2.0';
@@ -25,6 +25,7 @@ export interface TransportContext {
   search: HybridSearch;
   ftsDb: FullTextDB;
   llmClient: LLMClient;
+  webSearch?: WebSearchClient;
 }
 
 export async function createHttpTransport(
@@ -126,7 +127,8 @@ async function handleMCPRequest(
   const toolContext: ToolContext = {
     search: context.search,
     ftsDb: context.ftsDb,
-    llmClient: context.llmClient
+    llmClient: context.llmClient,
+    webSearch: context.webSearch
   };
 
   switch (method) {

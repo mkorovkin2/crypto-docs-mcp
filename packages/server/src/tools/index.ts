@@ -3,7 +3,7 @@ import { getWorkingExample, GetWorkingExampleSchema } from './working-example.js
 import { explainError, ExplainErrorSchema } from './explain-error.js';
 import { searchDocs, SearchDocsSchema } from './search-docs.js';
 import { listProjectsTool, ListProjectsSchema } from './list-projects.js';
-import type { HybridSearch, FullTextDB, LLMClient } from '@mina-docs/shared';
+import type { HybridSearch, FullTextDB, LLMClient, WebSearchClient } from '@mina-docs/shared';
 import { listProjects, loadProjectConfig } from '@mina-docs/shared';
 import { logger } from '../utils/logger.js';
 
@@ -43,6 +43,7 @@ export interface ToolContext {
   search: HybridSearch;
   ftsDb: FullTextDB;
   llmClient: LLMClient;
+  webSearch?: WebSearchClient;
 }
 
 export function getToolDefinitions() {
