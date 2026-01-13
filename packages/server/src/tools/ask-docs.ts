@@ -16,6 +16,18 @@ import { ResponseBuilder, calculateConfidence } from '../utils/response-builder.
 import { generateSuggestions, generateRelatedQueries } from '../utils/suggestion-generator.js';
 import { conversationContext } from '../context/conversation-context.js';
 import { logger } from '../utils/logger.js';
+import type { SearchResult } from '@mina-docs/shared';
+
+function dedupeResults(results: SearchResult[]): SearchResult[] {
+  const seen = new Set<string>();
+  const deduped: SearchResult[] = [];
+  for (const r of results) {
+    if (seen.has(r.chunk.id)) continue;
+    seen.add(r.chunk.id);
+    deduped.push(r);
+  }
+  return deduped;
+}
 
 export const AskDocsSchema = z.object({
   question: z.string().describe('Your question about the documentation'),
@@ -90,6 +102,19 @@ export async function askDocs(
   // 5. Store in conversation context for future follow-ups
   conversationContext.addTurn(args.project, args.question, analysis.type, analysis.keywords);
   logger.debug('Stored query in conversation context');
+
+  // 6a. Deduplicate and pull adjacent context
+  const beforeAdjCount = results.length;
+  results = dedupeResults(results);
+  results = await context.search.expandWithAdjacent(results, 1, 6);
+  results = dedupeResults(results);
+  const addedNeighbors = results.length - beforeAdjCount;
+  if (addedNeighbors > 0) {
+    logger.info(`Added ${addedNeighbors} adjacent chunks for context`);
+  }
+
+  // 6b. Rerank combined results to keep the best context
+  results = await context.search.rerankResults(args.question, results, Math.max(analysis.suggestedLimit, 12));
 
   // 6. Set retrieval quality and sources
   builder.setRetrievalQuality(results);

@@ -22,6 +22,11 @@ export class FullTextDB {
       CREATE TABLE IF NOT EXISTS chunks (
         id TEXT PRIMARY KEY,
         url TEXT NOT NULL,
+        page_id TEXT,
+        chunk_index INTEGER,
+        chunk_total INTEGER,
+        char_start INTEGER,
+        char_end INTEGER,
         title TEXT NOT NULL,
         section TEXT NOT NULL,
         content TEXT NOT NULL,
@@ -37,10 +42,30 @@ export class FullTextDB {
       CREATE INDEX IF NOT EXISTS idx_chunks_project ON chunks(project)
     `);
 
+    // Index for adjacency lookups by page and position
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_chunks_page_pos ON chunks(page_id, chunk_index)
+    `);
+
     // Add orphaned column if it doesn't exist (migration for existing databases)
     const columns = this.db.prepare("PRAGMA table_info(chunks)").all() as Array<{name: string}>;
     if (!columns.some(c => c.name === 'orphaned')) {
       this.db.exec(`ALTER TABLE chunks ADD COLUMN orphaned INTEGER DEFAULT 0`);
+    }
+    if (!columns.some(c => c.name === 'page_id')) {
+      this.db.exec(`ALTER TABLE chunks ADD COLUMN page_id TEXT`);
+    }
+    if (!columns.some(c => c.name === 'chunk_index')) {
+      this.db.exec(`ALTER TABLE chunks ADD COLUMN chunk_index INTEGER`);
+    }
+    if (!columns.some(c => c.name === 'chunk_total')) {
+      this.db.exec(`ALTER TABLE chunks ADD COLUMN chunk_total INTEGER`);
+    }
+    if (!columns.some(c => c.name === 'char_start')) {
+      this.db.exec(`ALTER TABLE chunks ADD COLUMN char_start INTEGER`);
+    }
+    if (!columns.some(c => c.name === 'char_end')) {
+      this.db.exec(`ALTER TABLE chunks ADD COLUMN char_end INTEGER`);
     }
 
     // Create index for URL-based deletion
@@ -78,8 +103,23 @@ export class FullTextDB {
 
   async upsert(chunks: DocumentChunk[]): Promise<void> {
     const insertChunk = this.db.prepare(`
-      INSERT OR REPLACE INTO chunks (id, url, title, section, content, content_type, project, metadata, orphaned)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT OR REPLACE INTO chunks (
+        id,
+        url,
+        page_id,
+        chunk_index,
+        chunk_total,
+        char_start,
+        char_end,
+        title,
+        section,
+        content,
+        content_type,
+        project,
+        metadata,
+        orphaned
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const deleteFts = this.db.prepare(`
@@ -96,6 +136,11 @@ export class FullTextDB {
         insertChunk.run(
           chunk.id,
           chunk.url,
+          chunk.pageId || chunk.url,
+          chunk.chunkIndex ?? null,
+          chunk.chunkTotal ?? null,
+          chunk.charStart ?? null,
+          chunk.charEnd ?? null,
           chunk.title,
           chunk.section,
           chunk.content,
@@ -163,6 +208,11 @@ export class FullTextDB {
         chunk: {
           id: row.id,
           url: row.url,
+          pageId: row.page_id || row.url,
+          chunkIndex: row.chunk_index ?? null,
+          chunkTotal: row.chunk_total ?? null,
+          charStart: row.char_start ?? null,
+          charEnd: row.char_end ?? null,
           title: row.title,
           section: row.section,
           content: row.content,
@@ -273,5 +323,41 @@ export class FullTextDB {
 
   async close(): Promise<void> {
     this.db.close();
+  }
+
+  /**
+   * Fetch chunks for a page within an index window (inclusive)
+   */
+  async getAdjacentChunks(
+    pageId: string,
+    startIndex: number,
+    endIndex: number
+  ): Promise<DocumentChunk[]> {
+    const rows = this.db.prepare(
+      `SELECT * FROM chunks
+       WHERE page_id = ?
+         AND chunk_index IS NOT NULL
+         AND chunk_index BETWEEN ? AND ?
+       ORDER BY chunk_index ASC`
+    ).all(pageId, startIndex, endIndex) as any[];
+
+    return rows.map(row => ({
+      id: row.id,
+      url: row.url,
+      pageId: row.page_id || row.url,
+      chunkIndex: row.chunk_index ?? null,
+      chunkTotal: row.chunk_total ?? null,
+      charStart: row.char_start ?? null,
+      charEnd: row.char_end ?? null,
+      title: row.title,
+      section: row.section,
+      content: row.content,
+      contentType: row.content_type,
+      project: row.project,
+      metadata: {
+        ...JSON.parse(row.metadata),
+        orphaned: row.orphaned === 1
+      }
+    }));
   }
 }

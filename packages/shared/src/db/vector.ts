@@ -33,6 +33,18 @@ export class VectorDB {
         field_schema: 'keyword'
       });
 
+      // Create pageId index for adjacency queries
+      await this.client.createPayloadIndex(this.collection, {
+        field_name: 'pageId',
+        field_schema: 'keyword'
+      });
+
+      // Create chunkIndex index for adjacency queries
+      await this.client.createPayloadIndex(this.collection, {
+        field_name: 'chunkIndex',
+        field_schema: 'integer'
+      });
+
       // Create project index for filtering
       await this.client.createPayloadIndex(this.collection, {
         field_name: 'project',
@@ -59,6 +71,11 @@ export class VectorDB {
         contentType: chunk.contentType,
         project: chunk.project,
         metadata: chunk.metadata,
+        pageId: chunk.pageId || chunk.url,
+        chunkIndex: chunk.chunkIndex ?? null,
+        chunkTotal: chunk.chunkTotal ?? null,
+        charStart: chunk.charStart ?? null,
+        charEnd: chunk.charEnd ?? null,
         orphaned: chunk.metadata.orphaned || false
       }
     }));
@@ -102,6 +119,11 @@ export class VectorDB {
         content: result.payload!.content as string,
         contentType: result.payload!.contentType as DocumentChunk['contentType'],
         project: result.payload!.project as string,
+        pageId: (result.payload!.pageId as string) || (result.payload!.url as string),
+        chunkIndex: result.payload!.chunkIndex as number | undefined,
+        chunkTotal: result.payload!.chunkTotal as number | undefined,
+        charStart: result.payload!.charStart as number | undefined,
+        charEnd: result.payload!.charEnd as number | undefined,
         metadata: {
           ...(result.payload!.metadata as DocumentChunk['metadata']),
           orphaned: result.payload!.orphaned as boolean || false

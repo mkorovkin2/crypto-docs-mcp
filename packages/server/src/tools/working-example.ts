@@ -8,6 +8,18 @@ import { generateRelatedQueries } from '../utils/suggestion-generator.js';
 import { conversationContext } from '../context/conversation-context.js';
 import { getVerificationSummary } from '../utils/code-verifier.js';
 import { logger } from '../utils/logger.js';
+import type { SearchResult } from '@mina-docs/shared';
+
+function dedupeResults(results: SearchResult[]): SearchResult[] {
+  const seen = new Set<string>();
+  const deduped: SearchResult[] = [];
+  for (const r of results) {
+    if (seen.has(r.chunk.id)) continue;
+    seen.add(r.chunk.id);
+    deduped.push(r);
+  }
+  return deduped;
+}
 
 export const GetWorkingExampleSchema = z.object({
   task: z.string().describe('What you want to accomplish (e.g., "transfer tokens", "deploy smart contract")'),
@@ -32,13 +44,20 @@ export async function getWorkingExample(
   // 1. Search for code examples and related prose in parallel
   logger.info('Searching for code, prose, and API reference in parallel...');
   const searchStart = Date.now();
-  const [codeResults, proseResults, apiResults] = await Promise.all([
+  const [codeResults, codeExampleResults, proseResults, apiResults] = await Promise.all([
     context.search.search(args.task, {
       limit: 15,
       project: args.project,
       contentType: 'code',
       rerank: true,
       rerankTopK: 8
+    }),
+    context.search.search(`${args.task} code example sample tutorial`, {
+      limit: 10,
+      project: args.project,
+      contentType: 'code',
+      rerank: true,
+      rerankTopK: 6
     }),
     context.search.search(`${args.task} tutorial guide how to`, {
       limit: 10,
@@ -57,9 +76,9 @@ export async function getWorkingExample(
     })
   ]);
   logger.info(`Parallel search completed in ${Date.now() - searchStart}ms`);
-  logger.debug(`Results: ${codeResults.length} code, ${proseResults.length} prose, ${apiResults.length} API`);
+  logger.debug(`Results: ${codeResults.length} code, ${codeExampleResults.length} code-examples, ${proseResults.length} prose, ${apiResults.length} API`);
 
-  let allResults = [...codeResults, ...proseResults, ...apiResults];
+  let allResults = [...codeResults, ...codeExampleResults, ...proseResults, ...apiResults];
 
   // Apply corrective RAG if code results are poor (most important for working examples)
   if (shouldApplyCorrectiveRAG(codeResults, 2)) {
@@ -83,6 +102,23 @@ export async function getWorkingExample(
       builder.addWarning('Applied corrective retrieval to find more code examples');
     }
   }
+
+  // Deduplicate, boost real examples, and rerank the union
+  allResults = dedupeResults(allResults);
+  allResults = boostExampleScores(allResults);
+  allResults = await context.search.rerankResults(args.task, allResults, 15);
+
+  // Pull adjacent context
+  const beforeAdjacency = allResults.length;
+  allResults = await context.search.expandWithAdjacent(allResults, 1, 6);
+  allResults = dedupeResults(allResults);
+  const addedAdjacency = allResults.length - beforeAdjacency;
+  if (addedAdjacency > 0) {
+    logger.info(`Added ${addedAdjacency} adjacent chunks for working example context`);
+  }
+
+  // Rerank again after adjacency to keep the best snippets
+  allResults = await context.search.rerankResults(args.task, allResults, 15);
 
   // Store in conversation context
   conversationContext.addTurn(args.project, args.task, 'howto', analysis.keywords);
@@ -176,4 +212,12 @@ export async function getWorkingExample(
   relatedQueries.forEach(q => builder.addRelatedQuery(q));
 
   return builder.buildMCPResponse(example);
+}
+function boostExampleScores(results: SearchResult[]): SearchResult[] {
+  return results.map(r => {
+    const hasExampleDesc = Boolean(r.chunk.metadata.exampleDescription);
+    const isCode = r.chunk.contentType === 'code';
+    const bonus = (hasExampleDesc ? 0.1 : 0) + (isCode ? 0.05 : 0);
+    return { ...r, score: (r.score || 0) + bonus };
+  }).sort((a, b) => (b.score || 0) - (a.score || 0));
 }

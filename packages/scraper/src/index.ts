@@ -16,7 +16,8 @@ import {
   listProjects,
   loadProjectGitHubSources,
   sourceRegistryExists,
-  type ProjectConfig
+  type ProjectConfig,
+  type DocumentChunk
 } from '@mina-docs/shared';
 
 // Parse CLI arguments
@@ -111,6 +112,24 @@ const config = {
   dryRun: args['dry-run'] || false,
   githubOnly: args['github-only'] || false
 };
+
+function assignChunkSequence(chunks: DocumentChunk[]): void {
+  const buckets = new Map<string, DocumentChunk[]>();
+  for (const chunk of chunks) {
+    chunk.pageId = chunk.pageId || chunk.url;
+    const bucket = buckets.get(chunk.pageId) || [];
+    bucket.push(chunk);
+    buckets.set(chunk.pageId, bucket);
+  }
+  for (const bucket of buckets.values()) {
+    const total = bucket.length;
+    bucket.forEach((c, idx) => {
+      c.chunkIndex = idx;
+      c.chunkTotal = total;
+      c.pageId = c.pageId || c.url;
+    });
+  }
+}
 
 async function main() {
   console.log('='.repeat(60));
@@ -340,6 +359,7 @@ async function main() {
         for (const result of results) {
           if (result.chunks.length > 0) {
             console.log(`\nIndexing ${result.chunks.length} chunks from ${result.sourceId}...`);
+            assignChunkSequence(result.chunks);
 
             // Get unique URLs from new chunks and delete old chunks for those URLs
             const newUrls = [...new Set(result.chunks.map(c => c.url))];
@@ -396,6 +416,7 @@ async function main() {
         token: config.githubToken,
         project: config.project
       });
+      assignChunkSequence(sourceChunks);
 
       if (sourceChunks.length > 0) {
         console.log(`\nIndexing ${sourceChunks.length} source code chunks...`);

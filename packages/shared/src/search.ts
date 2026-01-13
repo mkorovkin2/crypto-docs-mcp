@@ -156,4 +156,69 @@ export class HybridSearch {
       .sort((a, b) => b.score - a.score)
       .slice(0, limit);
   }
+
+  /**
+   * Expand a result set with adjacent chunks from the same page/file.
+   * Uses chunkIndex/pageId metadata to pull +/- window neighbors via FTS.
+   */
+  async expandWithAdjacent(
+    results: SearchResult[],
+    window = 1,
+    maxNeighbors = 8
+  ): Promise<SearchResult[]> {
+    if (results.length === 0 || window <= 0) return results;
+
+    const seenIds = new Set(results.map(r => r.chunk.id));
+    const neighbors: SearchResult[] = [];
+
+    for (const result of results) {
+      if (neighbors.length >= maxNeighbors) break;
+      const { chunkIndex, pageId } = result.chunk;
+      if (chunkIndex === undefined || chunkIndex === null || !pageId) continue;
+
+      const start = Math.max(0, chunkIndex - window);
+      const end = chunkIndex + window;
+      const adjacent = await this.options.ftsDb.getAdjacentChunks(pageId, start, end);
+
+      for (const adj of adjacent) {
+        if (neighbors.length >= maxNeighbors) break;
+        if (adj.id === result.chunk.id) continue;
+        if (seenIds.has(adj.id)) continue;
+        seenIds.add(adj.id);
+
+        // Slightly decay score for neighbors; closer neighbors get higher weight
+        const distance = Math.abs((adj.chunkIndex ?? chunkIndex) - chunkIndex);
+        const decay = distance === 0 ? 1 : distance === 1 ? 0.9 : 0.8;
+        neighbors.push({
+          chunk: adj,
+          score: (result.score || 0) * decay,
+          matchType: result.matchType
+        });
+      }
+    }
+
+    // Keep primary results first, then neighbors sorted by score
+    const combined = [...results, ...neighbors].sort((a, b) => (b.score || 0) - (a.score || 0));
+    return combined;
+  }
+
+  /**
+   * Rerank an existing result set (e.g., after merging/adjacency) and trim to topK.
+   */
+  async rerankResults(
+    query: string,
+    results: SearchResult[],
+    topK = 12
+  ): Promise<SearchResult[]> {
+    if (!this.options.reranker || results.length <= 1) {
+      return results.slice(0, topK);
+    }
+
+    try {
+      const reranked = await this.options.reranker.rerank(query, results, { topK });
+      return reranked.slice(0, topK);
+    } catch {
+      return results.slice(0, topK);
+    }
+  }
 }

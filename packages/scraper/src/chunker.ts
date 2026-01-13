@@ -16,6 +16,8 @@ export function chunkContent(chunks: DocumentChunk[]): DocumentChunk[] {
   const result: DocumentChunk[] = [];
 
   for (const chunk of chunks) {
+    // Ensure pageId is set for downstream sequencing
+    chunk.pageId = chunk.pageId || chunk.url;
     // Code chunks: Use AST-based chunking for better semantic boundaries
     if (chunk.contentType === 'code') {
       // Try AST-based chunking for code
@@ -62,6 +64,25 @@ export function chunkContent(chunks: DocumentChunk[]): DocumentChunk[] {
         });
       }
     }
+  }
+
+  // Assign sequential indices per page/file and set totals
+  const pageBuckets = new Map<string, DocumentChunk[]>();
+  for (const chunk of result) {
+    const pageId = chunk.pageId || chunk.url;
+    if (!pageBuckets.has(pageId)) {
+      pageBuckets.set(pageId, []);
+    }
+    pageBuckets.get(pageId)!.push(chunk);
+  }
+
+  for (const bucket of pageBuckets.values()) {
+    const total = bucket.length;
+    bucket.forEach((c, idx) => {
+      c.chunkIndex = idx;
+      c.chunkTotal = total;
+      c.pageId = c.pageId || c.url;
+    });
   }
 
   return result;

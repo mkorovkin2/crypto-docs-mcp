@@ -3,6 +3,15 @@ import type { SearchGuidance } from './search-query-generator.js';
 export interface DocumentChunk {
   id: string;
   url: string;
+  /** Stable identifier for the page/file this chunk came from (often the URL) */
+  pageId?: string;
+  /** Position of this chunk within the page/file (0-based) */
+  chunkIndex?: number;
+  /** Total number of chunks for this page/file */
+  chunkTotal?: number;
+  /** Optional character offsets within the source page/file */
+  charStart?: number;
+  charEnd?: number;
   title: string;
   section: string;
   content: string;
