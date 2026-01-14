@@ -524,27 +524,24 @@ AWS_PROFILE=crypto-docs
 ```
 crypto-docs-mcp/
 ├── config/
-│   ├── projects/              # Project configuration files (6 projects)
+│   ├── projects/              # Project configuration files (7 projects)
 │   │   ├── mina.json
 │   │   ├── solana.json
 │   │   ├── cosmos.json
 │   │   ├── secret.json
 │   │   ├── beam.json
-│   │   └── pirate-chain.json
-│   └── sources/               # Source registry (13 sources)
+│   │   ├── pirate-chain.json
+│   │   └── polymarket.json
+│   └── sources/               # Source registry (29 sources)
 │       ├── mina-o1js-official.json
 │       ├── mina-zkapp-cli.json
 │       ├── solana-spl-official.json
 │       ├── cosmos-sdk-official.json
-│       ├── secret-network.json
-│       ├── secret-js.json
-│       ├── secret-toolkit.json
-│       ├── beam-core.json
-│       ├── beam-web-wallet.json
-│       ├── beam-shader-sdk.json
-│       ├── pirate-core.json
-│       ├── pirate-lightwalletd.json
-│       └── project-sources.json
+│       ├── secret-*.json          # 7 Secret Network sources
+│       ├── beam-*.json            # 6 Beam sources
+│       ├── pirate-*.json          # 7 Pirate Chain sources
+│       ├── polymarket-*.json      # 2 Polymarket sources
+│       └── project-sources.json   # Maps projects to their sources
 ├── packages/
 │   ├── shared/                # Types, DB clients, search logic, LLM integration
 │   │   ├── src/
