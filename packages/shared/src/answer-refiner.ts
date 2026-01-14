@@ -64,7 +64,7 @@ REFINEMENT RULES:
 4. Maintain proper citations using [Source N] format
 5. Ensure code examples are complete with ALL imports and types
 6. Add any missing prerequisites, gotchas, or important notes
-7. Be concise - improve substance, don't add fluff
+7. BE THOROUGH - include ALL useful information from sources. If there's more relevant detail available, include it. Longer answers with useful content are better than short incomplete ones.
 
 OUTPUT: Return ONLY the improved answer. No meta-commentary, no explanations of what you changed. Just the refined answer ready for the user.`;
 
@@ -222,8 +222,9 @@ RULES:
 4. Note any caveats about the information (e.g., version-specific)
 5. If results are insufficient, say what's missing
 6. If pre-analyzed context is provided, use the extracted facts - they've been vetted for relevance
+7. BE COMPREHENSIVE - include ALL useful information from the web results. If multiple approaches, examples, or relevant details exist, include them ALL. Longer answers with more useful content are better than short incomplete ones.
 
-Output a complete, helpful answer.`;
+Output a complete, thorough answer with all relevant information from the sources.`;
 
   const parts: string[] = [];
   parts.push('<question>');
