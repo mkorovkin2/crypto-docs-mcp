@@ -13,6 +13,9 @@ import {
   // Agentic evaluation loop imports
   runEvaluationLoop,
   DEFAULT_EVALUATION_CONFIG,
+  // Query variation imports
+  generateQueryVariations,
+  mergeQueryVariationResults,
 } from '@mina-docs/shared';
 import { formatSearchResultsAsContext, getProjectContext } from './context-formatter.js';
 import { ResponseBuilder, calculateConfidence, getFullConfidenceResult } from '../utils/response-builder.js';
@@ -47,33 +50,79 @@ export async function askDocs(
   builder.setQueryType(analysis.type);
   logger.queryAnalysis(analysis);
 
-  // 2. Enhance query with conversation context (for follow-ups)
-  const enhancedQuery = conversationContext.enhanceQuery(args.project, analysis.expandedQuery);
+  // 2. Check for follow-up context
   const isFollowUp = conversationContext.isLikelyFollowUp(args.project, args.question);
   if (isFollowUp) {
     logger.info('Detected follow-up query, using conversation context');
   }
-  if (enhancedQuery !== analysis.expandedQuery) {
-    logger.debug(`Enhanced query: "${enhancedQuery}"`);
+
+  // 3. Generate query variations using fast LLM
+  logger.info('Generating query variations with LLM...');
+  const variationStart = Date.now();
+
+  // Use llmEvaluator (fast model) for query variations, fall back to llmClient
+  const variationLLM = context.llmEvaluator || context.llmClient;
+  const queryVariations = await generateQueryVariations(args.question, variationLLM, {
+    count: config.queryVariations.count,
+    maxTokens: config.queryVariations.maxTokens,
+    project: args.project,
+    analysis
+  });
+  logger.debug(`Generated ${queryVariations.variations.length} query variations in ${queryVariations.durationMs}ms`);
+  logger.debug(`Variations: ${JSON.stringify(queryVariations.variations)}`);
+
+  // Add conversation context keywords to each variation if follow-up
+  const contextKeywords = conversationContext.getContextForExpansion(args.project);
+  const enhancedVariations = queryVariations.variations.map((v: string) => {
+    if (isFollowUp && contextKeywords.recentKeywords.length > 0) {
+      const relevantKeywords = contextKeywords.recentKeywords
+        .filter((k: string) => !v.toLowerCase().includes(k.toLowerCase()))
+        .slice(0, 2);
+      if (relevantKeywords.length > 0) {
+        return `${v} ${relevantKeywords.join(' ')}`;
+      }
+    }
+    return v;
+  });
+
+  // 4. Search with each query variation in parallel
+  logger.info(`Performing parallel searches with ${enhancedVariations.length} query variations...`);
+  const searchStart = Date.now();
+
+  const searchPromises = enhancedVariations.map((query: string) =>
+    context.search.search(query, {
+      limit: analysis.suggestedLimit,
+      project: args.project,
+      contentType: analysis.suggestedContentType,
+      rerank: false, // Don't rerank individual results, we'll rerank merged results
+      expandAdjacent: true,
+      adjacentConfig: {
+        prose: 2,
+        code: 3,
+        'api-reference': 1
+      }
+    })
+  );
+
+  const resultSets = await Promise.all(searchPromises);
+  const totalResultsBeforeMerge = resultSets.reduce((sum: number, r) => sum + r.length, 0);
+
+  // 5. Merge results from all variations using RRF
+  const mergedResults = mergeQueryVariationResults(resultSets, analysis.suggestedLimit * 2);
+  logger.debug(`Merged ${totalResultsBeforeMerge} results into ${mergedResults.length} unique chunks`);
+
+  // 6. Rerank the merged results
+  let initialResults = mergedResults;
+  if (context.reranker && mergedResults.length > 0) {
+    logger.debug('Reranking merged results...');
+    initialResults = await context.reranker.rerank(
+      args.question,
+      mergedResults,
+      { topK: Math.min(analysis.suggestedLimit, 10) }
+    );
   }
 
-  // 3. Initial retrieval with adjacent chunk expansion
-  logger.info('Performing initial search with adjacent chunk expansion...');
-  const searchStart = Date.now();
-  const initialResults = await context.search.search(enhancedQuery, {
-    limit: analysis.suggestedLimit,
-    project: args.project,
-    contentType: analysis.suggestedContentType,
-    rerank: true,
-    rerankTopK: Math.min(analysis.suggestedLimit, 10),
-    expandAdjacent: true,
-    adjacentConfig: {
-      prose: 2,
-      code: 3,
-      'api-reference': 1
-    }
-  });
-  logger.search(enhancedQuery, initialResults.length, Date.now() - searchStart);
+  logger.search(args.question, initialResults.length, Date.now() - searchStart);
 
   // 4. Apply corrective RAG if initial results are poor
   let results = initialResults;

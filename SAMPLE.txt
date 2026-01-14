@@ -1,0 +1,1 @@
+how can I build a zk app where one party pays another party using a one-time ID as the address? 

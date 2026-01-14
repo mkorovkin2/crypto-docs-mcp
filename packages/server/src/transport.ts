@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { getToolDefinitions, handleToolCall, type ToolContext } from './tools/index.js';
 import { getResourceDefinitions, handleResourceRead } from './resources/index.js';
-import type { HybridSearch, FullTextDB, LLMClient, WebSearchClient } from '@mina-docs/shared';
+import type { HybridSearch, FullTextDB, LLMClient, WebSearchClient, Reranker } from '@mina-docs/shared';
 
 interface JSONRPCRequest {
   jsonrpc: '2.0';
@@ -24,6 +24,7 @@ interface JSONRPCResponse {
 export interface TransportContext {
   search: HybridSearch;
   ftsDb: FullTextDB;
+  reranker?: Reranker;
   llmClient: LLMClient;
   llmEvaluator?: LLMClient;
   llmRefiner?: LLMClient;
@@ -130,6 +131,7 @@ async function handleMCPRequest(
   const toolContext: ToolContext = {
     search: context.search,
     ftsDb: context.ftsDb,
+    reranker: context.reranker,
     llmClient: context.llmClient,
     llmEvaluator: context.llmEvaluator,
     llmRefiner: context.llmRefiner,

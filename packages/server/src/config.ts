@@ -216,6 +216,12 @@ export const config = {
     autoReturnConfidenceThreshold: parseInt(process.env.AGENTIC_AUTO_RETURN_THRESHOLD || '85'),
     maxWebSearches: parseInt(process.env.AGENTIC_MAX_WEB_SEARCHES || '2'),
     maxDocQueries: parseInt(process.env.AGENTIC_MAX_DOC_QUERIES || '2')
+  },
+
+  // Query variation configuration
+  queryVariations: {
+    maxTokens: parseInt(process.env.QUERY_VARIATION_MAX_TOKENS || '1000'),
+    count: parseInt(process.env.QUERY_VARIATION_COUNT || '4')
   }
 };
 

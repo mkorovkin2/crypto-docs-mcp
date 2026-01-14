@@ -3,7 +3,7 @@ import { getWorkingExample, GetWorkingExampleSchema } from './working-example.js
 import { explainError, ExplainErrorSchema } from './explain-error.js';
 import { searchDocs, SearchDocsSchema } from './search-docs.js';
 import { listProjectsTool, ListProjectsSchema } from './list-projects.js';
-import type { HybridSearch, FullTextDB, LLMClient, WebSearchClient } from '@mina-docs/shared';
+import type { HybridSearch, FullTextDB, LLMClient, WebSearchClient, Reranker } from '@mina-docs/shared';
 import { listProjects, loadProjectConfig } from '@mina-docs/shared';
 import { logger } from '../utils/logger.js';
 
@@ -42,6 +42,8 @@ function getProjectList(): string {
 export interface ToolContext {
   search: HybridSearch;
   ftsDb: FullTextDB;
+  /** Reranker for result quality improvement */
+  reranker?: Reranker;
   /** LLM client for main synthesis (answer generation) */
   llmClient: LLMClient;
   /** LLM client for evaluation (answer quality assessment) - may be a smaller/faster model */

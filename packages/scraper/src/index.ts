@@ -360,10 +360,12 @@ async function main() {
         // Index all chunks from all sources with atomic re-indexing
         for (const result of results) {
           if (result.chunks.length > 0) {
-            console.log(`\nIndexing ${result.chunks.length} chunks from ${result.sourceId}...`);
+            // Apply chunking to add ordering metadata (documentId, chunkIndex, totalChunks)
+            const processedChunks = chunkContent(result.chunks);
+            console.log(`\nIndexing ${processedChunks.length} chunks from ${result.sourceId}...`);
 
             // Get unique URLs from new chunks and delete old chunks for those URLs
-            const newUrls = [...new Set(result.chunks.map(c => c.url))];
+            const newUrls = [...new Set(processedChunks.map(c => c.url))];
             console.log(`  Deleting old chunks for ${newUrls.length} URLs...`);
             for (const url of newUrls) {
               await vectorDb.deleteByUrl(url);
@@ -372,8 +374,8 @@ async function main() {
             }
 
             // Process in batches
-            for (let i = 0; i < result.chunks.length; i += EMBEDDING_BATCH_SIZE) {
-              const batch = result.chunks.slice(i, i + EMBEDDING_BATCH_SIZE);
+            for (let i = 0; i < processedChunks.length; i += EMBEDDING_BATCH_SIZE) {
+              const batch = processedChunks.slice(i, i + EMBEDDING_BATCH_SIZE);
 
               const embeddings = await generateEmbeddings(
                 batch.map(c => c.content),
@@ -384,12 +386,12 @@ async function main() {
               await ftsDb.upsert(batch);
 
               totalChunks += batch.length;
-              console.log(`  Indexed batch ${Math.floor(i / EMBEDDING_BATCH_SIZE) + 1}/${Math.ceil(result.chunks.length / EMBEDDING_BATCH_SIZE)}`);
+              console.log(`  Indexed batch ${Math.floor(i / EMBEDDING_BATCH_SIZE) + 1}/${Math.ceil(processedChunks.length / EMBEDDING_BATCH_SIZE)}`);
             }
 
             // Update page hashes for GitHub files
             for (const url of newUrls) {
-              const chunkCount = result.chunks.filter(c => c.url === url).length;
+              const chunkCount = processedChunks.filter(c => c.url === url).length;
               await ftsDb.setPageHash(url, config.project, `github:${result.sourceId}:${url}`, chunkCount);
             }
           }
@@ -412,13 +414,15 @@ async function main() {
     console.log('='.repeat(60));
 
     try {
-      const sourceChunks = await scrapeGitHubSource({
+      const rawSourceChunks = await scrapeGitHubSource({
         config: config.github,
         token: config.githubToken,
         project: config.project
       });
 
-      if (sourceChunks.length > 0) {
+      if (rawSourceChunks.length > 0) {
+        // Apply chunking to add ordering metadata (documentId, chunkIndex, totalChunks)
+        const sourceChunks = chunkContent(rawSourceChunks);
         console.log(`\nIndexing ${sourceChunks.length} source code chunks...`);
 
         // Get unique URLs from new chunks and delete old chunks for those URLs

@@ -10,6 +10,7 @@ export * from './config/load-sources.js';
 export * from './llm.js';
 export * from './reranker.js';
 export * from './query-analyzer.js';
+export * from './query-variations.js';
 export * from './confidence.js';
 export * from './corrective-rag.js';
 export * from './understanding-extractor.js';

@@ -152,7 +152,7 @@ async function main() {
   // Start HTTP server
   try {
     await createHttpTransport(
-      { search, ftsDb, llmClient, llmEvaluator, llmRefiner, llmAnalyzer, webSearch },
+      { search, ftsDb, reranker, llmClient, llmEvaluator, llmRefiner, llmAnalyzer, webSearch },
       config.port,
       config.host
     );

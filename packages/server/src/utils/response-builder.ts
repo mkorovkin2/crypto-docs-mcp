@@ -182,24 +182,55 @@ export class ResponseBuilder {
       ? `${indexedSourcesText}\n\n### Web Sources\n${webSourcesText}`
       : indexedSourcesText;
 
-    // Include evaluation trace in metadata if set
-    const metadataToInclude = this.evaluationTrace
-      ? { ...response.metadata, evaluationTrace: this.evaluationTrace }
-      : response.metadata;
+    // Format warnings if any
+    const warningsText = response.metadata.warnings && response.metadata.warnings.length > 0
+      ? response.metadata.warnings.map(w => `⚠️ ${w}`).join('\n') + '\n'
+      : '';
 
     // Build the complete formatted response
-    const formattedAnswer = `${response.answer}
+    let formattedAnswer = `${response.answer}
 
 ---
+Confidence: ${response.metadata.confidence}%
+Latency: ${response.metadata.processingTimeMs}ms
+${warningsText}
+### Sources
+${sourcesText}`;
+
+    // Only include structured metadata JSON when DEBUG_RAG is set
+    if (process.env.DEBUG_RAG === 'true') {
+      const structuredMetadata = {
+        confidence: response.metadata.confidence,
+        retrievalQuality: response.metadata.retrievalQuality,
+        sourcesUsed: response.metadata.sourcesUsed,
+        queryType: response.metadata.queryType,
+        processingTimeMs: response.metadata.processingTimeMs,
+        suggestions: response.metadata.suggestions,
+        relatedQueries: response.metadata.relatedQueries,
+        warnings: response.metadata.warnings,
+        searchGuidance: response.metadata.searchGuidance,
+        // Include source identifiers (not content) for debugging
+        sourceIdentifiers: response.sources.map(s => ({
+          index: s.index,
+          title: s.title,
+          url: s.url,
+          relevance: s.relevance
+        })),
+        webSourceIdentifiers: this.webSources.map((s, i) => ({
+          index: i + 1,
+          title: s.title,
+          url: s.url
+        }))
+      };
+
+      formattedAnswer += `
 
 <response_metadata>
 \`\`\`json
-${JSON.stringify(metadataToInclude, null, 2)}
+${JSON.stringify(structuredMetadata, null, 2)}
 \`\`\`
-</response_metadata>
-
-### Sources
-${sourcesText}`;
+</response_metadata>`;
+    }
 
     return {
       content: [{

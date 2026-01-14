@@ -188,20 +188,6 @@ export class LLMClient {
   }
 
   /**
-   * Check if model is a reasoning model with restricted parameters.
-   * These models (gpt-5, o-series) require:
-   * - max_completion_tokens instead of max_tokens
-   * - temperature must be omitted (only default 1 is supported)
-   */
-  private isReasoningModel(model: string): boolean {
-    const lowerModel = model.toLowerCase();
-    return lowerModel.startsWith('gpt-5') ||
-           lowerModel.startsWith('o1') ||
-           lowerModel.startsWith('o3') ||
-           lowerModel.startsWith('o4');
-  }
-
-  /**
    * OpenAI/XAI synthesis (both use OpenAI SDK)
    */
   private async synthesizeOpenAI(
@@ -215,32 +201,17 @@ export class LLMClient {
     }
 
     const callStart = Date.now();
-    const isReasoning = this.isReasoningModel(this.model);
-    llmLog.debug(`OpenAI API call starting (model=${this.model}, reasoning=${isReasoning})...`);
+    llmLog.debug(`OpenAI API call starting (model=${this.model})...`);
 
-    // Build request based on model type
-    // Reasoning models (gpt-5, o-series) have restricted parameters:
-    // - Use max_completion_tokens instead of max_tokens
-    // - Cannot set temperature (only default 1 is allowed)
-    const response = isReasoning
-      ? await this.openaiClient.chat.completions.create({
-          model: this.model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-          ],
-          max_completion_tokens: maxTokens,
-          // Do not set temperature - reasoning models only support default (1)
-        })
-      : await this.openaiClient.chat.completions.create({
-          model: this.model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-          ],
-          max_tokens: maxTokens,
-          temperature,
-        });
+    const response = await this.openaiClient.chat.completions.create({
+      model: this.model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      max_tokens: maxTokens,
+      temperature,
+    });
 
     const content = response.choices[0]?.message?.content || '';
     const usage = response.usage;
@@ -332,11 +303,19 @@ export class LLMClient {
     llmLog.debug(`Stop reason: ${response.stopReason}`);
 
     // Extract text from Bedrock response
+    // For thinking models (like Kimi K2), content has: [reasoningContent, text]
+    // For regular models, content has: [text]
     const output = response.output;
     if (output?.message?.content) {
-      const textBlock = output.message.content.find(block => 'text' in block);
-      if (textBlock && 'text' in textBlock) {
-        return textBlock.text || '';
+      // Look through all content blocks for text
+      for (const block of output.message.content) {
+        // Direct text block
+        if ('text' in block && typeof (block as { text: string }).text === 'string') {
+          const text = (block as { text: string }).text;
+          if (text.trim()) {
+            return text;
+          }
+        }
       }
     }
 
