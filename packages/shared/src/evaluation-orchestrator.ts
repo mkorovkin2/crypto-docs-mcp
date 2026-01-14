@@ -18,6 +18,7 @@ import {
   type CompressedContext,
   type EvaluatorContext,
   type EvaluationConfig,
+  type EvaluationStepResult,
 } from './evaluation-types.js';
 import {
   runEvaluationStep,
@@ -28,6 +29,12 @@ import { refineAnswer, synthesizeFromWebResults } from './answer-refiner.js';
 import { analyzeWebResults, type WebAnalysisOutput, type AnalyzerContext } from './web-result-analyzer.js';
 import { extractQueryUnderstanding } from './understanding-extractor.js';
 import { calculateConfidenceScore } from './confidence.js';
+import {
+  generateRelatedQueriesWithLLM,
+  extractTopicsForRelatedQueries,
+  extractCoverageGapsForRelatedQueries,
+  type RelatedQueryResult,
+} from './related-query-generator.js';
 
 // Timestamped logger for evaluation loop
 const getTimestamp = () => new Date().toISOString();
@@ -90,6 +97,7 @@ export async function runEvaluationLoop(
   const config: EvaluationConfig = {
     ...DEFAULT_EVALUATION_CONFIG,
     ...input.config,
+    enableWebSearch: false, // Web search disabled - answers only from indexed docs
   };
 
   evalLog.info(`Config: maxIterations=${config.maxIterations}, threshold=${config.autoReturnConfidenceThreshold}%, webSearch=${config.enableWebSearch}`);
@@ -123,7 +131,32 @@ export async function runEvaluationLoop(
   // Quick return for very high confidence
   if (input.initialConfidence.score >= config.autoReturnConfidenceThreshold) {
     evalLog.info(`HIGH CONFIDENCE (${input.initialConfidence.score}%) >= threshold (${config.autoReturnConfidenceThreshold}%) - returning immediately`, loopStartTime);
+
+    // Still generate related queries even for quick return (use fast LLM)
+    const relatedQueryLLM = deps.llmEvaluator || deps.llmClient;
+    const topicsCovered = extractTopicsForRelatedQueries(input.initialResults);
+    const coverageGaps = extractCoverageGapsForRelatedQueries(
+      input.analysis.keywords,
+      input.initialResults
+    );
+
+    const relatedQueriesResult = await generateRelatedQueriesWithLLM(
+      relatedQueryLLM,
+      {
+        originalQuestion: input.query,
+        currentAnswer: input.initialAnswer,
+        project: input.project,
+        analysis: input.analysis,
+        topicsCovered,
+        coverageGaps,
+        previousContext: null,
+      },
+      { maxTokens: 1000 }
+    );
+    evalLog.info(`Generated ${relatedQueriesResult.queries.length} related queries`);
+
     trace.totalDurationMs = Date.now() - loopStartTime;
+    trace.resourcesUsed.llmCalls++; // Count the related query LLM call
     evalLog.step('Quick return (high confidence)', trace.totalDurationMs);
     return {
       answer: input.initialAnswer,
@@ -132,6 +165,7 @@ export async function runEvaluationLoop(
       sources: deduplicateSources(allSources),
       usedWebSearch: false,
       warnings: [],
+      relatedQueries: relatedQueriesResult.queries,
     };
   }
 
@@ -145,11 +179,90 @@ export async function runEvaluationLoop(
   let previousContext: CompressedContext | null = null;
   let docQueriesRemaining = config.maxDocQueries;
   let webSearchesRemaining = config.maxWebSearches;
+  let latestRelatedQueries: string[] = [];
 
   // Main evaluation loop
   for (let step = 1; step <= config.maxIterations; step++) {
     const stepStartTime = Date.now();
     evalLog.info(`--- STEP ${step}/${config.maxIterations} STARTED ---`, loopStartTime);
+
+    // On final iteration, skip evaluator - just do final synthesis and return
+    if (step === config.maxIterations) {
+      evalLog.info(`Final iteration - skipping evaluator, doing final synthesis only`, loopStartTime);
+
+      // Get any new results since initial
+      const newDocResults = currentResults.filter(
+        r => !input.initialResults.some(ir => ir.chunk.url === r.chunk.url)
+      );
+
+      // Prepare context for related query generation
+      const topicsCovered = extractTopicsForRelatedQueries(currentResults);
+      const coverageGaps = extractCoverageGapsForRelatedQueries(
+        input.analysis.keywords,
+        currentResults
+      );
+
+      // If we have new context (docs or web), do a final refinement in parallel with related query gen
+      if (newDocResults.length > 0 || allWebResults.length > 0) {
+        evalLog.info(`Final synthesis with ${newDocResults.length} new docs, ${allWebResults.length} web results`);
+        const refinerLLM = deps.llmRefiner || deps.llmClient;
+        const relatedQueryLLM = deps.llmEvaluator || deps.llmClient;
+
+        const [refinedAnswer, relatedQueriesResult] = await Promise.all([
+          refineAnswer(refinerLLM, {
+            originalQuery: input.query,
+            currentAnswer,
+            focusAreas: ['completeness', 'accuracy'],
+            additionalContext: {
+              newDocResults: newDocResults.length > 0 ? newDocResults : undefined,
+              webResults: allWebResults.length > 0 ? allWebResults : undefined,
+            },
+            previousContext: previousContext!,
+            project: input.project,
+          }),
+          generateRelatedQueriesWithLLM(
+            relatedQueryLLM,
+            {
+              originalQuestion: input.query,
+              currentAnswer,
+              project: input.project,
+              analysis: input.analysis,
+              topicsCovered,
+              coverageGaps,
+              previousContext,
+            },
+            { maxTokens: 1000 }
+          ),
+        ]);
+
+        currentAnswer = refinedAnswer;
+        latestRelatedQueries = relatedQueriesResult.queries;
+        trace.resourcesUsed.llmCalls += 2;
+        evalLog.info('Final answer synthesized with related queries');
+      } else {
+        // No new context, just generate related queries
+        const relatedQueryLLM = deps.llmEvaluator || deps.llmClient;
+        const relatedQueriesResult = await generateRelatedQueriesWithLLM(
+          relatedQueryLLM,
+          {
+            originalQuestion: input.query,
+            currentAnswer,
+            project: input.project,
+            analysis: input.analysis,
+            topicsCovered,
+            coverageGaps,
+            previousContext,
+          },
+          { maxTokens: 1000 }
+        );
+        latestRelatedQueries = relatedQueriesResult.queries;
+        trace.resourcesUsed.llmCalls++;
+        evalLog.info('Generated related queries (no new context to synthesize)');
+      }
+
+      // Break out to return at end
+      break;
+    }
 
     // Build context for evaluator
     const understandingStart = Date.now();
@@ -188,7 +301,7 @@ export async function runEvaluationLoop(
       previousContext,
       availableActions: {
         canQueryMoreDocs: docQueriesRemaining > 0,
-        canSearchWeb: config.enableWebSearch && webSearchesRemaining > 0 && !!deps.webSearch,
+        canSearchWeb: false, // Web search disabled
         docQueriesRemaining,
         webSearchesRemaining,
       },
@@ -203,19 +316,48 @@ export async function runEvaluationLoop(
       }] : undefined,
     };
 
-    // Run evaluation step (use dedicated evaluator LLM if available)
-    evalLog.info(`Running evaluator LLM (maxTokens=${config.evaluatorMaxTokens})...`, loopStartTime);
+    // Run evaluation step AND related query generation in PARALLEL
+    evalLog.info(`Running evaluator LLM + related query generation in parallel (maxTokens=${config.evaluatorMaxTokens})...`, loopStartTime);
     const evaluatorStart = Date.now();
     const evaluatorLLM = deps.llmEvaluator || deps.llmClient;
-    const stepResult = await runEvaluationStep(evaluatorLLM, evaluatorContext, step, config.evaluatorMaxTokens);
-    evalLog.step('Evaluator LLM call', Date.now() - evaluatorStart);
+
+    // Prepare context for related query generation
+    const topicsCovered = extractTopicsForRelatedQueries(currentResults);
+    const coverageGaps = extractCoverageGapsForRelatedQueries(
+      evaluatorContext.query.technicalTerms,
+      currentResults
+    );
+
+    // Run both LLM calls in parallel
+    const [stepResult, relatedQueriesResult]: [EvaluationStepResult, RelatedQueryResult] = await Promise.all([
+      runEvaluationStep(evaluatorLLM, evaluatorContext, step, config.evaluatorMaxTokens),
+      generateRelatedQueriesWithLLM(
+        evaluatorLLM,
+        {
+          originalQuestion: input.query,
+          currentAnswer,
+          project: input.project,
+          analysis: input.analysis,
+          topicsCovered,
+          coverageGaps,
+          previousContext,
+        },
+        { maxTokens: 1000 }
+      ),
+    ]);
+
+    evalLog.step('Evaluator LLM call + related query generation (parallel)', Date.now() - evaluatorStart);
+    evalLog.info(`Generated ${relatedQueriesResult.queries.length} related queries in parallel`);
+
+    // Update latest related queries
+    latestRelatedQueries = relatedQueriesResult.queries;
+
     trace.steps.push(stepResult);
-    trace.resourcesUsed.llmCalls++;
+    trace.resourcesUsed.llmCalls += 2; // Count both LLM calls
 
     evalLog.info(`DECISION: ${stepResult.action.type}`, loopStartTime);
     evalLog.info(`  Confidence: ${stepResult.confidence.score}%`);
     evalLog.info(`  Reason: ${stepResult.action.reason || 'No reason provided'}`);
-    evalLog.info(`  Web search available: ${evaluatorContext.availableActions.canSearchWeb} (${webSearchesRemaining} remaining)`);
     evalLog.info(`  Doc queries available: ${evaluatorContext.availableActions.canQueryMoreDocs} (${docQueriesRemaining} remaining)`);
 
     // Update previous context
@@ -236,6 +378,7 @@ export async function runEvaluationLoop(
           sources: deduplicateSources(allSources),
           usedWebSearch: allWebResults.length > 0,
           warnings,
+          relatedQueries: latestRelatedQueries,
         };
 
       case 'QUERY_MORE_DOCS':
@@ -426,6 +569,7 @@ export async function runEvaluationLoop(
     sources: deduplicateSources(allSources),
     usedWebSearch: allWebResults.length > 0,
     warnings,
+    relatedQueries: latestRelatedQueries,
   };
 }
 

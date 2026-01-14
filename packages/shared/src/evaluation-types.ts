@@ -124,7 +124,7 @@ export interface EvaluationConfig {
 export const DEFAULT_EVALUATION_CONFIG: EvaluationConfig = {
   maxIterations: 3,
   autoReturnConfidenceThreshold: 85,
-  enableWebSearch: true,
+  enableWebSearch: false, // Disabled - use only indexed documentation
   maxWebSearches: 2,
   maxDocQueries: 2,
   evaluatorMaxTokens: 4000,
@@ -172,6 +172,8 @@ export interface EvaluationOutput {
   usedWebSearch: boolean;
   /** Warnings or notes about the evaluation */
   warnings: string[];
+  /** LLM-generated related queries for follow-up exploration */
+  relatedQueries: string[];
 }
 
 /**

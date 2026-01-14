@@ -66,18 +66,10 @@ AVAILABLE ACTIONS:
   Use when: confidence score ≥85 AND answer fully addresses the question.
 - QUERY_MORE_DOCS: Need to search indexed documentation with different/better queries.
   Use when: answer is thin but docs probably exist, queries tried so far were too narrow/broad.
-- SEARCH_WEB: Need external information not in indexed docs.
-  Use when: ANY of these conditions are met:
-  * Confidence score < 70 (indicates indexed docs are insufficient)
-  * Coverage gaps exist (key terms not found in indexed docs)
-  * Topic seems newer/advanced and indexed docs clearly don't cover it
-  * Need official/authoritative source for verification
-  * Answer is incomplete and QUERY_MORE_DOCS has already been tried
-  STRONGLY PREFER SEARCH_WEB when confidence is below 70!
 - REFINE_ANSWER: Have enough information but answer needs improvement.
   Use when: info is there but answer is poorly structured, incomplete code, missing context.
 
-IMPORTANT: If confidence is below 70 and web search is available, you should almost always choose SEARCH_WEB rather than RETURN_ANSWER or QUERY_MORE_DOCS.
+NOTE: Only use information from the indexed documentation. Do not suggest external searches.
 
 OUTPUT FORMAT - Respond with valid JSON only:
 {
@@ -88,12 +80,11 @@ OUTPUT FORMAT - Respond with valid JSON only:
     "confidenceInAssessment": number (0-100)
   },
   "decision": {
-    "action": "RETURN_ANSWER" | "QUERY_MORE_DOCS" | "SEARCH_WEB" | "REFINE_ANSWER",
+    "action": "RETURN_ANSWER" | "QUERY_MORE_DOCS" | "REFINE_ANSWER",
     "reason": "why this action makes sense given the assessment",
     "actionDetails": {
       // IMPORTANT: Always include queries/focusAreas arrays with 1-2 items for the action!
       // For QUERY_MORE_DOCS: { "queries": ["query1", "query2"] } - REQUIRED
-      // For SEARCH_WEB: { "queries": ["search query 1", "search query 2"] } - REQUIRED
       // For REFINE_ANSWER: { "focusAreas": ["area1", "area2"] } - REQUIRED
       // For RETURN_ANSWER: {} - no additional details needed
     }
@@ -311,18 +302,6 @@ function responseToAction(parsed: EvaluatorResponse): EvaluationAction {
       evaluatorLog.debug(`Action: QUERY_MORE_DOCS - ${queries.length} queries: [${queries.join(', ')}]`);
       return {
         type: 'QUERY_MORE_DOCS',
-        queries,
-        reason: parsed.decision.reason,
-      };
-    }
-
-    case 'SEARCH_WEB': {
-      const queries = Array.isArray(parsed.decision.actionDetails.queries)
-        ? parsed.decision.actionDetails.queries
-        : [];
-      evaluatorLog.debug(`Action: SEARCH_WEB - ${queries.length} queries: [${queries.join(', ')}]`);
-      return {
-        type: 'SEARCH_WEB',
         queries,
         reason: parsed.decision.reason,
       };

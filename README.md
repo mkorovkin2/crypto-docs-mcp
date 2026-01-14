@@ -71,6 +71,44 @@ How it works (quick version):
 Prereqs:
 - `OPENAI_API_KEY` plus running Qdrant/SQLite (same as the normal scraper).
 
+### Discover Third-Party Sources
+
+Automatically discover third-party GitHub repos, tutorials, and blog posts for a project using an agentic search loop:
+
+```bash
+npm run collect-sources-for-project -- -p "o1js zkApp examples" -n 20
+npm run collect-sources-for-project -- -p "Solana Anchor tutorials" -n 30 -r 70
+npm run collect-sources-for-project -- -p "Cosmos SDK modules" -x "docs.cosmos.network"
+```
+
+**How it works:**
+1. **Seed queries**: Generates initial search queries from your prompt (e.g., "X examples", "X tutorial", "X github")
+2. **Tavily search**: Searches the web for relevant sources
+3. **LLM evaluation**: Each result is scored by an LLM (XAI Grok) for relevance (0-100), prioritizing third-party code examples over official docs
+4. **Diversity tracking**: Limits sources per project/domain to ensure variety
+5. **Agentic iteration**: If not enough sources found, the LLM generates new search queries and the loop continues (up to 10 iterations)
+6. **Output**: Writes discovered sources to `config/sources/discovered/` as JSON files ready for the scraper
+
+**CLI Options:**
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--prompt <text>` | `-p` | Search prompt describing what to find (required) |
+| `--count <number>` | `-n` | Target number of sources (default: 20) |
+| `--min-relevance <n>` | `-r` | Minimum relevance score 0-100 (default: 60) |
+| `--exclude-domains <d>` | `-x` | Comma-separated domains to exclude (e.g., `docs.x.com,x.com`) |
+| `--model <name>` | `-m` | LLM model for evaluation (default: grok-4-1-fast-non-reasoning-latest) |
+| `--output <dir>` | `-o` | Output directory (default: ./config/sources) |
+| `--verbose` | `-v` | Show detailed evaluation output |
+
+**Environment variables required:**
+- `TAVILY_API_KEY` - Tavily API key for web search
+- `XAI_API_KEY` - XAI API key for LLM evaluation
+
+**Output files:**
+- `config/sources/discovered/<project>-<date>.json` - Source entries ready for scraping
+- `config/sources/discovered/<project>-<date>-report.md` - Human-readable report with relevance scores
+
 ## Architecture
 
 ```

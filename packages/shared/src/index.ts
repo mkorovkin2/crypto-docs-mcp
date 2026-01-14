@@ -22,3 +22,4 @@ export * from './evaluation-types.js';
 export * from './evaluator.js';
 export * from './answer-refiner.js';
 export * from './evaluation-orchestrator.js';
+export * from './related-query-generator.js';

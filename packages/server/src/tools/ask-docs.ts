@@ -16,10 +16,14 @@ import {
   // Query variation imports
   generateQueryVariations,
   mergeQueryVariationResults,
+  // LLM-based related query generation
+  generateRelatedQueriesWithLLM,
+  extractTopicsForRelatedQueries,
+  extractCoverageGapsForRelatedQueries,
 } from '@mina-docs/shared';
 import { formatSearchResultsAsContext, getProjectContext } from './context-formatter.js';
 import { ResponseBuilder, calculateConfidence, getFullConfidenceResult } from '../utils/response-builder.js';
-import { generateSuggestions, generateRelatedQueries } from '../utils/suggestion-generator.js';
+import { generateSuggestions } from '../utils/suggestion-generator.js';
 import { conversationContext } from '../context/conversation-context.js';
 import { logger } from '../utils/logger.js';
 import { config } from '../config.js';
@@ -297,8 +301,9 @@ async function runAgenticEvaluation(
   const suggestions = generateSuggestions(analysis, results, args.project);
   suggestions.forEach(s => builder.addSuggestion(s.action, s.reason, s.params));
 
-  const relatedQueries = generateRelatedQueries(args.question, analysis, results, args.project);
-  relatedQueries.forEach(q => builder.addRelatedQuery(q));
+  // Use LLM-generated related queries from evaluation output
+  // (generated in parallel during evaluation loop)
+  evaluationOutput.relatedQueries.forEach(q => builder.addRelatedQuery(q));
 
   return builder.buildMCPResponse(evaluationOutput.answer);
 }
@@ -343,16 +348,7 @@ async function runOriginalFlow(
     const guidanceText = formatSearchGuidanceAsMarkdown(searchGuidance);
     finalAnswer = `${initialAnswer}\n${guidanceText}`;
 
-    // Add web search as a suggestion
-    for (const search of searchGuidance.suggestedSearches.slice(0, 2)) {
-      builder.addSuggestion(
-        'web_search',
-        search.rationale,
-        { query: search.query, engine: search.suggestedEngine }
-      );
-    }
-
-    builder.addWarning('The answer above may be incomplete - web search recommended for comprehensive information');
+    builder.addWarning('The answer above may be incomplete based on indexed documentation');
   }
 
   // Add other warnings based on confidence and context
@@ -369,9 +365,26 @@ async function runOriginalFlow(
   suggestions.forEach(s => builder.addSuggestion(s.action, s.reason, s.params));
   logger.debug(`Generated ${suggestions.length} follow-up suggestions`);
 
-  // Generate related queries
-  const relatedQueries = generateRelatedQueries(args.question, analysis, results, args.project);
-  relatedQueries.forEach(q => builder.addRelatedQuery(q));
+  // Generate related queries using LLM (use fast evaluator model if available)
+  const relatedQueryLLM = context.llmEvaluator || context.llmClient;
+  const topicsCovered = extractTopicsForRelatedQueries(results);
+  const coverageGaps = extractCoverageGapsForRelatedQueries(analysis.keywords, results);
+
+  const relatedQueriesResult = await generateRelatedQueriesWithLLM(
+    relatedQueryLLM,
+    {
+      originalQuestion: args.question,
+      currentAnswer: finalAnswer,
+      project: args.project,
+      analysis,
+      topicsCovered,
+      coverageGaps,
+      previousContext: null,
+    },
+    { maxTokens: 1000 }
+  );
+  logger.debug(`Generated ${relatedQueriesResult.queries.length} related queries with LLM`);
+  relatedQueriesResult.queries.forEach(q => builder.addRelatedQuery(q));
 
   return builder.buildMCPResponse(finalAnswer);
 }
@@ -399,15 +412,6 @@ function handleNoResults(
   );
   const searchGuidance = generateSearchGuidance(understanding, args.question);
   builder.setSearchGuidance(searchGuidance);
-
-  // Add web search suggestions
-  for (const search of searchGuidance.suggestedSearches.slice(0, 2)) {
-    builder.addSuggestion(
-      'web_search',
-      search.rationale,
-      { query: search.query, engine: search.suggestedEngine }
-    );
-  }
 
   const guidanceText = formatSearchGuidanceAsMarkdown(searchGuidance);
   return builder.buildMCPResponse(

@@ -1,10 +1,16 @@
 import { z } from 'zod';
 import type { ToolContext } from './index.js';
 import { PROMPTS } from '../prompts/index.js';
-import { analyzeQuery, shouldApplyCorrectiveRAG, correctiveSearch } from '@mina-docs/shared';
+import {
+  analyzeQuery,
+  shouldApplyCorrectiveRAG,
+  correctiveSearch,
+  generateRelatedQueriesWithLLM,
+  extractTopicsForRelatedQueries,
+  extractCoverageGapsForRelatedQueries,
+} from '@mina-docs/shared';
 import { formatSearchResultsAsContext, getProjectContext } from './context-formatter.js';
 import { ResponseBuilder, calculateConfidence } from '../utils/response-builder.js';
-import { generateRelatedQueries } from '../utils/suggestion-generator.js';
 import { conversationContext } from '../context/conversation-context.js';
 import { getVerificationSummary } from '../utils/code-verifier.js';
 import { logger } from '../utils/logger.js';
@@ -177,9 +183,26 @@ export async function getWorkingExample(
     { question: `What are best practices for ${args.task}?`, project: args.project }
   );
 
-  // 9. Generate related queries
-  const relatedQueries = generateRelatedQueries(args.task, analysis, allResults, args.project);
-  relatedQueries.forEach(q => builder.addRelatedQuery(q));
+  // 9. Generate related queries using LLM
+  const relatedQueryLLM = context.llmEvaluator || context.llmClient;
+  const topicsCovered = extractTopicsForRelatedQueries(allResults);
+  const coverageGaps = extractCoverageGapsForRelatedQueries(analysis.keywords, allResults);
+
+  const relatedQueriesResult = await generateRelatedQueriesWithLLM(
+    relatedQueryLLM,
+    {
+      originalQuestion: `How to ${args.task}`,
+      currentAnswer: example,
+      project: args.project,
+      analysis,
+      topicsCovered,
+      coverageGaps,
+      previousContext: null,
+    },
+    { maxTokens: 1000 }
+  );
+  logger.debug(`Generated ${relatedQueriesResult.queries.length} related queries with LLM`);
+  relatedQueriesResult.queries.forEach(q => builder.addRelatedQuery(q));
 
   return builder.buildMCPResponse(example);
 }
