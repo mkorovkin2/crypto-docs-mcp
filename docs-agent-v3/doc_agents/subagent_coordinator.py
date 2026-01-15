@@ -13,6 +13,13 @@ from dataclasses import dataclass
 from agents import Agent, Runner, ModelSettings
 from agents.extensions.models.litellm_model import LitellmModel
 from rich.console import Console
+from doc_agents.event_logger import (
+    log_subagent_spawn,
+    log_subagent_result,
+    log_finding,
+    log_error,
+    extract_key_findings,
+)
 
 console = Console()
 
@@ -54,17 +61,26 @@ class SubagentCoordinator:
         self.max_concurrent = max_concurrent
         self.semaphore = asyncio.Semaphore(max_concurrent)
 
-    async def run_task(self, task: SubagentTask) -> SubagentResult:
+    async def run_task(self, task: SubagentTask, log_events: bool = True) -> SubagentResult:
         """
         Run a single subagent task.
 
         Args:
             task: The task to execute
+            log_events: Whether to log start/complete events
 
         Returns:
             SubagentResult with output or error
         """
         async with self.semaphore:
+            # Extract target from task name for logging
+            target = task.name.replace("explore_", "").replace("_", "/")
+            if target == "root":
+                target = "."
+
+            if log_events:
+                log_subagent_spawn(task.name, target, task.model.split("/")[-1])
+
             try:
                 agent = Agent(
                     name=task.name,
@@ -79,6 +95,12 @@ class SubagentCoordinator:
                 )
 
                 result = await Runner.run(agent, task.prompt)
+                output_str = str(result.final_output) if result.final_output else ""
+
+                # Extract and log key findings
+                if log_events:
+                    findings = extract_key_findings(output_str)
+                    log_subagent_result(task.name, success=True, key_findings=findings)
 
                 return SubagentResult(
                     task_name=task.name,
@@ -87,6 +109,8 @@ class SubagentCoordinator:
                 )
 
             except Exception as e:
+                if log_events:
+                    log_error(task.name, str(e))
                 return SubagentResult(
                     task_name=task.name,
                     success=False,
@@ -256,12 +280,10 @@ Be thorough and specific. Reference actual file names and code elements you disc
                 max_tokens=4096
             ))
 
-        console.print(f"    Spawning {len(tasks)} exploration subagents...")
+        # Log is handled by run_task now, so just show count
+        console.print(f"    [dim]Launching {len(tasks)} parallel explorations...[/dim]")
 
-        def progress(completed, total):
-            console.print(f"    [{completed}/{total}] explorations complete")
-
-        return await self.run_parallel(tasks, progress_callback=progress)
+        return await self.run_parallel(tasks)
 
 
 def reconcile_explorations(results: List[SubagentResult]) -> Dict[str, Any]:
@@ -307,6 +329,18 @@ def reconcile_explorations(results: List[SubagentResult]) -> Dict[str, Any]:
 
     # Convert set to list for JSON serialization
     reconciled["patterns"] = list(reconciled["patterns"])
+
+    # Log reconciliation findings
+    successful = len(reconciled["insights"])
+    failed = len(reconciled["failed_explorations"])
+    patterns = reconciled["patterns"]
+
+    if patterns:
+        log_finding("Patterns detected", ", ".join(patterns))
+    if failed > 0:
+        log_error("Reconciliation", f"{failed} explorations failed")
+
+    log_finding("Reconciled", f"{successful} explorations", f"patterns: {patterns if patterns else 'none'}")
 
     return reconciled
 

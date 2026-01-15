@@ -18,6 +18,13 @@ from models import (
     DiscoveryHandoff,
 )
 from tools import grep_pattern, read_file, find_files
+from doc_agents.event_logger import (
+    log_info,
+    log_finding,
+    log_agent_start,
+    log_agent_complete,
+    log_phase_complete,
+)
 
 
 MODULE_ANALYZER_INSTRUCTIONS = """You are a Module Analyzer Agent specialized in understanding code architecture.
@@ -314,16 +321,20 @@ async def run_module_analysis(
             exploration_data = json.load(f)
 
     # Group file analyses by directory (module)
-    print("  Identifying modules...")
+    log_info("Identifying modules from file structure...")
     modules = identify_modules(file_analyses, discovery.repository_path)
+    log_finding("Modules identified", f"{len(modules)} modules", ", ".join([m.name for m in modules[:5]]))
 
-    print("  Building dependency graph...")
+    log_info("Building dependency graph...")
     dependency_graph = build_dependency_graph(file_analyses)
+    log_finding("Dependencies", f"{len(dependency_graph)} edges found")
 
-    print("  Detecting architecture patterns...")
+    log_info("Detecting architecture patterns...")
     architecture_patterns = detect_architecture_patterns(modules, file_analyses)
+    if architecture_patterns:
+        log_finding("Architecture patterns", ", ".join(architecture_patterns[:5]))
 
-    print(f"  Analyzing {len(modules)} modules with LLM...")
+    log_info(f"Analyzing {len(modules)} modules with LLM...")
 
     # Spawn subagents to analyze each module's architecture
     module_tasks = []
@@ -410,7 +421,7 @@ Be specific and reference actual files, classes, and functions."""
     module_results = await coordinator.run_parallel(module_tasks)
 
     # Spawn subagent to analyze overall architecture
-    print("  Analyzing overall system architecture with LLM...")
+    log_agent_start("Architecture Analyzer", "overall system architecture")
 
     module_summaries = []
     for i, result in enumerate(module_results):
@@ -547,5 +558,18 @@ Be thorough, specific, and actionable."""
         }, f, indent=2)
 
     successful = len([r for r in module_results if r.success])
-    print(f"  Module analysis complete. {successful}/{len(module_results)} modules analyzed with LLM.")
+
+    # Log architecture analysis result
+    if arch_result.success and architectural_insights:
+        summary = architectural_insights[0][:100] + "..." if len(architectural_insights[0]) > 100 else architectural_insights[0]
+        log_agent_complete("Architecture Analyzer", success=True, summary=summary)
+    else:
+        log_agent_complete("Architecture Analyzer", success=False)
+
+    log_phase_complete("Module Analysis", {
+        "modules": f"{successful}/{len(module_results)}",
+        "patterns": len(architecture_patterns),
+        "dependencies": len(dependency_graph)
+    })
+
     return handoff

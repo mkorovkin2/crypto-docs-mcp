@@ -12,6 +12,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import AGENT_CONFIGS, API_KEYS, HANDOFF_DIR, SUPPORTED_EXTENSIONS, SKIP_DIRECTORIES
 from models import DiscoveryHandoff, FileClassification, FileType
 from tools import list_directory, get_file_structure, check_language_tools, read_file
+from doc_agents.event_logger import (
+    log_phase_start,
+    log_phase_complete,
+    log_finding,
+    log_info,
+    log_agent_start,
+    log_agent_complete,
+)
 
 
 # Instructions for the discovery agent
@@ -360,7 +368,7 @@ async def run_discovery(repository_path: str) -> DiscoveryHandoff:
     coordinator = SubagentCoordinator(max_concurrent=5)
 
     # Phase 1: Quick local scan to identify directories and files
-    print("  Scanning for directories...")
+    log_info("Scanning directory structure...")
     directories = []
     for item in os.listdir(repository_path):
         if item.startswith('.') or item in SKIP_DIRECTORIES:
@@ -371,9 +379,10 @@ async def run_discovery(repository_path: str) -> DiscoveryHandoff:
 
     # Add root directory
     directories.insert(0, ".")
+    log_finding("Directories found", f"{len(directories)} directories to explore", ", ".join(directories[:10]))
 
     # Phase 2: Local file classification (needed for handoff structure)
-    print("  Classifying files locally...")
+    log_info("Classifying files locally...")
     files = classify_files_locally(repository_path)
     languages, frameworks, entry_points = detect_languages_and_frameworks(repository_path)
 
@@ -382,11 +391,17 @@ async def run_discovery(repository_path: str) -> DiscoveryHandoff:
         if f.language and f.language not in languages:
             languages.append(f.language)
 
+    log_finding("Files classified", f"{len(files)} files", f"languages: {', '.join(languages) if languages else 'unknown'}")
+    if entry_points:
+        log_finding("Entry points", ", ".join(entry_points[:5]))
+    if frameworks:
+        log_finding("Frameworks", ", ".join(frameworks))
+
     # Phase 3: Build directory structure
     directory_structure = build_directory_structure(repository_path)
 
     # Phase 4: Spawn subagents to explore each directory with LLM
-    print(f"  Spawning {min(len(directories), 15)} subagents to explore directories...")
+    log_info(f"Spawning {min(len(directories), 15)} exploration subagents...")
 
     # Create tools for exploration agents
     exploration_tools = [
@@ -405,7 +420,7 @@ async def run_discovery(repository_path: str) -> DiscoveryHandoff:
     )
 
     # Phase 5: Reconcile findings from all explorations
-    print("  Reconciling exploration findings...")
+    log_info("Reconciling exploration findings...")
     reconciled = reconcile_explorations(exploration_results)
 
     # Add any patterns found to frameworks
@@ -414,7 +429,7 @@ async def run_discovery(repository_path: str) -> DiscoveryHandoff:
             frameworks.append(f"{pattern} Pattern")
 
     # Phase 6: Use master agent to synthesize overall understanding
-    print("  Synthesizing overall repository understanding with LLM...")
+    log_agent_start("Synthesis Agent", "creating repository summary")
     summary = await synthesize_explorations(
         reconciled,
         repository_path,
@@ -446,6 +461,15 @@ async def run_discovery(repository_path: str) -> DiscoveryHandoff:
         json.dump(reconciled, f, indent=2, default=str)
 
     successful = len([r for r in exploration_results if r.success])
-    print(f"  Discovery complete: {successful}/{len(exploration_results)} explorations succeeded")
+
+    # Log synthesis completion with a snippet of what was found
+    summary_snippet = summary[:150] + "..." if len(summary) > 150 else summary
+    log_agent_complete("Synthesis Agent", success=True, summary=summary_snippet)
+
+    log_phase_complete("Discovery", {
+        "explorations": f"{successful}/{len(exploration_results)}",
+        "files": len(files),
+        "languages": len(languages)
+    })
 
     return handoff

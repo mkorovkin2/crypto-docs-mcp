@@ -21,6 +21,12 @@ from models import (
     FileType,
 )
 from tools import read_file, grep_pattern
+from doc_agents.event_logger import (
+    log_info,
+    log_finding,
+    log_batch_progress,
+    log_phase_complete,
+)
 
 
 FILE_ANALYZER_INSTRUCTIONS = """You are a File Analyzer Agent specialized in deep code analysis.
@@ -440,7 +446,7 @@ async def run_file_analysis(discovery: DiscoveryHandoff) -> List[FileAnalysisHan
         and f.language is not None
     ]
 
-    print(f"  Analyzing {len(analyzable_files)} files with LLM...")
+    log_info(f"Analyzing {len(analyzable_files)} source files with LLM...")
 
     # Create analysis tasks for each file
     tasks = []
@@ -518,7 +524,9 @@ Be specific and thorough. This analysis will be used to generate documentation."
         batch = tasks[i:i + batch_size]
         batch_num = i // batch_size + 1
         total_batches = (len(tasks) + batch_size - 1) // batch_size
-        print(f"    Processing batch {batch_num}/{total_batches} ({len(batch)} files)...")
+        # Log batch with first file as sample
+        first_file = analyzable_files[i].path if i < len(analyzable_files) else ""
+        log_batch_progress("File Analysis", batch_num, total_batches, first_file)
 
         batch_results = await coordinator.run_parallel(batch)
 
@@ -553,7 +561,17 @@ Be specific and thorough. This analysis will be used to generate documentation."
         json.dump([a.model_dump() for a in results], f, indent=2)
 
     successful = len([r for r in results if r.key_insights and "failed" not in str(r.key_insights)])
-    print(f"  File analysis complete. {successful}/{len(results)} files analyzed with LLM.")
+
+    # Log completion with stats
+    total_classes = sum(len(r.classes) for r in results)
+    total_functions = sum(len(r.functions) for r in results)
+    log_finding("Analysis summary", f"{total_classes} classes, {total_functions} functions found")
+    log_phase_complete("File Analysis", {
+        "analyzed": f"{successful}/{len(results)}",
+        "classes": total_classes,
+        "functions": total_functions
+    })
+
     return results
 
 

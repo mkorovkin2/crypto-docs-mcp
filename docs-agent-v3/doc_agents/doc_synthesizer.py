@@ -18,6 +18,13 @@ from models import (
     FileAnalysisHandoff,
     ModuleAnalysisHandoff,
 )
+from doc_agents.event_logger import (
+    log_info,
+    log_agent_start,
+    log_agent_complete,
+    log_finding,
+    log_phase_complete,
+)
 
 
 DOC_SYNTHESIZER_INSTRUCTIONS = """You are a Documentation Synthesizer Agent specialized in creating comprehensive technical documentation.
@@ -399,10 +406,10 @@ async def run_doc_synthesis(
         with open(detailed_path) as f:
             detailed_analysis = json.load(f)
 
-    print("  Generating documentation sections with LLM...")
+    log_info("Generating documentation sections with LLM...")
 
     # 1. Generate Overview section with LLM
-    print("    Writing overview...")
+    log_agent_start("Doc Writer", "overview section")
     overview_prompt = f"""Write a comprehensive README overview section for: {repo_name}
 
 REPOSITORY SUMMARY:
@@ -440,7 +447,7 @@ Do NOT write generic documentation - make every sentence specific to this codeba
     ))
 
     # 2. Generate Architecture section with LLM
-    print("    Writing architecture documentation...")
+    log_agent_start("Doc Writer", "architecture documentation")
     arch_analysis = detailed_analysis.get("architecture", "")
 
     arch_prompt = f"""Write detailed architecture documentation for: {repo_name}
@@ -486,7 +493,7 @@ Be specific and technical. Reference actual module and file names."""
     ))
 
     # 3. Generate Module documentation (parallel)
-    print("    Writing module documentation...")
+    log_info(f"Writing documentation for {len(module_analysis.modules[:10])} modules...")
     module_tasks = []
 
     # Map file analyses by module
@@ -549,7 +556,7 @@ Be specific and include realistic code examples using actual class/function name
     module_results = await coordinator.run_parallel(module_tasks)
 
     # 4. Generate API Reference with LLM
-    print("    Writing API reference...")
+    log_agent_start("Doc Writer", "API reference")
 
     # Collect key APIs
     key_apis = []
@@ -605,7 +612,7 @@ Be specific - use actual parameter names and types from the API list."""
     ))
 
     # 5. Generate Getting Started with LLM
-    print("    Writing getting started guide...")
+    log_agent_start("Doc Writer", "getting started guide")
 
     getting_started_prompt = f"""Write a Getting Started guide for: {repo_name}
 
@@ -689,7 +696,7 @@ Make instructions specific to this project's technology stack ({', '.join(discov
     ]) + len([r for r in module_results if r.success])
 
     total = 4 + len(module_results)
-    print(f"  Documentation synthesis complete. {successful}/{total} sections written with LLM.")
+    log_phase_complete("Doc Synthesis", {"sections": f"{successful}/{total}"})
 
     return documentation
 
@@ -782,7 +789,4 @@ def write_documentation_files(docs: FinalDocumentation):
     with open(api_path, 'w') as f:
         f.write(api_content)
 
-    print(f"  Documentation written to {OUTPUT_DIR}/")
-    print(f"    - README.md")
-    print(f"    - API_REFERENCE.md")
-    print(f"    - modules/ ({len(docs.modules)} files)")
+    log_finding("Docs written", f"{OUTPUT_DIR}/", f"README.md, API_REFERENCE.md, {len(docs.modules)} module docs")

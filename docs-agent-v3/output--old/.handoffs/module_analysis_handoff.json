@@ -1,0 +1,175 @@
+{
+  "modules": [
+    {
+      "name": "src",
+      "path": "src",
+      "files": [
+        "src/index.ts"
+      ],
+      "purpose": "This file defines the `PolymarketTradingBot` class, which serves as the central orchestrator for an automated trading system designed for Polymarket prediction markets. Its primary responsibility is t",
+      "public_api": [],
+      "internal_components": []
+    },
+    {
+      "name": "src.config",
+      "path": "src/config",
+      "files": [
+        "src/config/env.ts"
+      ],
+      "purpose": "This file is primarily responsible for loading, parsing, and validating environment variables into a strongly-typed configuration object. It serves as the central configuration hub for the application",
+      "public_api": [
+        "src/config/env.ts:config"
+      ],
+      "internal_components": []
+    },
+    {
+      "name": "src.trader",
+      "path": "src/trader",
+      "files": [
+        "src/trader/riskManager.ts",
+        "src/trader/positionManager.ts",
+        "src/trader/orderManager.ts"
+      ],
+      "purpose": "This file defines the `RiskManager` class, which is responsible for enforcing a comprehensive set of risk management rules within a trading system. Its primary role is to evaluate incoming trade signa",
+      "public_api": [
+        "src/trader/riskManager.ts:RiskManager",
+        "src/trader/positionManager.ts:PositionManager",
+        "src/trader/orderManager.ts:OrderManager"
+      ],
+      "internal_components": []
+    },
+    {
+      "name": "src.utils",
+      "path": "src/utils",
+      "files": [
+        "src/utils/math.ts",
+        "src/utils/logger.ts"
+      ],
+      "purpose": "This file defines a utility class, `MathUtils`, which provides a collection of static methods for performing precise mathematical calculations, primarily focused on financial, trading, and probability",
+      "public_api": [
+        "src/utils/math.ts:MathUtils",
+        "src/utils/logger.ts:logger"
+      ],
+      "internal_components": []
+    },
+    {
+      "name": "src.api",
+      "path": "src/api",
+      "files": [
+        "src/api/websocket.ts",
+        "src/api/polymarket.ts"
+      ],
+      "purpose": "This file's primary responsibility is to establish and maintain a WebSocket connection to the Polymarket API, manage subscriptions to market orderbooks, and parse incoming orderbook data into a struct",
+      "public_api": [
+        "src/api/websocket.ts:PolymarketWebSocket",
+        "src/api/polymarket.ts:PolymarketAPI"
+      ],
+      "internal_components": []
+    },
+    {
+      "name": "src.market",
+      "path": "src/market",
+      "files": [
+        "src/market/marketScanner.ts",
+        "src/market/orderbook.ts"
+      ],
+      "purpose": "This file defines the `MarketScanner` class, which is responsible for periodically fetching market data from the Polymarket API, applying a set of predefined filters and a scoring mechanism, caching t",
+      "public_api": [
+        "src/market/marketScanner.ts:MarketScanner",
+        "src/market/orderbook.ts:OrderbookEngine"
+      ],
+      "internal_components": []
+    },
+    {
+      "name": "src.strategy",
+      "path": "src/strategy",
+      "files": [
+        "src/strategy/baseStrategy.ts",
+        "src/strategy/momentum.ts",
+        "src/strategy/spreadArb.ts"
+      ],
+      "purpose": "This file's primary responsibility is to establish an abstract base class (`BaseStrategy`) for all trading strategies. It provides a standardized interface and common functionalities for strategy conf",
+      "public_api": [
+        "src/strategy/momentum.ts:MomentumStrategy",
+        "src/strategy/spreadArb.ts:SpreadArbitrageStrategy"
+      ],
+      "internal_components": []
+    }
+  ],
+  "dependency_graph": [
+    {
+      "source": "src/strategy/momentum.ts",
+      "target": "src/strategy/baseStrategy.ts",
+      "relationship_type": "extends",
+      "strength": "strong"
+    },
+    {
+      "source": "src/strategy/spreadArb.ts",
+      "target": "src/strategy/baseStrategy.ts",
+      "relationship_type": "extends",
+      "strength": "strong"
+    }
+  ],
+  "architecture_patterns": [],
+  "data_flow": [
+    "Entry points: dist/index.js, src/index.ts",
+    "See architectural insights for detailed data flow analysis"
+  ],
+  "entry_points": [
+    "dist/index.js",
+    "src/index.ts"
+  ],
+  "public_apis": {
+    "src": [],
+    "src.config": [
+      "src/config/env.ts:config"
+    ],
+    "src.trader": [
+      "src/trader/riskManager.ts:RiskManager",
+      "src/trader/positionManager.ts:PositionManager",
+      "src/trader/orderManager.ts:OrderManager"
+    ],
+    "src.utils": [
+      "src/utils/math.ts:MathUtils",
+      "src/utils/logger.ts:logger"
+    ],
+    "src.api": [
+      "src/api/websocket.ts:PolymarketWebSocket",
+      "src/api/polymarket.ts:PolymarketAPI"
+    ],
+    "src.market": [
+      "src/market/marketScanner.ts:MarketScanner",
+      "src/market/orderbook.ts:OrderbookEngine"
+    ],
+    "src.strategy": [
+      "src/strategy/momentum.ts:MomentumStrategy",
+      "src/strategy/spreadArb.ts:SpreadArbitrageStrategy"
+    ]
+  },
+  "key_relationships": [
+    "src/strategy/momentum.ts -> src/strategy/baseStrategy.ts (extends)",
+    "src/strategy/spreadArb.ts -> src/strategy/baseStrategy.ts (extends)"
+  ],
+  "architectural_insights": [
+    "### **1. ARCHITECTURE PATTERN: What is the overall architecture?**",
+    "Monolith:** The entire application is designed to run as a single, self-contained process. There is no indication of distributed services or microservice communication. The orchestration happens within the central `PolymarketTradingBot` class, which manages the lifecycle of all other components.",
+    "Modular:** The architecture exhibits a strong separation of concerns, with the application's functionality cleanly divided into distinct modules (`api`, `market`, `strategy`, `trader`, `config`, `utils`). Each module has a well-defined and high-level responsibility, such as \"interact with the extern",
+    "Layered:** The modules are organized into logical layers that handle different levels of abstraction, creating a clear dependency flow from high-level business rules down to low-level technical details.",
+    "### **2. LAYER ANALYSIS: What are the architectural layers?**",
+    "Component:** `src.utils` (specifically the logger).",
+    "Responsibility:** As a bot, this system has no graphical user interface. The \"presentation\" layer consists of console output managed by the `logger`. This is the primary way the system communicates its status, trades, and errors to the operator.",
+    "Business Logic Layer:** This is the core of the application and can be further subdivided.",
+    "Strategy Layer (`src.strategy`):** This is the highest level of business logic. It is responsible for *deciding when to trade*. It encapsulates the specific algorithms (Momentum, Spread Arbitrage) that analyze market data and generate trading intentions.",
+    "Intelligence Layer (`src.market`):** This layer supports the Strategy Layer by *finding and analyzing trading opportunities*. The `MarketScanner` identifies promising markets, and the `OrderbookEngine` provides deep, real-time analysis of a single market's state, feeding actionable data to the strat",
+    "Execution & Management Layer (`src.trader`):** This layer is responsible for the *operational mechanics of trading*. It takes the abstract \"intent to trade\" from the Strategy Layer and translates it into concrete actions, governed by strict rules. It manages the entire lifecycle of an order and trac",
+    "Data Access Layer (DAL):**",
+    "Responsibility:** This layer acts as the gateway to the external Polymarket service. It completely encapsulates all details of network communication, including REST API requests (for placing orders, fetching markets) and real-time WebSocket connections (for order book data). It provides a clean, dom",
+    "Infrastructure / Cross-Cutting Concerns Layer:**",
+    "Components:** `src.config`, `src.utils`",
+    "Responsibility:** These modules provide foundational services required by all other layers. `src.config` offers type-safe access to environment configuration, while `src.utils` provides shared utilities like logging and precise mathematical calculations, ensuring consistency across the application.",
+    "### **3. DATA FLOW: How does data flow through the system?**",
+    "1.  **Initialization:** The `PolymarketTradingBot` (`src`) starts, loads the configuration from `src.config`, and instantiates all necessary components: the API client, market scanner, strategies, and trader services.",
+    "2.  **Market Discovery (Macro Loop):** The `MarketScanner` (`src.market`) periodically queries the Polymarket REST API (via `src.api`) to fetch a list of all available markets. It filters and scores these markets to identify a pool of viable trading candidates.",
+    "3.  **Real-Time Subscription:** For each viable market, the system uses the `WebSocket` client (`src.api`) to subscribe to its real-time order book updates."
+  ]
+}

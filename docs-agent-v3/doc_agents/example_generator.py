@@ -16,6 +16,7 @@ from models import (
     FileAnalysisHandoff,
 )
 from tools import read_file
+from doc_agents.event_logger import log_info, log_agent_start, log_finding, log_error
 
 
 EXAMPLE_GENERATOR_INSTRUCTIONS = """You are a Code Example Generator Agent specialized in creating practical, working code examples.
@@ -370,7 +371,7 @@ async def generate_examples(
     """
     examples = []
 
-    print(f"  Generating examples for {primary_language}...")
+    log_info(f"Generating code examples for {primary_language}...")
 
     # Generate basic examples locally
     examples.append(generate_quick_start_example(
@@ -392,7 +393,7 @@ async def generate_examples(
     ))
 
     # Try to generate more sophisticated examples with LLM
-    print("  Enhancing examples with LLM...")
+    log_agent_start("Example Generator", "enhancing examples with LLM")
     try:
         agent = create_example_generator_agent()
 
@@ -450,7 +451,7 @@ Return as formatted code blocks with titles."""
         examples.extend(parsed)
 
     except Exception as e:
-        print(f"    LLM enhancement failed: {e}")
+        log_error("Example Generator", str(e))
         # Add a placeholder integration example
         examples.append(CodeExample(
             title="Integration Example",
@@ -544,4 +545,4 @@ def write_examples_file(examples: List[CodeExample]):
     with open(examples_path, 'w') as f:
         f.write(content)
 
-    print(f"  Examples written to {examples_path}")
+    log_finding("Examples written", examples_path, f"{len(examples)} examples")

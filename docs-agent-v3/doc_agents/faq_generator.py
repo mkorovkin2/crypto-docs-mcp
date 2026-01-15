@@ -15,6 +15,7 @@ from models import (
     ModuleAnalysisHandoff,
     DiscoveryHandoff,
 )
+from doc_agents.event_logger import log_agent_start, log_finding
 
 
 async def generate_faqs(
@@ -64,7 +65,7 @@ async def generate_faqs(
         with open(detailed_path) as f:
             detailed_analysis = json.load(f)
 
-    print("  Generating FAQs with LLM...")
+    log_agent_start("FAQ Generator", f"creating FAQs for {repo_name}")
 
     faq_prompt = f"""Generate a comprehensive FAQ section for: {repo_name}
 
@@ -166,7 +167,7 @@ This FAQ addresses common questions about the {repo_name} codebase, based on aut
     with open(faq_path, 'w') as f:
         f.write(faq_content)
 
-    print(f"  FAQs written to {faq_path}")
+    log_finding("FAQs written", faq_path)
 
     # Parse FAQs into list for return
     faqs = []
