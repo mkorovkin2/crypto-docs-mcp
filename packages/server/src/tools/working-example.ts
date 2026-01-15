@@ -3,6 +3,7 @@ import type { ToolContext } from './index.js';
 import { PROMPTS } from '../prompts/index.js';
 import {
   analyzeQuery,
+  getOptimizedSearchOptions,
   shouldApplyCorrectiveRAG,
   correctiveSearch,
   generateRelatedQueriesWithLLM,
@@ -77,12 +78,25 @@ export async function getWorkingExample(
   if (shouldApplyCorrectiveRAG(codeResults, 2)) {
     logger.info('Code results insufficient, applying corrective RAG...');
     const correctiveStart = Date.now();
+    const searchOptions = getOptimizedSearchOptions(analysis);
     const corrective = await correctiveSearch(
       context.search,
       `${args.task} code example implementation`,
       analysis,
       args.project,
-      { maxRetries: 1, mergeResults: true }
+      {
+        maxRetries: 1,
+        mergeResults: true,
+        searchOptions: {
+          limit: searchOptions.limit,
+          contentType: 'code', // Working example always wants code
+          rerank: searchOptions.rerank,
+          rerankTopK: searchOptions.rerankTopK,
+          expandAdjacent: true,
+          adjacentConfig: { code: 4, prose: 2, 'api-reference': 1 },
+          queryType: searchOptions.queryType
+        }
+      }
     );
 
     if (corrective.wasRetried && corrective.results.length > codeResults.length) {

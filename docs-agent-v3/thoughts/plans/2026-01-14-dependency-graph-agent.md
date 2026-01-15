@@ -2,9 +2,15 @@
 
 ## Overview
 
-Add a new agent to the documentation pipeline that generates a comprehensive dependency graph by writing, testing, and executing a constrained Python script. The agent uses Claude Opus 4.5 and outputs relationship data to a CSV file.
+Add a new agent to the documentation pipeline that generates a comprehensive dependency graph by writing, testing, and executing a Python script. The agent uses Claude Opus 4.5 and outputs relationship data to a CSV file.
 
-**Key Design Principle**: The agent does NOT freeform write scripts. It fills in a **structured template** with clearly defined slots, following an explicit prompt that minimizes entropy and unexpected issues.
+**Key Design Principle**: The agent starts from a **reference template** that shows the expected structure and flow. The agent CAN and SHOULD modify the template based on:
+- The repository's primary language(s) (Python, JS/TS, Go, Rust, etc.)
+- Repo structure discovered by earlier agents
+- Knowledge from discovery, file analysis, and module analysis phases
+- Language-specific import patterns and AST requirements
+
+The agent keeps the **overall logic flow** the same (find files → extract deps → write CSV) but adapts the implementation details for the specific codebase.
 
 ## Current State Analysis
 
@@ -20,12 +26,18 @@ Add a new agent to the documentation pipeline that generates a comprehensive dep
 ### Integration Point:
 The orchestrator (`doc_agents/orchestrator.py`) runs phases sequentially. This will be added as **Phase 7** after FAQ generation, using data from earlier phases.
 
+### Key Input: Earlier Phase Handoffs
+The agent receives knowledge from previous phases:
+- **DiscoveryHandoff**: Languages, frameworks, file structure, entry points
+- **FileAnalysisHandoff[]**: Per-file imports, classes, functions, dependencies
+- **ModuleAnalysisHandoff**: Module relationships, architecture patterns, dependency graph
+
 ## Desired End State
 
 After implementation:
 1. Running `python main.py /path/to/repo` includes a new "Dependency Graph Generation" phase
 2. A `setup_depgraph.sh` script exists that creates an isolated venv for the generated script
-3. The agent generates a script from a **fixed template** (not freeform)
+3. The agent reads a **reference template** and adapts it for the specific repo
 4. The script extracts: module imports, class inheritance, function calls, type references
 5. Output: `output/dependency_graph.csv` with the specified format
 6. The agent can debug and fix script issues through a defined process
@@ -37,11 +49,10 @@ After implementation:
 
 ## What We're NOT Doing
 
-- NOT allowing freeform script generation
+- NOT writing scripts from absolute scratch (always starts from template)
 - NOT creating a standalone CLI tool (integrated into pipeline)
-- NOT using external AST libraries beyond Python's stdlib `ast` module
-- NOT parsing non-Python files (future enhancement)
 - NOT generating visualization (just CSV data)
+- NOT requiring external dependencies beyond Python stdlib (keeps venv simple)
 
 ## Implementation Approach
 
@@ -51,27 +62,44 @@ After implementation:
 ┌─────────────────────────────────────────────────────────────────┐
 │                    DependencyGraphAgent                          │
 │                                                                  │
+│  INPUTS:                                                        │
+│  ├─ Reference template (Python example)                         │
+│  ├─ DiscoveryHandoff (languages, structure)                     │
+│  ├─ FileAnalysisHandoff[] (per-file analysis)                   │
+│  └─ ModuleAnalysisHandoff (architecture)                        │
+│                                                                  │
+│  PROCESS:                                                       │
 │  1. setup_depgraph.sh    - Creates isolated venv                │
-│  2. script_template.py   - Fixed template with slots            │
-│  3. Agent Prompt         - Constrains how to fill template      │
-│  4. Debug Process        - Defined steps for fixing errors      │
+│  2. Read template        - Understand expected structure        │
+│  3. Adapt for repo       - Modify for language/structure        │
+│  4. Write script         - Full script (not just config)        │
+│  5. Test & debug         - Iterative fixing                     │
+│  6. Execute & verify     - Run and check output                 │
+│                                                                  │
+│  OUTPUT:                                                        │
+│  └─ dependency_graph.csv                                        │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ### Script Template Design
 
-The template has **clearly marked slots** that the agent fills in. The agent CANNOT modify the core structure.
+The template is a **reference implementation for Python** that shows:
+- Expected data structures (DependencyEdge dataclass)
+- Required flow (find files → parse → extract → write CSV)
+- CSV output format
+- Error handling patterns
 
-```python
-# TEMPLATE STRUCTURE (agent fills ONLY the marked sections)
-"""
-SECTION 1: IMPORTS (fixed)
-SECTION 2: CONFIGURATION (agent fills: target_directory, output_path)
-SECTION 3: EXTRACTION FUNCTIONS (fixed implementations)
-SECTION 4: MAIN LOGIC (fixed)
-SECTION 5: ERROR HANDLING (fixed)
-"""
-```
+The agent CAN modify:
+- Import statements (add language-specific parsers)
+- File discovery logic (different extensions, patterns)
+- Extraction logic (different AST for JS/TS/Go, regex for others)
+- Any section needed to make it work for the target repo
+
+The agent SHOULD preserve:
+- Overall flow structure
+- CSV output format (columns must match)
+- Error handling patterns
+- Progress reporting
 
 ---
 
@@ -152,10 +180,10 @@ export DEPGRAPH_OUTPUT="$PROJECT_ROOT/output/dependency_graph.csv"
 
 ---
 
-## Phase 2: Create Script Template
+## Phase 2: Create Reference Template
 
 ### Overview
-Create a **fixed template** that the agent fills in. The template has clearly marked slots and the agent can ONLY modify those slots.
+Create a **reference template** that demonstrates the expected structure and flow. The agent reads this template and adapts it based on the repository's language and structure. The template is a Python example that the agent can modify as needed.
 
 ### Changes Required:
 
@@ -165,11 +193,29 @@ Create a **fixed template** that the agent fills in. The template has clearly ma
 ```python
 #!/usr/bin/env python3
 """
-Dependency Graph Extractor
-Generated by DependencyGraphAgent
+Dependency Graph Extractor - REFERENCE TEMPLATE
+================================================
 
-This script extracts dependency relationships from a Python codebase.
-DO NOT MODIFY THE STRUCTURE - only the CONFIGURATION section should be changed.
+This is a REFERENCE IMPLEMENTATION for Python codebases.
+
+The DependencyGraphAgent should:
+1. READ this template to understand the expected structure
+2. ADAPT it for the target repository's language(s) and structure
+3. KEEP the overall flow: find files → extract deps → write CSV
+4. KEEP the CSV output format (columns must match)
+5. MODIFY extraction logic as needed for the specific language
+
+SECTIONS YOU MAY NEED TO MODIFY:
+- CONFIGURATION: Paths, skip directories, file extensions
+- LANGUAGE HANDLERS: Add handlers for JS/TS, Go, Rust, etc.
+- FILE DISCOVERY: Adjust patterns for the repo structure
+- EXTRACTION LOGIC: Language-specific AST or regex patterns
+
+SECTIONS TO PRESERVE:
+- DependencyEdge dataclass (keep fields the same)
+- CSV output format (column order matters)
+- Main flow structure
+- Error handling patterns
 """
 
 import ast
@@ -181,7 +227,7 @@ from typing import List, Set, Dict, Optional
 from pathlib import Path
 
 # ============================================================================
-# SECTION 1: DATA STRUCTURES (DO NOT MODIFY)
+# SECTION 1: DATA STRUCTURES (PRESERVE - keep field names for CSV compatibility)
 # ============================================================================
 
 @dataclass
@@ -196,32 +242,51 @@ class DependencyEdge:
 
 
 # ============================================================================
-# SECTION 2: CONFIGURATION (AGENT FILLS THIS SECTION)
+# SECTION 2: CONFIGURATION (MODIFY - set these for target repo)
 # ============================================================================
 
 # TARGET_DIRECTORY: The root directory to analyze
-# Example: "/Users/user/project/src"
-TARGET_DIRECTORY = "{{TARGET_DIRECTORY}}"
+# Agent should set this to the actual repository path
+TARGET_DIRECTORY = "/path/to/repository"
 
 # OUTPUT_CSV_PATH: Where to write the dependency graph
-# Example: "/Users/user/project/output/dependency_graph.csv"
-OUTPUT_CSV_PATH = "{{OUTPUT_CSV_PATH}}"
+OUTPUT_CSV_PATH = "/path/to/output/dependency_graph.csv"
 
 # SKIP_DIRECTORIES: Directories to skip during analysis
+# Agent should add repo-specific directories (e.g., vendor, dist, etc.)
 SKIP_DIRECTORIES = {
-    "{{SKIP_DIRS}}"
+    "venv", "__pycache__", ".git", "node_modules", ".venv", "dist", "build"
 }
 
 # FILE_EXTENSIONS: File extensions to analyze
+# Agent should modify based on detected languages
+# Python: {".py"}
+# JavaScript/TypeScript: {".js", ".ts", ".jsx", ".tsx"}
+# Go: {".go"}
+# Multiple: {".py", ".js", ".ts"}
 FILE_EXTENSIONS = {".py"}
 
 
 # ============================================================================
-# SECTION 3: EXTRACTION FUNCTIONS (DO NOT MODIFY)
+# SECTION 3: EXTRACTION LOGIC (MODIFY - adapt for target language)
 # ============================================================================
+#
+# This section contains Python-specific extraction using the `ast` module.
+#
+# FOR OTHER LANGUAGES, the agent should:
+# - JavaScript/TypeScript: Use regex or a JS parser approach
+# - Go: Use regex to find import blocks and type definitions
+# - Rust: Use regex for `use` statements and `impl` blocks
+# - Or use subprocess to call language-specific tools if available
+#
+# The extraction should identify:
+# - imports/imports_from: Module dependencies
+# - extends: Class inheritance
+# - calls: Function/method calls
+# - uses_type: Type annotations and references
 
 class DependencyExtractor(ast.NodeVisitor):
-    """AST visitor that extracts dependency relationships."""
+    """AST visitor that extracts dependency relationships (Python-specific)."""
 
     def __init__(self, file_path: str, base_path: str):
         self.file_path = file_path
@@ -382,11 +447,21 @@ class DependencyExtractor(ast.NodeVisitor):
 
 
 # ============================================================================
-# SECTION 4: MAIN LOGIC (DO NOT MODIFY)
+# SECTION 4: MAIN LOGIC (PRESERVE FLOW - modify function names/details as needed)
 # ============================================================================
+#
+# The main flow should be preserved:
+# 1. Find files matching the target extensions
+# 2. For each file, extract dependencies
+# 3. Collect all edges
+# 4. Write to CSV
+# 5. Print summary
+#
+# The agent can rename functions, adjust file discovery, etc.
+# but should keep this overall structure.
 
-def find_python_files(directory: str) -> List[str]:
-    """Find all Python files in directory, respecting skip list."""
+def find_source_files(directory: str) -> List[str]:
+    """Find all source files in directory, respecting skip list."""
     python_files = []
 
     for root, dirs, files in os.walk(directory):
@@ -453,9 +528,9 @@ def main():
         print(f"ERROR: Target directory does not exist: {TARGET_DIRECTORY}", file=sys.stderr)
         sys.exit(1)
 
-    # Find all Python files
-    print("Finding Python files...")
-    files = find_python_files(TARGET_DIRECTORY)
+    # Find all source files
+    print("Finding source files...")
+    files = find_source_files(TARGET_DIRECTORY)
     print(f"Found {len(files)} Python files")
 
     # Extract dependencies
@@ -496,12 +571,13 @@ if __name__ == "__main__":
 
 #### Automated Verification:
 - [ ] Template file exists at `templates/dependency_extractor_template.py`
-- [ ] Template has clear `{{PLACEHOLDER}}` markers
-- [ ] Template is valid Python (ignoring placeholders): Manual syntax check
+- [ ] Template is valid Python: `python3 -m py_compile templates/dependency_extractor_template.py`
+- [ ] Template has section markers for CONFIGURATION, EXTRACTION LOGIC, MAIN LOGIC
 
 #### Manual Verification:
-- [ ] Template structure is clear and maintainable
-- [ ] Slot markers are obvious and well-documented
+- [ ] Template structure is clear with guidance comments
+- [ ] Each section clearly indicates what can/should be modified
+- [ ] CSV output format is clearly documented
 
 ---
 
@@ -604,7 +680,13 @@ from .dependency_graph import (
 ## Phase 4: Create Script Execution Tools
 
 ### Overview
-Create tools that the agent uses to execute and debug the generated script.
+Create tools that the agent uses to:
+1. Read the reference template
+2. Write a complete, adapted script
+3. Execute and debug the generated script
+4. Verify the output
+
+The key difference from a simple "fill-in-the-blanks" approach: the agent reads the template, adapts it based on repo knowledge, and writes the complete script.
 
 ### Changes Required:
 
@@ -674,29 +756,18 @@ def setup_script_environment() -> str:
         })
 
 
-def write_configured_script(
-    target_directory: str,
-    output_csv_path: str,
-    skip_directories: str = "venv,__pycache__,.git,node_modules"
-) -> str:
+def read_template() -> str:
     """
-    Write the dependency extraction script with configuration filled in.
-
-    Args:
-        target_directory: Directory to analyze
-        output_csv_path: Path for output CSV
-        skip_directories: Comma-separated list of directories to skip
+    Read the reference template for the agent to study and adapt.
 
     Returns:
-        JSON string with result
+        JSON string with template content or error
     """
     template_path = os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
         "templates",
         "dependency_extractor_template.py"
     )
-
-    output_script_path = os.path.join(OUTPUT_DIR, "extract_dependencies.py")
 
     if not os.path.exists(template_path):
         return json.dumps({
@@ -706,29 +777,81 @@ def write_configured_script(
 
     try:
         with open(template_path, 'r') as f:
-            template = f.read()
+            content = f.read()
 
-        # Format skip directories as Python set literal
-        skip_dirs = skip_directories.split(",")
-        skip_dirs_str = ", ".join(f'"{d.strip()}"' for d in skip_dirs)
+        return json.dumps({
+            "success": True,
+            "template_path": template_path,
+            "content": content,
+            "line_count": len(content.split('\n'))
+        })
 
-        # Fill in the template
-        configured = template.replace('{{TARGET_DIRECTORY}}', target_directory)
-        configured = configured.replace('{{OUTPUT_CSV_PATH}}', output_csv_path)
-        configured = configured.replace('"{{SKIP_DIRS}}"', skip_dirs_str)
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "error": str(e)
+        })
 
+
+def write_script(script_content: str) -> str:
+    """
+    Write the complete dependency extraction script.
+
+    The agent should adapt the template based on repo knowledge and write
+    the full script content here.
+
+    Args:
+        script_content: The complete Python script to write
+
+    Returns:
+        JSON string with result
+    """
+    output_script_path = os.path.join(OUTPUT_DIR, "extract_dependencies.py")
+
+    try:
         # Ensure output directory exists
-        os.makedirs(os.path.dirname(output_script_path), exist_ok=True)
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
 
         with open(output_script_path, 'w') as f:
-            f.write(configured)
+            f.write(script_content)
 
         return json.dumps({
             "success": True,
             "script_path": output_script_path,
-            "target_directory": target_directory,
-            "output_csv_path": output_csv_path,
-            "skip_directories": skip_dirs
+            "line_count": len(script_content.split('\n'))
+        })
+
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "error": str(e)
+        })
+
+
+def read_script() -> str:
+    """
+    Read the current generated script (for debugging/iteration).
+
+    Returns:
+        JSON string with script content or error
+    """
+    script_path = os.path.join(OUTPUT_DIR, "extract_dependencies.py")
+
+    if not os.path.exists(script_path):
+        return json.dumps({
+            "success": False,
+            "error": f"Script not found: {script_path}"
+        })
+
+    try:
+        with open(script_path, 'r') as f:
+            content = f.read()
+
+        return json.dumps({
+            "success": True,
+            "script_path": script_path,
+            "content": content,
+            "line_count": len(content.split('\n'))
         })
 
     except Exception as e:
@@ -903,7 +1026,9 @@ def read_csv_summary(csv_path: Optional[str] = None) -> str:
 # Add to existing imports:
 from .script_tools import (
     setup_script_environment,
-    write_configured_script,
+    read_template,
+    write_script,
+    read_script,
     execute_script,
     validate_script_syntax,
     read_csv_summary,
@@ -913,7 +1038,9 @@ from .script_tools import (
 __all__ = [
     # ... existing exports ...
     'setup_script_environment',
-    'write_configured_script',
+    'read_template',
+    'write_script',
+    'read_script',
     'execute_script',
     'validate_script_syntax',
     'read_csv_summary',
@@ -935,7 +1062,7 @@ __all__ = [
 ## Phase 5: Create the Dependency Graph Agent
 
 ### Overview
-Create the agent that orchestrates script configuration, execution, and debugging.
+Create the agent that reads the template, adapts it based on repository knowledge, writes the script, tests it, and iterates until it works.
 
 ### Changes Required:
 
@@ -956,8 +1083,8 @@ AGENT_CONFIGS = {
     "dependency_graph": AgentConfig(
         name="DependencyGraphAgent",
         model=MODELS["claude_opus"],  # Uses Claude Opus 4.5
-        temperature=0.2,  # Low temperature for deterministic output
-        max_tokens=4096,
+        temperature=0.3,  # Slightly higher for creative adaptation
+        max_tokens=16384,  # Larger for full script generation
     ),
 }
 ```
@@ -970,7 +1097,7 @@ AGENT_CONFIGS = {
 
 import os
 import json
-from typing import Optional
+from typing import Optional, List
 from agents import Agent, Runner, function_tool, ModelSettings
 from agents.extensions.models.litellm_model import LitellmModel
 
@@ -978,7 +1105,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config import AGENT_CONFIGS, API_KEYS, OUTPUT_DIR, HANDOFF_DIR
-from models import DiscoveryHandoff
+from models import DiscoveryHandoff, FileAnalysisHandoff, ModuleAnalysisHandoff
 from models.dependency_graph import (
     DependencyGraphHandoff,
     ScriptConfiguration,
@@ -986,7 +1113,9 @@ from models.dependency_graph import (
 )
 from tools.script_tools import (
     setup_script_environment,
-    write_configured_script,
+    read_template,
+    write_script,
+    read_script,
     execute_script,
     validate_script_syntax,
     read_csv_summary,
@@ -994,64 +1123,118 @@ from tools.script_tools import (
 
 
 # ============================================================================
-# AGENT INSTRUCTIONS - HIGHLY CONSTRAINED
+# AGENT INSTRUCTIONS - TEMPLATE-GUIDED WITH ADAPTATION
 # ============================================================================
 
 DEPENDENCY_GRAPH_INSTRUCTIONS = """You are a Dependency Graph Generator Agent.
 
-YOUR TASK: Configure and execute a dependency extraction script for a Python codebase.
+YOUR TASK: Generate a dependency extraction script that analyzes a codebase and outputs
+a CSV file with dependency relationships.
 
-IMPORTANT CONSTRAINTS:
-- You do NOT write scripts from scratch
-- You ONLY fill in configuration values for a pre-existing template
-- Follow the EXACT process below - do not deviate
+## APPROACH
+You start from a REFERENCE TEMPLATE and ADAPT it based on:
+1. The repository's detected language(s)
+2. The repository structure discovered by earlier agents
+3. Language-specific import patterns and dependency relationships
 
-## REQUIRED PROCESS (follow these steps in order):
+You MUST keep the overall flow the same:
+- Find source files → Extract dependencies → Write CSV
+
+You CAN and SHOULD modify:
+- Configuration values (paths, skip directories, extensions)
+- Extraction logic for the specific language(s)
+- Import statements if needed
+- File discovery patterns
+
+You MUST preserve:
+- The DependencyEdge dataclass field names (for CSV compatibility)
+- The CSV output format (columns: source_file, source_entity, target_file, target_entity, relationship_type, line_number)
+- Error handling patterns
+- Progress reporting
+
+## REQUIRED PROCESS
 
 ### STEP 1: Setup Environment
-Call `tool_setup_environment()` to create the script execution environment.
+Call `tool_setup_environment()` to create the execution environment.
 - If it fails, report the error and stop
 - If it succeeds, proceed to Step 2
 
-### STEP 2: Configure Script
-Call `tool_write_script()` with these EXACT parameters:
-- target_directory: The repository path provided in your prompt
-- output_csv_path: "{output_dir}/dependency_graph.csv"
-- skip_directories: "venv,__pycache__,.git,node_modules,.venv,dist,build"
+### STEP 2: Read Reference Template
+Call `tool_read_template()` to get the reference implementation.
+- Study the structure and understand each section
+- Note: This is a Python example - adapt for other languages
 
-### STEP 3: Validate Syntax
-Call `tool_validate_syntax()` to check the generated script.
-- If validation fails, this is a TEMPLATE BUG - report it and stop
-- If validation passes, proceed to Step 4
+### STEP 3: Analyze Repository Context
+Review the repository information provided in your prompt:
+- Primary language(s) detected
+- Frameworks and libraries in use
+- Directory structure
+- Key file patterns
 
-### STEP 4: Execute Script
+Decide what adaptations are needed:
+- For Python repos: The template should work with minimal changes
+- For JS/TS repos: Modify FILE_EXTENSIONS, add regex-based import extraction
+- For Go repos: Modify for Go import patterns
+- For mixed repos: Handle multiple languages
+
+### STEP 4: Write Adapted Script
+Call `tool_write_script(script_content)` with your adapted script.
+
+Key adaptations to consider:
+1. TARGET_DIRECTORY: Set to the actual repository path
+2. OUTPUT_CSV_PATH: Set to the output directory + "dependency_graph.csv"
+3. SKIP_DIRECTORIES: Add any repo-specific directories to skip
+4. FILE_EXTENSIONS: Match the repository's language(s)
+5. Extraction logic: Adapt for the target language(s)
+
+### STEP 5: Validate Syntax
+Call `tool_validate_syntax()` to check for Python syntax errors.
+- If validation fails, read the error, fix your script, and try again
+- Maximum 3 attempts
+
+### STEP 6: Execute Script
 Call `tool_execute_script()` to run the dependency extraction.
-- If execution succeeds, proceed to Step 5
-- If execution fails, analyze the error:
-  - If it's a path issue: Go back to Step 2 with corrected paths
-  - If it's a permission issue: Report and stop
-  - If it's a Python error: Report the specific error and stop
-  - Maximum 3 retry attempts
+- If execution succeeds, proceed to Step 7
+- If execution fails:
+  1. Read the error message carefully
+  2. Call `tool_read_script()` to see the current script
+  3. Fix the issue and call `tool_write_script()` with the corrected version
+  4. Retry execution
+  5. Maximum 3 retry attempts
 
-### STEP 5: Verify Output
+### STEP 7: Verify Output
 Call `tool_read_summary()` to verify the CSV was created correctly.
 - Report the summary statistics
-- If total_edges is 0, warn that no dependencies were found
+- If total_edges is 0, consider if the extraction logic needs adjustment
+
+## DEBUG PROCESS (if Step 6 fails)
+
+When you encounter an error:
+1. READ the full error message from stderr
+2. IDENTIFY the error type:
+   - SyntaxError: Fix Python syntax in the script
+   - ImportError: A module is not available in stdlib - remove it
+   - FileNotFoundError: Check paths are absolute and correct
+   - AttributeError/TypeError: Fix the extraction logic
+3. CALL `tool_read_script()` to see the current state
+4. FIX the specific issue
+5. CALL `tool_write_script()` with the corrected version
+6. RETRY execution
 
 ## OUTPUT FORMAT
 After completing all steps, provide a summary:
+- Repository language(s) handled
 - Total files analyzed
 - Total dependency edges found
 - Breakdown by relationship type
 - Path to output CSV
 - Any errors or warnings encountered
+- What adaptations you made to the template
 
-## ERROR HANDLING
-If any step fails after retries:
-1. Report which step failed
-2. Include the full error message
-3. Suggest potential fixes
-4. Do NOT attempt to modify the template script directly
+## CONSTRAINTS
+- Use ONLY Python standard library modules (no pip install)
+- Keep the script self-contained (no external dependencies)
+- Preserve CSV column format for downstream compatibility
 """
 
 
@@ -1073,23 +1256,46 @@ def tool_setup_environment() -> str:
 
 
 @function_tool
-def tool_write_script(
-    target_directory: str,
-    output_csv_path: str,
-    skip_directories: str = "venv,__pycache__,.git,node_modules"
-) -> str:
+def tool_read_template() -> str:
     """
-    Write the dependency extraction script with the given configuration.
+    Read the reference template to understand the expected structure.
 
-    Args:
-        target_directory: Absolute path to the repository to analyze
-        output_csv_path: Absolute path where the CSV should be written
-        skip_directories: Comma-separated list of directory names to skip
+    Call this AFTER setup to study the template before adapting it.
 
     Returns:
-        JSON with script_path if successful, or error details
+        JSON with template content, path, and line count
     """
-    return write_configured_script(target_directory, output_csv_path, skip_directories)
+    return read_template()
+
+
+@function_tool
+def tool_write_script(script_content: str) -> str:
+    """
+    Write the complete dependency extraction script.
+
+    You should adapt the template based on the repository's language(s) and
+    structure, then write the full script here.
+
+    Args:
+        script_content: The complete Python script to write
+
+    Returns:
+        JSON with script_path and line_count if successful, or error details
+    """
+    return write_script(script_content)
+
+
+@function_tool
+def tool_read_script() -> str:
+    """
+    Read the current generated script for debugging/iteration.
+
+    Use this when execution fails to see what was written and identify issues.
+
+    Returns:
+        JSON with script content, path, and line count
+    """
+    return read_script()
 
 
 @function_tool
@@ -1100,7 +1306,7 @@ def tool_validate_syntax() -> str:
     Call this AFTER tool_write_script and BEFORE tool_execute_script.
 
     Returns:
-        JSON with success=True if valid, or syntax error details
+        JSON with success=True if valid, or syntax error details with line number
     """
     return validate_script_syntax()
 
@@ -1113,7 +1319,7 @@ def tool_execute_script() -> str:
     Call this AFTER tool_validate_syntax passes.
 
     Returns:
-        JSON with stdout, stderr, and execution result
+        JSON with stdout, stderr, returncode, and output_csv path
     """
     return execute_script()
 
@@ -1126,7 +1332,7 @@ def tool_read_summary() -> str:
     Call this AFTER tool_execute_script succeeds to verify output.
 
     Returns:
-        JSON with total_edges, relationships_by_type, and other stats
+        JSON with total_edges, unique_source_files, relationships_by_type
     """
     return read_csv_summary()
 
@@ -1152,7 +1358,9 @@ def create_dependency_graph_agent() -> Agent:
         ),
         tools=[
             tool_setup_environment,
+            tool_read_template,
             tool_write_script,
+            tool_read_script,
             tool_validate_syntax,
             tool_execute_script,
             tool_read_summary,
@@ -1166,29 +1374,89 @@ def create_dependency_graph_agent() -> Agent:
 # ============================================================================
 
 async def run_dependency_graph_generation(
-    discovery: DiscoveryHandoff
+    discovery: DiscoveryHandoff,
+    file_analyses: List[FileAnalysisHandoff] = None,
+    module_analysis: ModuleAnalysisHandoff = None
 ) -> DependencyGraphHandoff:
     """
     Run dependency graph generation for a repository.
 
     Args:
         discovery: DiscoveryHandoff from discovery phase with repository info
+        file_analyses: Optional list of FileAnalysisHandoff from file analysis phase
+        module_analysis: Optional ModuleAnalysisHandoff from module analysis phase
 
     Returns:
         DependencyGraphHandoff with results
     """
     agent = create_dependency_graph_agent()
 
-    # Prepare the prompt with repository info
+    # Build context from earlier phases
+    languages = ', '.join(discovery.detected_languages) if discovery.detected_languages else "Unknown"
+    frameworks = ', '.join(discovery.detected_frameworks) if discovery.detected_frameworks else "None detected"
+
+    # Extract key patterns from file analyses (NO TRUNCATION)
+    file_patterns = []
+    if file_analyses:
+        # Collect all external dependencies
+        external_deps = set()
+        for fa in file_analyses:
+            for imp in fa.imports:
+                if imp.is_external:
+                    external_deps.add(imp.module)
+        if external_deps:
+            file_patterns.append(f"External dependencies: {', '.join(sorted(external_deps))}")
+
+        # Include file count by language
+        lang_counts = {}
+        for fa in file_analyses:
+            lang = fa.language or "unknown"
+            lang_counts[lang] = lang_counts.get(lang, 0) + 1
+        if lang_counts:
+            file_patterns.append(f"Files by language: {', '.join(f'{lang}={count}' for lang, count in sorted(lang_counts.items()))}")
+
+    # Extract architecture info from module analysis (NO TRUNCATION)
+    arch_info = []
+    if module_analysis:
+        if module_analysis.architecture_patterns:
+            arch_info.append(f"Architecture patterns: {', '.join(module_analysis.architecture_patterns)}")
+        if module_analysis.modules:
+            module_names = [m.name for m in module_analysis.modules]
+            arch_info.append(f"Modules: {', '.join(module_names)}")
+        if module_analysis.key_relationships:
+            arch_info.append(f"Key relationships: {'; '.join(module_analysis.key_relationships)}")
+
+    # Prepare the prompt with full repository context (NO TRUNCATION)
     prompt = f"""Generate a dependency graph for this repository:
 
-REPOSITORY PATH: {discovery.repository_path}
-TOTAL FILES: {discovery.total_files}
-DETECTED LANGUAGES: {', '.join(discovery.detected_languages)}
-OUTPUT DIRECTORY: {OUTPUT_DIR}
+## REPOSITORY INFO
+- PATH: {discovery.repository_path}
+- TOTAL FILES: {discovery.total_files}
+- DETECTED LANGUAGES: {languages}
+- FRAMEWORKS: {frameworks}
+- ENTRY POINTS: {', '.join(discovery.entry_points) if discovery.entry_points else "None identified"}
 
-Follow the REQUIRED PROCESS in your instructions exactly.
-Use "{OUTPUT_DIR}/dependency_graph.csv" as the output path.
+## OUTPUT CONFIGURATION
+- OUTPUT DIRECTORY: {OUTPUT_DIR}
+- CSV OUTPUT PATH: {OUTPUT_DIR}/dependency_graph.csv
+
+## CONTEXT FROM EARLIER ANALYSIS
+{chr(10).join(file_patterns) if file_patterns else "No file analysis context available"}
+{chr(10).join(arch_info) if arch_info else "No architecture context available"}
+
+## REPOSITORY SUMMARY
+{discovery.summary if discovery.summary else "No summary available"}
+
+---
+
+Follow the REQUIRED PROCESS in your instructions:
+1. Setup Environment
+2. Read Reference Template
+3. Analyze Repository Context (use the info above)
+4. Write Adapted Script
+5. Validate Syntax
+6. Execute Script
+7. Verify Output
 
 Begin with Step 1: Setup Environment."""
 
@@ -1281,9 +1549,14 @@ total_phases = 7
         # Phase 7: Dependency Graph Generation
         console.print(f"\n[bold cyan]Phase 7/{total_phases}: Dependency Graph Generation[/bold cyan]")
         try:
+            # Pass context from earlier phases to help the agent adapt
             self.dependency_graph = await self.run_phase(
                 "Dependency Graph",
-                run_dependency_graph_generation(self.discovery),
+                run_dependency_graph_generation(
+                    self.discovery,
+                    self.file_analyses,
+                    self.module_analysis
+                ),
                 "Generating dependency graph with LLM agent"
             )
             console.print(f"  [green]✓[/green] Extracted {self.dependency_graph.total_edges} dependencies")

@@ -3,8 +3,9 @@
   "name": "Polymarket",
   "docs": {
     "baseUrl": "https://docs.polymarket.com",
-    "excludePatterns": ["/api/", "/changelog/", "/releases/"],
-    "maxPages": 200,
+    "includePatterns": ["/docs/**", "/guides/**", "/tutorials/**", "/concepts/**", "/faq/**"],
+    "excludePatterns": ["/changelog/", "/releases/", "/blog/"],
+    "maxPages": 500,
     "useBrowser": false
   },
   "crawler": {

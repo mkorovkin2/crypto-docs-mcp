@@ -95,12 +95,9 @@ function buildRelatedQueryPrompt(context: RelatedQueryContext): string {
   parts.push(`<project>${context.project}</project>`);
   parts.push('');
 
-  // Include the full answer for analysis (up to 3000 chars for better gap detection)
+  // Include the full answer for analysis - never truncate
   parts.push('<current_answer>');
-  const truncatedAnswer = context.currentAnswer.length > 3000
-    ? context.currentAnswer.slice(0, 3000) + '\n[...truncated...]'
-    : context.currentAnswer;
-  parts.push(truncatedAnswer);
+  parts.push(context.currentAnswer);
   parts.push('</current_answer>');
   parts.push('');
 

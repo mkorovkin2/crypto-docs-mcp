@@ -1,0 +1,20 @@
+{
+  "id": "polymarket-poly-maker",
+  "type": "github",
+  "repoType": "example-repo",
+  "trustLevel": "community",
+  "repo": "warproxxx/poly-maker",
+  "branch": "main",
+  "description": "Community automated market maker bot for Polymarket",
+  "scrapeStrategy": {
+    "apiPaths": ["**/*.py"],
+    "exampleDirs": ["examples", "src", "demo"],
+    "exclude": ["**/*_test.py", "**/test_*.py", "**/__pycache__/**", "**/venv/**", "**/.venv/**"],
+    "extensions": [".py"]
+  },
+  "qualityThresholds": {
+    "minDocumentationScore": 20,
+    "minLLMRelevanceScore": 40,
+    "requireReadme": true
+  }
+}

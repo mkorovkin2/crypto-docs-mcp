@@ -22,6 +22,8 @@ export interface SearchOptions {
   // Adjacent chunk expansion options
   expandAdjacent?: boolean;
   adjacentConfig?: Partial<AdjacentChunkConfig>;
+  // Query type for reranker scoring
+  queryType?: import('./query-analyzer.js').QueryType;
 }
 
 export class HybridSearch {
@@ -36,7 +38,8 @@ export class HybridSearch {
       rerank = false,
       rerankTopK = 10,
       expandAdjacent = false,
-      adjacentConfig
+      adjacentConfig,
+      queryType
     } = options;
 
     // Fetch more candidates if reranking or expanding adjacent chunks
@@ -71,7 +74,10 @@ export class HybridSearch {
 
     // Apply reranking if enabled and reranker is available
     if (rerank && this.options.reranker && results.length > rerankTopK) {
-      results = await this.options.reranker.rerank(query, results, { topK: rerankTopK });
+      results = await this.options.reranker.rerank(query, results, {
+        topK: rerankTopK,
+        queryType
+      });
     }
 
     return results.slice(0, limit);

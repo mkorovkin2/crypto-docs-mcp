@@ -1,0 +1,312 @@
+[
+  {
+    "id": "polymarket-discovered-0",
+    "type": "github",
+    "repoType": "example-repo",
+    "trustLevel": "community",
+    "repo": "topics/polymarket-ai",
+    "branch": "main",
+    "scrapeStrategy": {
+      "exampleDirs": [
+        "examples",
+        "src",
+        "demo"
+      ],
+      "exclude": [
+        "**/*.test.ts",
+        "**/*.spec.ts",
+        "**/node_modules/**"
+      ],
+      "extensions": [
+        ".ts",
+        ".tsx",
+        ".js",
+        ".jsx"
+      ]
+    },
+    "qualityThresholds": {
+      "minDocumentationScore": 20,
+      "minLLMRelevanceScore": 40,
+      "requireReadme": true
+    },
+    "description": "Updated Jan 12, 2026\n TypeScript\n\n## Improve this page\n\nAdd a description, image, and links to the polymarket-ai topic page so that developers can more easily learn about it.\n\nCurate this topic\n\n## Add this topic to your repo\n\nTo associate your repository with the polymarket-ai topic, visit your rep",
+    "relevanceScore": 85,
+    "relevanceReason": "GitHub topic page listing third-party repos like 'lorine93s/polymarket-ai-market-suggestor' with real code examples for Polymarket AI tools; high value despite one project possibly collected",
+    "project": "lorine93s/polymarket-ai-market-suggestor",
+    "addedAt": "2026-01-15T01:12:36.486Z",
+    "discoveredFrom": "https://github.com/topics/polymarket-ai"
+  },
+  {
+    "id": "polymarket-discovered-1",
+    "type": "github",
+    "repoType": "example-repo",
+    "trustLevel": "community",
+    "repo": "topics/polymarket-api?l=typescript",
+    "branch": "main",
+    "scrapeStrategy": {
+      "exampleDirs": [
+        "examples",
+        "src",
+        "demo"
+      ],
+      "exclude": [
+        "**/*.test.ts",
+        "**/*.spec.ts",
+        "**/node_modules/**"
+      ],
+      "extensions": [
+        ".ts",
+        ".tsx",
+        ".js",
+        ".jsx"
+      ]
+    },
+    "qualityThresholds": {
+      "minDocumentationScore": 20,
+      "minLLMRelevanceScore": 40,
+      "requireReadme": true
+    },
+    "description": "Updated Nov 11, 2025\n TypeScript\n\n### EthanAlgoX / Polymarket-TradeBot\n\nStar  0\n\nPolymarket-TradeBot — An automated trading bot for Polymarket CLOB with real-time market data, strategy execution, and risk control.\n\npolymarket polymarket-api polymarket-bot\n\n Updated Jan 10, 2026\n TypeScript\n\n## Impro",
+    "relevanceScore": 85,
+    "relevanceReason": "Third-party GitHub repo with Polymarket trading bot code example; not already collected",
+    "project": "EthanAlgoX/Polymarket-TradeBot",
+    "addedAt": "2026-01-15T01:12:37.351Z",
+    "discoveredFrom": "https://github.com/topics/polymarket-api?l=typescript"
+  },
+  {
+    "id": "polymarket-discovered-2",
+    "type": "github",
+    "repoType": "example-repo",
+    "trustLevel": "community",
+    "repo": "ybina/polymarket-sdk-go",
+    "branch": "main",
+    "scrapeStrategy": {
+      "exampleDirs": [
+        "examples",
+        "src",
+        "demo"
+      ],
+      "exclude": [
+        "**/*.test.ts",
+        "**/*.spec.ts",
+        "**/node_modules/**"
+      ],
+      "extensions": [
+        ".ts",
+        ".tsx",
+        ".js",
+        ".jsx"
+      ]
+    },
+    "qualityThresholds": {
+      "minDocumentationScore": 20,
+      "minLLMRelevanceScore": 40,
+      "requireReadme": true
+    },
+    "description": "= \"/rewards/user/total\"  GetSpread = \"/spread\"  GetSpreads = \"/spreads\"  UpdateBalanceAllowance = \"/balance-allowance/update\"  PostOrders = \"/orders\"  GetFeeRate = \"/fee-rate\"  GetBuilderTrades = \"/builder/trades\" [...] + func (c \\ClobClient) GetMarket(conditionID string) (interface{}, error)\n  + fu",
+    "relevanceScore": 85,
+    "relevanceReason": "Third-party GitHub repo with actual Go SDK code for Polymarket ClobClient, including real API endpoints and functions; not already collected",
+    "project": "ybina/polymarket-sdk-go",
+    "addedAt": "2026-01-15T01:13:04.754Z",
+    "discoveredFrom": "https://pkg.go.dev/github.com/ybina/polymarket-sdk-go/client"
+  },
+  {
+    "id": "polymarket-discovered-3",
+    "type": "blog",
+    "trustLevel": "community",
+    "url": "https://codesandbox.io/examples/package/@polymarket/sdk",
+    "description": "# Find @polymarket/sdk Examples and Templates\n\n## Use this online @polymarket/sdk playground to view and fork @polymarket/sdk example apps and templates on CodeSandbox. Click any example below to run it instantly or find templates that can be used as a pre-built solution!\n\nreact\nreact\npurple-rgb-j4b",
+    "relevanceScore": 85,
+    "relevanceReason": "Third-party CodeSandbox examples and templates using @polymarket/sdk from community developers, providing runnable code demos",
+    "project": "@polymarket/sdk examples",
+    "addedAt": "2026-01-15T01:13:06.876Z"
+  },
+  {
+    "id": "polymarket-discovered-4",
+    "type": "blog",
+    "trustLevel": "community",
+    "url": "https://crates.io/crates/polymarket-client-sdk",
+    "description": "docs.rs/crate/polymarket-client-sdk/0.4.1/source\n\n## Repository\n\ngithub.com/polymarket/rs-clob-client\n\n## Owners\n\n chaz-polymarket\n\n## Categories\n\n Finance\n HTTP client\n API bindings\n Cryptocurrencies\n\nReport crate\n\n### Stats Overview\n\n5,698\nDownloads all time\n\n11\nVersions published\n\n#### Downloads ",
+    "relevanceScore": 85,
+    "relevanceReason": "Third-party GitHub repo (polymarket/rs-clob-client) with real Rust SDK code for Polymarket APIs, owned by chaz-polymarket (individual dev), includes examples; not already collected",
+    "project": "polymarket/rs-clob-client",
+    "addedAt": "2026-01-15T01:13:07.757Z"
+  },
+  {
+    "id": "polymarket-discovered-5",
+    "type": "github",
+    "repoType": "example-repo",
+    "trustLevel": "community",
+    "repo": "BlackSky-Jose/PolyMarket-trading-AI-model",
+    "branch": "main",
+    "scrapeStrategy": {
+      "exampleDirs": [
+        "examples",
+        "src",
+        "demo"
+      ],
+      "exclude": [
+        "**/*.test.ts",
+        "**/*.spec.ts",
+        "**/node_modules/**"
+      ],
+      "extensions": [
+        ".ts",
+        ".tsx",
+        ".js",
+        ".jsx"
+      ]
+    },
+    "qualityThresholds": {
+      "minDocumentationScore": 20,
+      "minLLMRelevanceScore": 40,
+      "requireReadme": true
+    },
+    "description": "Files for managing your local environment, server set-up to run the application remotely, and CLI for end-user commands.\n\n`cli.py` is the primary user interface for the repo. Users can run various commands to interact with the Polymarket API, retrieve relevant news articles, query local data, send d",
+    "relevanceScore": 75,
+    "relevanceReason": "Third-party GitHub repo with real code for Polymarket trading AI (CLI interacts with Polymarket API), but penalized -20 for already collected project 'polymarket'",
+    "project": "PolyMarket-trading-AI-model",
+    "addedAt": "2026-01-15T01:12:32.669Z",
+    "discoveredFrom": "https://github.com/BlackSky-Jose/PolyMarket-trading-AI-model"
+  },
+  {
+    "id": "polymarket-discovered-6",
+    "type": "github",
+    "repoType": "example-repo",
+    "trustLevel": "community",
+    "repo": "warproxxx/poly-maker",
+    "branch": "main",
+    "scrapeStrategy": {
+      "exampleDirs": [
+        "examples",
+        "src",
+        "demo"
+      ],
+      "exclude": [
+        "**/*.test.ts",
+        "**/*.spec.ts",
+        "**/node_modules/**"
+      ],
+      "extensions": [
+        ".ts",
+        ".tsx",
+        ".js",
+        ".jsx"
+      ]
+    },
+    "qualityThresholds": {
+      "minDocumentationScore": 20,
+      "minLLMRelevanceScore": 40,
+      "requireReadme": true
+    },
+    "description": "Skip to content   \n\n## Navigation Menu\n\nSign in \n\nAppearance settings\n\n# Search code, repositories, users, issues, pull requests...\n\nSearch syntax tips\n\nSign in\n\n Sign up \n\nAppearance settings\n\nYou signed in with another tab or window. Reload to refresh your session. You signed out in another tab or",
+    "relevanceScore": 75,
+    "relevanceReason": "Third-party GitHub repo by individual developer with code for automated market maker (likely Polymarket-related), but penalized for being in already collected projects list",
+    "project": "poly-maker",
+    "addedAt": "2026-01-15T01:12:35.455Z",
+    "discoveredFrom": "https://github.com/warproxxx/poly-maker"
+  },
+  {
+    "id": "polymarket-discovered-9",
+    "type": "blog",
+    "trustLevel": "community",
+    "url": "https://jinlow.medium.com/the-complete-polymarket-playbook-finding-real-edges-in-the-9b-prediction-market-revolution-a2c1d0a47d9d",
+    "description": "[Sign in](https://medium.com/m/signin?operation=login&redirect=https%3A%2F%2Fjinlow.medium.com%2Fthe-complete-polymarket-playbook-finding-real-edges-in-the-9b-prediction-market-revolution-a2c1d0a47d9d&source=post_page---top_nav_layout_nav-----------------------global_nav------------------). [Sign in",
+    "relevanceScore": 65,
+    "relevanceReason": "Third-party Medium blog post titled 'The Complete Polymarket Playbook' directly focused on Polymarket strategies and edges, likely a useful guide, but no evidence of code examples",
+    "project": "Polymarket",
+    "addedAt": "2026-01-15T01:12:09.305Z"
+  },
+  {
+    "id": "polymarket-discovered-11",
+    "type": "blog",
+    "trustLevel": "community",
+    "url": "https://rocknblock.io/blog/how-polymarket-works-the-tech-behind-prediction-markets",
+    "description": "This example also highlights how orders can be partially filled. When you place a market order, it can be split across multiple trades depending on the available shares and sizes in the order book. The system always matches your order at the best possible prices available at that moment.\n\nThis cover",
+    "relevanceScore": 65,
+    "relevanceReason": "Third-party blog post explaining Polymarket's technical workings with some order book examples, but no actual code snippets provided",
+    "project": "rocknblock.io/blog",
+    "addedAt": "2026-01-15T01:12:44.026Z"
+  },
+  {
+    "id": "polymarket-discovered-13",
+    "type": "blog",
+    "trustLevel": "community",
+    "url": "https://dev.to/__354f265b41dafa0d901b/building-a-polymarket-style-prediction-engine-with-risingwave-3672",
+    "description": "We start by ingesting the raw trades from Kafka.\n\n```\nCREATE SOURCE trades(trade_id BIGINT, user_id BIGINT, market_id BIGINT, side VARCHAR, -- 'YES' or 'NO' size NUMERIC, price NUMERIC, ts TIMESTAMPTZ) WITH(connector = 'kafka', topic = 'trades', properties. bootstrap. server ='...', format = 'json')",
+    "relevanceScore": 65,
+    "relevanceReason": "Third-party dev.to tutorial with actual SQL code for building Polymarket-style prediction engine using RisingWave",
+    "project": "polymarket-style-prediction-engine",
+    "addedAt": "2026-01-15T01:12:47.421Z"
+  },
+  {
+    "id": "polymarket-discovered-16",
+    "type": "blog",
+    "trustLevel": "community",
+    "url": "https://4irelabs.com/articles/polymarket-clone-script/",
+    "description": "As the predictive analytics market is climbing to new heights, with an estimated market cap of $31.59 billion expected by 2030, predictive marketplace development stands out as a great business idea. Crypto Capital experts have noted that such platforms experienced a boom in 2024, with growing user ",
+    "relevanceScore": 65,
+    "relevanceReason": "Third-party blog post on building a Polymarket clone script with business insights, implies code but no explicit examples shown; not already collected",
+    "project": "Polymarket Clone Script",
+    "addedAt": "2026-01-15T01:13:12.125Z"
+  },
+  {
+    "id": "polymarket-discovered-17",
+    "type": "blog",
+    "trustLevel": "community",
+    "url": "https://www.coingecko.com/learn/build-a-crypto-prediction-market-app",
+    "description": "Search\n\n /\n\nClear\n\nMove\n\nSelect\n\nESC\n\nClose\n\nMore +\n\nCoverage   Web3 Games   NFTs   Announcements   Tutorials   Trading   Sponsored Content   Glossary   GeckoPulse\n\nAPI\n\nTABLE OF CONTENTS\n\n# How to Build a Crypto Prediction Market App\n\nCryptomaton  \n\n|\n\nEdited by\n\n Brian Lee    -\n\nThe cryptocurrency",
+    "relevanceScore": 65,
+    "relevanceReason": "Third-party tutorial from CoinGecko on building a crypto prediction market app with code examples; relevant to Polymarket concept but generic, not specific project",
+    "project": "www.coingecko.com/learn",
+    "addedAt": "2026-01-15T01:13:13.149Z"
+  },
+  {
+    "id": "polymarket-discovered-18",
+    "type": "blog",
+    "trustLevel": "community",
+    "url": "https://medium.com/coding-nexus/the-complete-polymarket-playbook-a-practical-guide-to-finding-real-edges-not-gambling-3105d359e313",
+    "description": "This is not a hype piece.  \n It’s a journey-style guide — from understanding how Polymarket works to thinking like profitable traders (and bots).\n\n## 1) What Polymarket really is (and why most people lose)\n\nPolymarket is not “who’s right.”\n\nIt’s who priced reality faster.\n\nEvery market is a binary c",
+    "relevanceScore": 65,
+    "relevanceReason": "Third-party Medium guide on Polymarket trading strategies with practical insights, but no code examples mentioned",
+    "project": "medium.com/coding-nexus",
+    "addedAt": "2026-01-15T01:13:17.676Z"
+  },
+  {
+    "id": "polymarket-discovered-19",
+    "type": "github",
+    "repoType": "example-repo",
+    "trustLevel": "community",
+    "repo": "warproxxx/poly_data",
+    "branch": "main",
+    "scrapeStrategy": {
+      "exampleDirs": [
+        "examples",
+        "src",
+        "demo"
+      ],
+      "exclude": [
+        "**/*.test.ts",
+        "**/*.spec.ts",
+        "**/node_modules/**"
+      ],
+      "extensions": [
+        ".ts",
+        ".tsx",
+        ".js",
+        ".jsx"
+      ]
+    },
+    "qualityThresholds": {
+      "minDocumentationScore": 20,
+      "minLLMRelevanceScore": 40,
+      "requireReadme": true
+    },
+    "description": "## Repository files navigation\n\n# Polymarket Data\n\nA comprehensive data pipeline for fetching, processing, and analyzing Polymarket trading data. This system collects market information, order-filled events, and processes them into structured trade data.\n\n## Quick Download\n\nFirst-time users: Downloa",
+    "relevanceScore": 60,
+    "relevanceReason": "Third-party GitHub repo with real code for Polymarket data pipeline, but penalized -20 for already collected 'polymarket' project",
+    "project": "poly_data",
+    "addedAt": "2026-01-15T01:12:34.428Z",
+    "discoveredFrom": "https://github.com/warproxxx/poly_data"
+  }
+]

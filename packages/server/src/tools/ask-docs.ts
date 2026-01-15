@@ -1,8 +1,9 @@
 import { z } from 'zod';
 import type { ToolContext } from './index.js';
-import { PROMPTS } from '../prompts/index.js';
+import { PROMPTS, getQueryTypePromptSuffix } from '../prompts/index.js';
 import {
   analyzeQuery,
+  getOptimizedSearchOptions,
   correctiveSearch,
   shouldApplyCorrectiveRAG,
   extractQueryUnderstanding,
@@ -16,6 +17,9 @@ import {
   // Query variation imports
   generateQueryVariations,
   mergeQueryVariationResults,
+  // Query decomposition for multi-hop retrieval
+  decomposeQuery,
+  shouldDecompose,
   // LLM-based related query generation
   generateRelatedQueriesWithLLM,
   extractTopicsForRelatedQueries,
@@ -89,11 +93,37 @@ export async function askDocs(
     return v;
   });
 
-  // 4. Search with each query variation in parallel
-  logger.info(`Performing parallel searches with ${enhancedVariations.length} query variations...`);
+  // 3b. Query decomposition for multi-hop retrieval (concept/howto queries)
+  let searchQueries = enhancedVariations;
+  let wasDecomposed = false;
+
+  if (shouldDecompose(args.question, analysis.type)) {
+    logger.info('Query may benefit from decomposition, generating sub-queries...');
+    const decomposition = await decomposeQuery(
+      args.question,
+      analysis.type,
+      context.llmEvaluator || context.llmClient
+    );
+
+    if (decomposition.wasDecomposed) {
+      wasDecomposed = true;
+      logger.debug(`Decomposed into ${decomposition.subQueries.length} sub-queries: ${JSON.stringify(decomposition.subQueries)}`);
+
+      // Combine decomposed queries with variations, removing duplicates
+      const allQueries = new Set<string>([
+        ...decomposition.subQueries,
+        ...enhancedVariations
+      ]);
+      searchQueries = [...allQueries].slice(0, 8); // Max 8 queries to limit latency
+      logger.debug(`Combined ${searchQueries.length} unique search queries`);
+    }
+  }
+
+  // 4. Search with each query variation in parallel (including decomposed sub-queries)
+  logger.info(`Performing parallel searches with ${searchQueries.length} queries${wasDecomposed ? ' (including decomposed sub-queries)' : ''}...`);
   const searchStart = Date.now();
 
-  const searchPromises = enhancedVariations.map((query: string) =>
+  const searchPromises = searchQueries.map((query: string) =>
     context.search.search(query, {
       limit: analysis.suggestedLimit,
       project: args.project,
@@ -136,12 +166,25 @@ export async function askDocs(
   if (shouldApplyCorrectiveRAG(initialResults)) {
     logger.info('Initial results poor, applying corrective RAG...');
     const correctiveStart = Date.now();
+    const searchOptions = getOptimizedSearchOptions(analysis);
     const corrective = await correctiveSearch(
       context.search,
       args.question,
       analysis,
       args.project,
-      { maxRetries: 2, mergeResults: true }
+      {
+        maxRetries: 2,
+        mergeResults: true,
+        searchOptions: {
+          limit: searchOptions.limit,
+          contentType: searchOptions.contentType,
+          rerank: searchOptions.rerank,
+          rerankTopK: searchOptions.rerankTopK,
+          expandAdjacent: searchOptions.expandAdjacent,
+          adjacentConfig: searchOptions.adjacentConfig,
+          queryType: searchOptions.queryType
+        }
+      }
     );
     results = corrective.results;
     wasRetried = corrective.wasRetried;
@@ -170,21 +213,50 @@ export async function askDocs(
   }
 
   // 8. Format chunks with rich metadata for better code generation
-  logger.debug(`Formatting ${results.length} chunks for LLM context`);
+  // For concept queries, use document grouping to show relationships
+  logger.debug(`Formatting ${results.length} chunks for LLM context (query type: ${analysis.type})`);
   const contextChunks = formatSearchResultsAsContext(results, {
     includeMetadata: true,
-    labelType: true
+    labelType: true,
+    queryType: analysis.type
   });
 
   // 9. Get project-specific context
   const projectContext = getProjectContext(args.project);
 
-  // 10. Synthesize initial answer with project context
-  logger.info('Synthesizing initial answer with LLM...');
+  // 10. Synthesize initial answer with query-type-specific prompt
+  logger.info(`Synthesizing initial answer with LLM (query type: ${analysis.type})...`);
   const llmStart = Date.now();
+
+  // Select prompt based on query type for better answer quality
+  let systemPrompt: string;
+  let userPrompt: string;
+
+  switch (analysis.type) {
+    case 'concept':
+      // Use concept-specific prompt with structured explanation format
+      systemPrompt = PROMPTS.askDocsConcept.system + projectContext;
+      userPrompt = PROMPTS.askDocsConcept.user(args.question, contextChunks, args.project);
+      break;
+    case 'howto':
+      // Use how-to prompt with step-by-step format
+      systemPrompt = PROMPTS.askDocsHowTo.system + projectContext;
+      userPrompt = PROMPTS.askDocsHowTo.user(args.question, contextChunks, args.project);
+      break;
+    case 'error':
+      // Use error explanation prompt
+      systemPrompt = PROMPTS.explainError.system + projectContext;
+      userPrompt = PROMPTS.explainError.user(args.question, '', contextChunks, args.project);
+      break;
+    default:
+      // General, code_lookup, api_reference use standard prompt with type-specific suffix
+      systemPrompt = PROMPTS.askDocs.system + projectContext + getQueryTypePromptSuffix(analysis.type);
+      userPrompt = PROMPTS.askDocs.user(args.question, contextChunks, args.project);
+  }
+
   const initialAnswer = await context.llmClient.synthesize(
-    PROMPTS.askDocs.system + projectContext,
-    PROMPTS.askDocs.user(args.question, contextChunks, args.project),
+    systemPrompt,
+    userPrompt,
     { maxTokens: args.maxTokens }
   );
   logger.llmSynthesis(contextChunks.length, initialAnswer.length, Date.now() - llmStart);

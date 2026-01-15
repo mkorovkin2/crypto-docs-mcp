@@ -3,6 +3,7 @@ import type { ToolContext } from './index.js';
 import { PROMPTS } from '../prompts/index.js';
 import {
   analyzeQuery,
+  getOptimizedSearchOptions,
   generateRelatedQueriesWithLLM,
   extractTopicsForRelatedQueries,
   extractCoverageGapsForRelatedQueries,
@@ -50,14 +51,21 @@ export async function explainError(
   const analysis = analyzeQuery(searchQuery);
   logger.queryAnalysis(analysis);
 
-  // Search for error documentation
+  // Get query-type-optimized search options
+  const searchOptions = getOptimizedSearchOptions(analysis);
+
+  // Search for error documentation with optimized options
   logger.info('Searching for error documentation...');
   const searchStart = Date.now();
-  const results = await context.search.search(searchQuery, {
-    limit: 15,
+  const results = await context.search.search(searchOptions.query, {
+    limit: searchOptions.limit,
     project: args.project,
-    rerank: true,
-    rerankTopK: 10
+    contentType: searchOptions.contentType,
+    rerank: searchOptions.rerank,
+    rerankTopK: searchOptions.rerankTopK,
+    expandAdjacent: searchOptions.expandAdjacent,
+    adjacentConfig: searchOptions.adjacentConfig,
+    queryType: searchOptions.queryType
   });
   logger.search(searchQuery, results.length, Date.now() - searchStart);
 
