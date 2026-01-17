@@ -1,10 +1,17 @@
 import { z } from 'zod';
 import type { ToolContext } from './index.js';
 import { PROMPTS } from '../prompts/index.js';
-import { analyzeQuery, shouldApplyCorrectiveRAG, correctiveSearch } from '@mina-docs/shared';
+import {
+  analyzeQuery,
+  getOptimizedSearchOptions,
+  shouldApplyCorrectiveRAG,
+  correctiveSearch,
+  generateRelatedQueriesWithLLM,
+  extractTopicsForRelatedQueries,
+  extractCoverageGapsForRelatedQueries,
+} from '@mina-docs/shared';
 import { formatSearchResultsAsContext, getProjectContext } from './context-formatter.js';
 import { ResponseBuilder, calculateConfidence } from '../utils/response-builder.js';
-import { generateRelatedQueries } from '../utils/suggestion-generator.js';
 import { conversationContext } from '../context/conversation-context.js';
 import { getVerificationSummary } from '../utils/code-verifier.js';
 import { logger } from '../utils/logger.js';
@@ -29,8 +36,8 @@ export async function getWorkingExample(
   builder.setQueryType('howto');
   logger.queryAnalysis(analysis);
 
-  // 1. Search for code examples and related prose in parallel
-  logger.info('Searching for code, prose, and API reference in parallel...');
+  // 1. Search for code examples and related prose in parallel (with adjacent chunk expansion)
+  logger.info('Searching for code, prose, and API reference in parallel with adjacent expansion...');
   const searchStart = Date.now();
   const [codeResults, proseResults, apiResults] = await Promise.all([
     context.search.search(args.task, {
@@ -38,14 +45,18 @@ export async function getWorkingExample(
       project: args.project,
       contentType: 'code',
       rerank: true,
-      rerankTopK: 8
+      rerankTopK: 8,
+      expandAdjacent: true,
+      adjacentConfig: { code: 4 }  // More context for code examples
     }),
     context.search.search(`${args.task} tutorial guide how to`, {
       limit: 10,
       project: args.project,
       contentType: 'prose',
       rerank: true,
-      rerankTopK: 5
+      rerankTopK: 5,
+      expandAdjacent: true,
+      adjacentConfig: { prose: 2 }
     }),
     // Also search API reference for complete type info
     context.search.search(`${args.task} interface type`, {
@@ -53,7 +64,9 @@ export async function getWorkingExample(
       project: args.project,
       contentType: 'api-reference',
       rerank: true,
-      rerankTopK: 3
+      rerankTopK: 3,
+      expandAdjacent: true,
+      adjacentConfig: { 'api-reference': 1 }
     })
   ]);
   logger.info(`Parallel search completed in ${Date.now() - searchStart}ms`);
@@ -65,12 +78,25 @@ export async function getWorkingExample(
   if (shouldApplyCorrectiveRAG(codeResults, 2)) {
     logger.info('Code results insufficient, applying corrective RAG...');
     const correctiveStart = Date.now();
+    const searchOptions = getOptimizedSearchOptions(analysis);
     const corrective = await correctiveSearch(
       context.search,
       `${args.task} code example implementation`,
       analysis,
       args.project,
-      { maxRetries: 1, mergeResults: true }
+      {
+        maxRetries: 1,
+        mergeResults: true,
+        searchOptions: {
+          limit: searchOptions.limit,
+          contentType: 'code', // Working example always wants code
+          rerank: searchOptions.rerank,
+          rerankTopK: searchOptions.rerankTopK,
+          expandAdjacent: true,
+          adjacentConfig: { code: 4, prose: 2, 'api-reference': 1 },
+          queryType: searchOptions.queryType
+        }
+      }
     );
 
     if (corrective.wasRetried && corrective.results.length > codeResults.length) {
@@ -171,9 +197,26 @@ export async function getWorkingExample(
     { question: `What are best practices for ${args.task}?`, project: args.project }
   );
 
-  // 9. Generate related queries
-  const relatedQueries = generateRelatedQueries(args.task, analysis, allResults, args.project);
-  relatedQueries.forEach(q => builder.addRelatedQuery(q));
+  // 9. Generate related queries using LLM
+  const relatedQueryLLM = context.llmEvaluator || context.llmClient;
+  const topicsCovered = extractTopicsForRelatedQueries(allResults);
+  const coverageGaps = extractCoverageGapsForRelatedQueries(analysis.keywords, allResults);
+
+  const relatedQueriesResult = await generateRelatedQueriesWithLLM(
+    relatedQueryLLM,
+    {
+      originalQuestion: `How to ${args.task}`,
+      currentAnswer: example,
+      project: args.project,
+      analysis,
+      topicsCovered,
+      coverageGaps,
+      previousContext: null,
+    },
+    { maxTokens: 1000 }
+  );
+  logger.debug(`Generated ${relatedQueriesResult.queries.length} related queries with LLM`);
+  relatedQueriesResult.queries.forEach(q => builder.addRelatedQuery(q));
 
   return builder.buildMCPResponse(example);
 }

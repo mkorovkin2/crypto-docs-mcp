@@ -3,6 +3,7 @@ import { VectorDB } from './db/vector.js';
 import { FullTextDB } from './db/fts.js';
 import { generateSingleEmbedding } from './embeddings.js';
 import type { Reranker } from './reranker.js';
+import { expandWithAdjacentChunks, type AdjacentChunkConfig } from './adjacent-chunks.js';
 
 export interface HybridSearchOptions {
   vectorDb: VectorDB;
@@ -18,6 +19,11 @@ export interface SearchOptions {
   mode?: 'hybrid' | 'vector' | 'fts';
   rerank?: boolean;
   rerankTopK?: number;
+  // Adjacent chunk expansion options
+  expandAdjacent?: boolean;
+  adjacentConfig?: Partial<AdjacentChunkConfig>;
+  // Query type for reranker scoring
+  queryType?: import('./query-analyzer.js').QueryType;
 }
 
 export class HybridSearch {
@@ -30,11 +36,15 @@ export class HybridSearch {
       project,
       mode = 'hybrid',
       rerank = false,
-      rerankTopK = 10
+      rerankTopK = 10,
+      expandAdjacent = false,
+      adjacentConfig,
+      queryType
     } = options;
 
-    // Fetch more candidates if reranking
-    const fetchLimit = rerank ? Math.max(limit * 3, 30) : limit;
+    // Fetch more candidates if reranking or expanding adjacent chunks
+    // Adjacent expansion can add many chunks, so we start with fewer initial results
+    const fetchLimit = (rerank || expandAdjacent) ? Math.max(limit * 3, 30) : limit;
 
     let results: SearchResult[];
 
@@ -53,9 +63,21 @@ export class HybridSearch {
       results = this.reciprocalRankFusion(vectorResults, ftsResults, fetchLimit);
     }
 
+    // Expand with adjacent chunks before reranking
+    // This provides fuller context for the reranker to evaluate
+    if (expandAdjacent && results.length > 0) {
+      results = await expandWithAdjacentChunks(results, this.options.ftsDb, {
+        config: adjacentConfig,
+        maxTotalChunks: rerank ? rerankTopK * 3 : limit * 3 // Give reranker more to work with
+      });
+    }
+
     // Apply reranking if enabled and reranker is available
     if (rerank && this.options.reranker && results.length > rerankTopK) {
-      results = await this.options.reranker.rerank(query, results, { topK: rerankTopK });
+      results = await this.options.reranker.rerank(query, results, {
+        topK: rerankTopK,
+        queryType
+      });
     }
 
     return results.slice(0, limit);

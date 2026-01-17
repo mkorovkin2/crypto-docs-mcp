@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-import 'dotenv/config';
+// Load environment variables from repo root .env file (must be first import)
+import '@mina-docs/shared/load-env';
 import { parseArgs } from 'util';
 import { Crawler } from './crawler.js';
 import { parseDocumentation } from './parser.js';
@@ -27,7 +28,8 @@ const { values: args } = parseArgs({
     help: { type: 'boolean', short: 'h' },
     'use-registry': { type: 'boolean', short: 'r' },
     'dry-run': { type: 'boolean', short: 'd' },
-    'github-only': { type: 'boolean', short: 'g' }
+    'github-only': { type: 'boolean', short: 'g' },
+    'reindex': { type: 'boolean' }  // Force re-index all documents
   },
   allowPositionals: true // Allow positional args to be ignored
 });
@@ -43,12 +45,14 @@ Options:
   -r, --use-registry   Use source registry for intelligent GitHub scraping
   -d, --dry-run        Dry run (skip LLM calls, just show what would be indexed)
   -g, --github-only    Only scrape GitHub sources (skip documentation)
+  --reindex            Clear existing data and re-index all documents (use after schema changes)
 
 Examples:
   npm run scraper -- --project mina
   npm run scraper -- -p mina --use-registry
   npm run scraper -- -p mina --use-registry --dry-run
   npm run scraper -- -p mina --github-only --use-registry
+  npm run scraper -- -p mina --reindex    # Full re-index with new ordering metadata
   npm run scraper -- --list
   `);
   process.exit(0);
@@ -109,7 +113,8 @@ const config = {
   // New options
   useRegistry: args['use-registry'] || false,
   dryRun: args['dry-run'] || false,
-  githubOnly: args['github-only'] || false
+  githubOnly: args['github-only'] || false,
+  reindex: args['reindex'] || false
 };
 
 async function main() {
@@ -135,6 +140,7 @@ async function main() {
   console.log(`  Use Registry: ${config.useRegistry}`);
   console.log(`  Dry Run: ${config.dryRun}`);
   console.log(`  GitHub Only: ${config.githubOnly}`);
+  console.log(`  Re-index: ${config.reindex}`);
   if (config.github) {
     console.log(`  GitHub (legacy): ${config.github.repo}@${config.github.branch}`);
   }
@@ -171,6 +177,21 @@ async function main() {
   } catch (error) {
     console.error('  ✗ Failed to initialize SQLite:', error);
     process.exit(1);
+  }
+
+  // Handle reindex: clear existing data for this project
+  if (config.reindex) {
+    console.log('\n⚠️  Re-index mode: Clearing existing data for project...');
+    try {
+      await vectorDb.deleteByProject(config.project);
+      console.log('  ✓ Cleared Qdrant data');
+      await ftsDb.deleteByProject(config.project);
+      console.log('  ✓ Cleared SQLite data');
+      console.log('  ✓ Ready for full re-index with ordering metadata');
+    } catch (error) {
+      console.error('  ✗ Failed to clear existing data:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
   }
 
   let totalChunks = 0;
@@ -339,10 +360,12 @@ async function main() {
         // Index all chunks from all sources with atomic re-indexing
         for (const result of results) {
           if (result.chunks.length > 0) {
-            console.log(`\nIndexing ${result.chunks.length} chunks from ${result.sourceId}...`);
+            // Apply chunking to add ordering metadata (documentId, chunkIndex, totalChunks)
+            const processedChunks = chunkContent(result.chunks);
+            console.log(`\nIndexing ${processedChunks.length} chunks from ${result.sourceId}...`);
 
             // Get unique URLs from new chunks and delete old chunks for those URLs
-            const newUrls = [...new Set(result.chunks.map(c => c.url))];
+            const newUrls = [...new Set(processedChunks.map(c => c.url))];
             console.log(`  Deleting old chunks for ${newUrls.length} URLs...`);
             for (const url of newUrls) {
               await vectorDb.deleteByUrl(url);
@@ -351,8 +374,8 @@ async function main() {
             }
 
             // Process in batches
-            for (let i = 0; i < result.chunks.length; i += EMBEDDING_BATCH_SIZE) {
-              const batch = result.chunks.slice(i, i + EMBEDDING_BATCH_SIZE);
+            for (let i = 0; i < processedChunks.length; i += EMBEDDING_BATCH_SIZE) {
+              const batch = processedChunks.slice(i, i + EMBEDDING_BATCH_SIZE);
 
               const embeddings = await generateEmbeddings(
                 batch.map(c => c.content),
@@ -363,12 +386,12 @@ async function main() {
               await ftsDb.upsert(batch);
 
               totalChunks += batch.length;
-              console.log(`  Indexed batch ${Math.floor(i / EMBEDDING_BATCH_SIZE) + 1}/${Math.ceil(result.chunks.length / EMBEDDING_BATCH_SIZE)}`);
+              console.log(`  Indexed batch ${Math.floor(i / EMBEDDING_BATCH_SIZE) + 1}/${Math.ceil(processedChunks.length / EMBEDDING_BATCH_SIZE)}`);
             }
 
             // Update page hashes for GitHub files
             for (const url of newUrls) {
-              const chunkCount = result.chunks.filter(c => c.url === url).length;
+              const chunkCount = processedChunks.filter(c => c.url === url).length;
               await ftsDb.setPageHash(url, config.project, `github:${result.sourceId}:${url}`, chunkCount);
             }
           }
@@ -391,13 +414,15 @@ async function main() {
     console.log('='.repeat(60));
 
     try {
-      const sourceChunks = await scrapeGitHubSource({
+      const rawSourceChunks = await scrapeGitHubSource({
         config: config.github,
         token: config.githubToken,
         project: config.project
       });
 
-      if (sourceChunks.length > 0) {
+      if (rawSourceChunks.length > 0) {
+        // Apply chunking to add ordering metadata (documentId, chunkIndex, totalChunks)
+        const sourceChunks = chunkContent(rawSourceChunks);
         console.log(`\nIndexing ${sourceChunks.length} source code chunks...`);
 
         // Get unique URLs from new chunks and delete old chunks for those URLs

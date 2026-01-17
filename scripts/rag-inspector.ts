@@ -73,6 +73,19 @@ interface QueryResult {
   error?: string;
 }
 
+interface SourceIdentifier {
+  index: number;
+  title: string;
+  url: string;
+  relevance: 'high' | 'medium' | 'low';
+}
+
+interface WebSourceIdentifier {
+  index: number;
+  title: string;
+  url: string;
+}
+
 interface ResponseMetadata {
   confidence: number;
   retrievalQuality: 'high' | 'medium' | 'low' | 'none';
@@ -82,6 +95,8 @@ interface ResponseMetadata {
   relatedQueries?: string[];
   warnings?: string[];
   processingTimeMs: number;
+  sourceIdentifiers?: SourceIdentifier[];
+  webSourceIdentifiers?: WebSourceIdentifier[];
   searchGuidance?: {
     limitation: string;
     whatWeUnderstood: {
@@ -229,89 +244,155 @@ function printConfidenceMeter(confidence: number) {
   log(color, `  Confidence: [${bar}] ${confidence}%`);
 }
 
+function getRelevanceColor(relevance: string): string {
+  switch (relevance) {
+    case 'high': return colors.green;
+    case 'medium': return colors.yellow;
+    case 'low': return colors.red;
+    default: return colors.dim;
+  }
+}
+
 function printQueryResult(result: QueryResult, verbose = true) {
-  log(colors.cyan + colors.bright, '\n┌─────────────────────────────────────────────────────────────┐');
-  log(colors.cyan, `│ Query: ${result.question.substring(0, 55).padEnd(55)} │`);
-  log(colors.cyan, `│ Project: ${result.project.padEnd(52)} │`);
-  log(colors.cyan + colors.bright, '└─────────────────────────────────────────────────────────────┘\n');
+  const meta = result.metadata;
+  const latency = meta?.processingTimeMs ?? result.processingTimeMs;
+  const confidence = meta?.confidence ?? 0;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FRONT AND CENTER: LATENCY + CONFIDENCE + SOURCES
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  console.log('\n');
+  log(colors.bgBlue + colors.white + colors.bright, '                                                                    ');
+  log(colors.bgBlue + colors.white + colors.bright, '  ⚡ LATENCY: ' + String(latency).padStart(5) + 'ms' + '     ' +
+      '📊 CONFIDENCE: ' + String(confidence).padStart(3) + '%' + '     ' +
+      '📚 SOURCES: ' + String(meta?.sourcesUsed ?? 0).padStart(2) + '  ');
+  log(colors.bgBlue + colors.white + colors.bright, '                                                                    ');
+  console.log('');
+
+  // Confidence meter bar
+  const filled = Math.round(confidence / 5);
+  const empty = 20 - filled;
+  const confColor = getConfidenceColor(confidence);
+  const bar = '█'.repeat(filled) + '░'.repeat(empty);
+  log(confColor + colors.bright, `  CONFIDENCE METER: [${bar}] ${confidence}%`);
+
+  // Quality badge
+  const qualityBadge = meta?.retrievalQuality?.toUpperCase() ?? 'UNKNOWN';
+  const qualityColor = getQualityColor(meta?.retrievalQuality ?? 'none');
+  log(qualityColor + colors.bright, `  RETRIEVAL QUALITY: ${qualityBadge}`);
+  log(colors.dim, `  Query Type: ${meta?.queryType ?? 'unknown'}`);
+
+  console.log('');
+  log(colors.cyan + colors.bright, '═══════════════════════════════════════════════════════════════════');
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SOURCE IDENTIFIERS (THE CHUNKS THAT WERE USED)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  if (meta?.sourceIdentifiers && meta.sourceIdentifiers.length > 0) {
+    log(colors.magenta + colors.bright, '\n📁 CHUNKS USED (Source Identifiers):');
+    log(colors.dim, '─'.repeat(65));
+    for (const src of meta.sourceIdentifiers) {
+      const relColor = getRelevanceColor(src.relevance);
+      log(relColor, `  [${src.index}] ${src.relevance.toUpperCase().padEnd(6)} │ ${src.title.substring(0, 50)}`);
+      log(colors.dim, `      URL: ${src.url}`);
+    }
+  } else {
+    log(colors.yellow, '\n⚠️  NO SOURCE IDENTIFIERS AVAILABLE');
+  }
+
+  // Web sources if any
+  if (meta?.webSourceIdentifiers && meta.webSourceIdentifiers.length > 0) {
+    log(colors.blue + colors.bright, '\n🌐 WEB SOURCES USED:');
+    log(colors.dim, '─'.repeat(65));
+    for (const src of meta.webSourceIdentifiers) {
+      log(colors.blue, `  [Web ${src.index}] ${src.title.substring(0, 55)}`);
+      log(colors.dim, `      URL: ${src.url}`);
+    }
+  }
+
+  log(colors.cyan + colors.bright, '\n═══════════════════════════════════════════════════════════════════');
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // QUERY INFO
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  log(colors.cyan, `\n📝 Query: "${result.question}"`);
+  log(colors.dim, `   Project: ${result.project}`);
 
   if (result.error) {
-    log(colors.red + colors.bright, '❌ Error:', result.error);
+    log(colors.red + colors.bright, '\n❌ ERROR:', result.error);
     return;
   }
 
-  const meta = result.metadata;
+  // ═══════════════════════════════════════════════════════════════════════════
+  // WARNINGS
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  // Confidence meter
-  if (meta) {
-    printConfidenceMeter(meta.confidence);
-
-    // Quality indicators
-    log(colors.white, '\n📊 RAG Metrics:');
-    log(getQualityColor(meta.retrievalQuality),
-      `  Retrieval Quality: ${meta.retrievalQuality.toUpperCase()}`);
-    log(colors.white, `  Sources Used: ${meta.sourcesUsed}`);
-    log(colors.white, `  Query Type: ${meta.queryType}`);
-    log(colors.dim, `  Processing Time: ${meta.processingTimeMs}ms`);
-
-    // Warnings (includes corrective RAG info)
-    if (meta.warnings && meta.warnings.length > 0) {
-      log(colors.yellow + colors.bright, '\n⚠️  Warnings:');
-      for (const warning of meta.warnings) {
-        log(colors.yellow, `  • ${warning}`);
-
-        // Highlight corrective RAG activity
-        if (warning.includes('alternative queries')) {
-          log(colors.magenta, '    ↳ CORRECTIVE RAG WAS TRIGGERED');
-        }
-      }
-    }
-
-    // Search guidance (when docs were insufficient)
-    if (meta.searchGuidance) {
-      log(colors.blue + colors.bright, '\n🔍 Search Guidance (docs insufficient):');
-      log(colors.blue, `  Limitation: ${meta.searchGuidance.limitation}`);
-
-      if (meta.searchGuidance.whatWeUnderstood) {
-        log(colors.dim, '\n  What we understood:');
-        log(colors.dim, `    Intent: ${meta.searchGuidance.whatWeUnderstood.intent}`);
-        log(colors.dim, `    Terms: ${meta.searchGuidance.whatWeUnderstood.technicalTerms.join(', ')}`);
-      }
-
-      if (meta.searchGuidance.suggestedSearches?.length > 0) {
-        log(colors.blue, '\n  Suggested web searches:');
-        for (const search of meta.searchGuidance.suggestedSearches) {
-          log(colors.cyan, `    [${search.suggestedEngine}] "${search.query}"`);
-          log(colors.dim, `      ${search.rationale}`);
-        }
-      }
-    }
-
-    // Suggestions
-    if (verbose && meta.suggestions && meta.suggestions.length > 0) {
-      log(colors.green + colors.bright, '\n💡 Suggestions:');
-      for (const suggestion of meta.suggestions) {
-        log(colors.green, `  • ${suggestion.action}: ${suggestion.reason}`);
-      }
-    }
-
-    // Related queries
-    if (verbose && meta.relatedQueries && meta.relatedQueries.length > 0) {
-      log(colors.cyan, '\n🔗 Related Queries:');
-      for (const query of meta.relatedQueries.slice(0, 3)) {
-        log(colors.cyan, `  • ${query}`);
+  if (meta?.warnings && meta.warnings.length > 0) {
+    log(colors.yellow + colors.bright, '\n⚠️  WARNINGS:');
+    for (const warning of meta.warnings) {
+      log(colors.yellow, `  • ${warning}`);
+      if (warning.includes('alternative queries')) {
+        log(colors.magenta + colors.bright, '    ↳ CORRECTIVE RAG WAS TRIGGERED');
       }
     }
   }
 
-  // Answer preview
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SEARCH GUIDANCE (when docs insufficient)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  if (meta?.searchGuidance) {
+    log(colors.blue + colors.bright, '\n🔍 SEARCH GUIDANCE (docs insufficient):');
+    log(colors.blue, `  Limitation: ${meta.searchGuidance.limitation}`);
+
+    if (meta.searchGuidance.whatWeUnderstood) {
+      log(colors.dim, '\n  What we understood:');
+      log(colors.dim, `    Intent: ${meta.searchGuidance.whatWeUnderstood.intent}`);
+      log(colors.dim, `    Terms: ${meta.searchGuidance.whatWeUnderstood.technicalTerms.join(', ')}`);
+    }
+
+    if (meta.searchGuidance.suggestedSearches?.length > 0) {
+      log(colors.blue, '\n  Suggested web searches:');
+      for (const search of meta.searchGuidance.suggestedSearches) {
+        log(colors.cyan, `    [${search.suggestedEngine}] "${search.query}"`);
+        log(colors.dim, `      ${search.rationale}`);
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SUGGESTIONS & RELATED QUERIES
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  if (verbose && meta?.suggestions && meta.suggestions.length > 0) {
+    log(colors.green + colors.bright, '\n💡 SUGGESTIONS:');
+    for (const suggestion of meta.suggestions) {
+      log(colors.green, `  • ${suggestion.action}: ${suggestion.reason}`);
+    }
+  }
+
+  if (verbose && meta?.relatedQueries && meta.relatedQueries.length > 0) {
+    log(colors.cyan, '\n🔗 RELATED QUERIES:');
+    for (const query of meta.relatedQueries.slice(0, 3)) {
+      log(colors.cyan, `  • ${query}`);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ANSWER PREVIEW
+  // ═══════════════════════════════════════════════════════════════════════════
+
   if (verbose) {
-    log(colors.white + colors.bright, '\n📝 Answer Preview:');
+    log(colors.white + colors.bright, '\n📝 ANSWER PREVIEW:');
+    log(colors.dim, '─'.repeat(65));
     const preview = result.answer.substring(0, 500);
     log(colors.white, preview + (result.answer.length > 500 ? '...' : ''));
   }
 
-  log(colors.dim, '\n' + '─'.repeat(65));
+  log(colors.dim, '\n' + '═'.repeat(65));
 }
 
 async function askQuestion(question: string): Promise<QueryResult> {

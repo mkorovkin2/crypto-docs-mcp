@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { ToolContext } from './index.js';
-import { analyzeQuery } from '@mina-docs/shared';
+import { analyzeQuery, getOptimizedSearchOptions } from '@mina-docs/shared';
 import { ResponseBuilder } from '../utils/response-builder.js';
 import { logger } from '../utils/logger.js';
 
@@ -25,15 +25,21 @@ export async function searchDocs(
   builder.setQueryType(analysis.type);
   logger.queryAnalysis(analysis);
 
-  // Execute search
+  // Get query-type-optimized search options
+  const searchOptions = getOptimizedSearchOptions(analysis);
+
+  // Execute search with optimized options (user overrides take precedence)
   logger.info(`Searching for: "${args.query}" in ${args.project}${args.contentType ? ` (${args.contentType})` : ''}`);
   const searchStart = Date.now();
-  const results = await context.search.search(args.query, {
-    limit: args.limit,
+  const results = await context.search.search(searchOptions.query, {
+    limit: args.limit ?? searchOptions.limit,
     project: args.project,
-    contentType: args.contentType,
-    rerank: true,
-    rerankTopK: args.limit
+    contentType: args.contentType ?? searchOptions.contentType,
+    rerank: searchOptions.rerank,
+    rerankTopK: searchOptions.rerankTopK,
+    expandAdjacent: searchOptions.expandAdjacent,
+    adjacentConfig: searchOptions.adjacentConfig,
+    queryType: searchOptions.queryType
   });
   logger.search(args.query, results.length, Date.now() - searchStart);
 

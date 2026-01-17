@@ -7,6 +7,8 @@
  * - Adjust RRF weights for different query types
  */
 
+import type { AdjacentChunkConfig } from './adjacent-chunks.js';
+
 export type QueryType = 'error' | 'howto' | 'concept' | 'code_lookup' | 'api_reference' | 'general';
 
 export interface QueryAnalysis {
@@ -253,20 +255,122 @@ export function analyzeQuery(query: string): QueryAnalysis {
 }
 
 /**
- * Get search options optimized for a query type
+ * Search options optimized for a query type
  */
-export function getOptimizedSearchOptions(analysis: QueryAnalysis): {
+export interface OptimizedSearchOptions {
   query: string;
   contentType?: 'prose' | 'code' | 'api-reference';
   limit: number;
   rerank: boolean;
   rerankTopK: number;
-} {
-  return {
-    query: analysis.expandedQuery,
-    contentType: analysis.suggestedContentType,
-    limit: analysis.suggestedLimit,
-    rerank: true,
-    rerankTopK: Math.min(analysis.suggestedLimit, 10)
-  };
+  expandAdjacent: boolean;
+  adjacentConfig?: Partial<AdjacentChunkConfig>;
+  queryType: QueryType;
+}
+
+/**
+ * Get search options optimized for a query type
+ */
+export function getOptimizedSearchOptions(analysis: QueryAnalysis): OptimizedSearchOptions {
+  const type = analysis.type;
+
+  switch (type) {
+    case 'concept':
+      // Concepts need more context and comprehensive explanations
+      return {
+        query: analysis.expandedQuery,
+        contentType: 'prose',
+        limit: 15,
+        rerank: true,
+        rerankTopK: 12,
+        expandAdjacent: true,
+        adjacentConfig: {
+          prose: 3,
+          code: 2,
+          'api-reference': 1
+        },
+        queryType: type
+      };
+
+    case 'howto':
+      // How-to queries need a mix of prose and code
+      return {
+        query: analysis.expandedQuery,
+        contentType: undefined,
+        limit: 12,
+        rerank: true,
+        rerankTopK: 10,
+        expandAdjacent: true,
+        adjacentConfig: {
+          prose: 2,
+          code: 3,
+          'api-reference': 1
+        },
+        queryType: type
+      };
+
+    case 'error':
+      // Error queries need broad context to find solutions
+      return {
+        query: analysis.expandedQuery,
+        contentType: undefined,
+        limit: 15,
+        rerank: true,
+        rerankTopK: 10,
+        expandAdjacent: true,
+        adjacentConfig: {
+          prose: 2,
+          code: 3,
+          'api-reference': 2
+        },
+        queryType: type
+      };
+
+    case 'code_lookup':
+      // Code lookups are specific - less expansion needed
+      return {
+        query: analysis.expandedQuery,
+        contentType: 'code',
+        limit: 10,
+        rerank: true,
+        rerankTopK: 8,
+        expandAdjacent: false,
+        queryType: type
+      };
+
+    case 'api_reference':
+      // API reference lookups are specific
+      return {
+        query: analysis.expandedQuery,
+        contentType: 'api-reference',
+        limit: 8,
+        rerank: true,
+        rerankTopK: 6,
+        expandAdjacent: true,
+        adjacentConfig: {
+          prose: 1,
+          code: 1,
+          'api-reference': 2
+        },
+        queryType: type
+      };
+
+    case 'general':
+    default:
+      // General queries use balanced defaults
+      return {
+        query: analysis.expandedQuery,
+        contentType: undefined,
+        limit: 10,
+        rerank: true,
+        rerankTopK: 10,
+        expandAdjacent: true,
+        adjacentConfig: {
+          prose: 2,
+          code: 2,
+          'api-reference': 1
+        },
+        queryType: type
+      };
+  }
 }

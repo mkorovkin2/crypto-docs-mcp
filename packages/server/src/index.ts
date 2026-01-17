@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 
-import 'dotenv/config';
-import { VectorDB, FullTextDB, HybridSearch, Reranker, LLMClient, listProjects } from '@mina-docs/shared';
-import { config, validateConfig } from './config.js';
+// Load environment variables from repo root .env file (must be first import)
+import '@mina-docs/shared/load-env';
+import { VectorDB, FullTextDB, HybridSearch, Reranker, LLMClient, WebSearchClient, listProjects } from '@mina-docs/shared';
+import { config, validateConfig, getApiKeyForProvider, getProviderSummary } from './config.js';
 import { createHttpTransport } from './transport.js';
 
 async function main() {
   console.error('='.repeat(60));
   console.error('Crypto Documentation MCP Server v2.0');
-  console.error('(LLM-Synthesized Responses)');
+  console.error('(Multi-Provider LLM Support)');
   console.error('='.repeat(60));
 
   // Validate configuration
@@ -25,8 +26,8 @@ async function main() {
   console.error(`  Host: ${config.host}`);
   console.error(`  Qdrant: ${config.qdrant.url}`);
   console.error(`  SQLite: ${config.sqlite.path}`);
-  console.error(`  LLM Model: ${config.llm.model}`);
-  console.error(`  LLM Max Tokens: ${config.llm.maxTokens}`);
+  console.error(`\nLLM Providers:`);
+  console.error(`  ${getProviderSummary()}`);
 
   // List available projects
   const projects = listProjects();
@@ -65,34 +66,93 @@ async function main() {
     process.exit(1);
   }
 
-  // Initialize reranker
+  // Initialize reranker (uses OpenAI API if available, falls back to other providers)
+  const rerankerApiKey = config.apiKeys.openai || config.apiKeys.anthropic || config.apiKeys.xai;
   const reranker = new Reranker({
-    apiKey: config.openai.apiKey
+    apiKey: rerankerApiKey
   });
   console.error('  ✓ Reranker initialized');
 
-  // Initialize LLM client for synthesis
+  // Initialize LLM clients for different purposes
+  console.error('\nInitializing LLM clients...');
+
+  // Synthesis LLM (main answer generation)
   const llmClient = new LLMClient({
-    apiKey: config.openai.apiKey,
-    model: config.llm.model,
-    maxTokens: config.llm.maxTokens,
-    temperature: config.llm.temperature
+    provider: config.llmSynthesis.provider,
+    apiKey: getApiKeyForProvider(config.llmSynthesis.provider),
+    model: config.llmSynthesis.model || undefined,
+    maxTokens: config.llmSynthesis.maxTokens,
+    temperature: config.llmSynthesis.temperature,
+    awsRegion: config.aws.region,
   });
-  console.error('  ✓ LLM client initialized');
+  console.error(`  ✓ Synthesis LLM: ${config.llmSynthesis.provider}${config.llmSynthesis.model ? ` (${config.llmSynthesis.model})` : ''}`);
+
+  // Evaluation LLM (answer quality assessment - can be smaller/faster)
+  const llmEvaluator = new LLMClient({
+    provider: config.llmEvaluation.provider,
+    apiKey: getApiKeyForProvider(config.llmEvaluation.provider),
+    model: config.llmEvaluation.model || undefined,
+    maxTokens: config.llmEvaluation.maxTokens,
+    temperature: config.llmEvaluation.temperature,
+    awsRegion: config.aws.region,
+  });
+  console.error(`  ✓ Evaluation LLM: ${config.llmEvaluation.provider}${config.llmEvaluation.model ? ` (${config.llmEvaluation.model})` : ''}`);
+
+  // Refinement LLM (answer improvement)
+  const llmRefiner = new LLMClient({
+    provider: config.llmRefinement.provider,
+    apiKey: getApiKeyForProvider(config.llmRefinement.provider),
+    model: config.llmRefinement.model || undefined,
+    maxTokens: config.llmRefinement.maxTokens,
+    temperature: config.llmRefinement.temperature,
+    awsRegion: config.aws.region,
+  });
+  console.error(`  ✓ Refinement LLM: ${config.llmRefinement.provider}${config.llmRefinement.model ? ` (${config.llmRefinement.model})` : ''}`);
+
+  // Analyzer LLM (parallel web result analysis - uses fast model)
+  const llmAnalyzer = new LLMClient({
+    provider: config.llmAnalyzer.provider,
+    apiKey: getApiKeyForProvider(config.llmAnalyzer.provider),
+    model: config.llmAnalyzer.model || undefined,
+    maxTokens: config.llmAnalyzer.maxTokens,
+    temperature: config.llmAnalyzer.temperature,
+    awsRegion: config.aws.region,
+  });
+  console.error(`  ✓ Analyzer LLM: ${config.llmAnalyzer.provider}${config.llmAnalyzer.model ? ` (${config.llmAnalyzer.model})` : ''} (parallel web analysis)`);
 
   // Initialize hybrid search with reranker
   const search = new HybridSearch({
     vectorDb,
     ftsDb,
-    openaiApiKey: config.openai.apiKey,
+    openaiApiKey: config.apiKeys.openai || rerankerApiKey, // For embeddings
     reranker
   });
   console.error('  ✓ Hybrid search initialized (with reranking)');
 
+  // Initialize web search client if Tavily API key is configured
+  let webSearch: WebSearchClient | undefined;
+  if (config.tavily.apiKey) {
+    webSearch = new WebSearchClient({
+      apiKey: config.tavily.apiKey,
+      searchDepth: config.tavily.searchDepth,
+      maxResults: config.tavily.maxResults
+    });
+    console.error('  ✓ Web search client initialized (Tavily)');
+  } else {
+    console.error('  - Web search disabled (no TAVILY_API_KEY)');
+  }
+
+  // Log agentic evaluation settings
+  if (config.agenticEvaluation.enabled) {
+    console.error(`  ✓ Agentic evaluation enabled (max ${config.agenticEvaluation.maxIterations} iterations)`);
+  } else {
+    console.error('  - Agentic evaluation disabled');
+  }
+
   // Start HTTP server
   try {
     await createHttpTransport(
-      { search, ftsDb, llmClient },
+      { search, ftsDb, reranker, llmClient, llmEvaluator, llmRefiner, llmAnalyzer, webSearch },
       config.port,
       config.host
     );

@@ -11,7 +11,7 @@
  */
 
 import type { SearchResult } from './types.js';
-import type { QueryAnalysis } from './query-analyzer.js';
+import type { QueryAnalysis, OptimizedSearchOptions } from './query-analyzer.js';
 import type { HybridSearch } from './search.js';
 import { evaluateRetrievalQuality } from './confidence.js';
 
@@ -25,6 +25,8 @@ export interface CorrectiveRAGOptions {
   maxRetries: number;
   /** Whether to merge results from retries with original */
   mergeResults: boolean;
+  /** Search options from query analysis - will be used for all searches */
+  searchOptions?: Partial<OptimizedSearchOptions>;
 }
 
 const DEFAULT_OPTIONS: CorrectiveRAGOptions = {
@@ -144,13 +146,18 @@ export async function correctiveSearch(
 ): Promise<CorrectiveSearchResult> {
   const opts = { ...DEFAULT_OPTIONS, ...options };
   const alternativeQueries: string[] = [];
+  const searchOpts = opts.searchOptions || {};
 
-  // Initial search
+  // Initial search with query-aware options
   const initialResults = await search.search(query, {
-    limit: 15,
+    limit: searchOpts.limit ?? 15,
     project,
-    rerank: true,
-    rerankTopK: 10
+    contentType: searchOpts.contentType,
+    rerank: searchOpts.rerank ?? true,
+    rerankTopK: searchOpts.rerankTopK ?? 10,
+    expandAdjacent: searchOpts.expandAdjacent ?? false,
+    adjacentConfig: searchOpts.adjacentConfig,
+    queryType: searchOpts.queryType
   });
 
   // Evaluate initial quality
@@ -189,10 +196,14 @@ export async function correctiveSearch(
     alternativeQueries.push(altQuery);
 
     const altResults = await search.search(altQuery, {
-      limit: 15,
+      limit: searchOpts.limit ?? 15,
       project,
-      rerank: true,
-      rerankTopK: 10
+      contentType: searchOpts.contentType,
+      rerank: searchOpts.rerank ?? true,
+      rerankTopK: searchOpts.rerankTopK ?? 10,
+      expandAdjacent: searchOpts.expandAdjacent ?? false,
+      adjacentConfig: searchOpts.adjacentConfig,
+      queryType: searchOpts.queryType
     });
 
     // Evaluate alternative results

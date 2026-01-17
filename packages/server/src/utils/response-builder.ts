@@ -11,7 +11,8 @@ import type {
   SearchResult,
   SourceReference,
   QueryAnalysis,
-  SearchGuidance
+  SearchGuidance,
+  EvaluationTrace
 } from '@mina-docs/shared';
 import { calculateConfidenceScore, quickConfidenceEstimate } from '@mina-docs/shared';
 
@@ -19,10 +20,12 @@ export class ResponseBuilder {
   private startTime: number;
   private metadata: Partial<AgentResponseMetadata> = {};
   private sources: SourceReference[] = [];
+  private webSources: Array<{ url: string; title: string }> = [];
   private warnings: string[] = [];
   private suggestions: AgentResponseMetadata['suggestions'] = [];
   private relatedQueries: string[] = [];
   private searchGuidance?: SearchGuidance;
+  private evaluationTrace?: EvaluationTrace;
 
   constructor() {
     this.startTime = Date.now();
@@ -99,6 +102,25 @@ export class ResponseBuilder {
   }
 
   /**
+   * Add a web source from web search results
+   */
+  addWebSource(url: string, title: string): this {
+    // Avoid duplicates
+    if (!this.webSources.some(s => s.url === url)) {
+      this.webSources.push({ url, title });
+    }
+    return this;
+  }
+
+  /**
+   * Set evaluation trace for debugging (only included when DEBUG_EVALUATION=true)
+   */
+  setEvaluationTrace(trace: EvaluationTrace): this {
+    this.evaluationTrace = trace;
+    return this;
+  }
+
+  /**
    * Set source references from search results
    */
   setSources(results: SearchResult[]): this {
@@ -145,24 +167,70 @@ export class ResponseBuilder {
   buildMCPResponse(answer: string): { content: Array<{ type: string; text: string }> } {
     const response = this.build(answer);
 
-    // Format sources for text display
-    const sourcesText = response.sources.length > 0
+    // Format indexed sources for text display
+    const indexedSourcesText = response.sources.length > 0
       ? response.sources.map(s => `[${s.index}] ${s.title}\n    ${s.url}`).join('\n')
-      : 'No sources available';
+      : 'No indexed sources';
+
+    // Format web sources if any
+    const webSourcesText = this.webSources.length > 0
+      ? this.webSources.map((s, i) => `[Web ${i + 1}] ${s.title}\n    ${s.url}`).join('\n')
+      : '';
+
+    // Combine all sources
+    const sourcesText = webSourcesText
+      ? `${indexedSourcesText}\n\n### Web Sources\n${webSourcesText}`
+      : indexedSourcesText;
+
+    // Format warnings if any
+    const warningsText = response.metadata.warnings && response.metadata.warnings.length > 0
+      ? response.metadata.warnings.map(w => `⚠️ ${w}`).join('\n') + '\n'
+      : '';
 
     // Build the complete formatted response
-    const formattedAnswer = `${response.answer}
+    let formattedAnswer = `${response.answer}
 
 ---
+Confidence: ${response.metadata.confidence}%
+Latency: ${response.metadata.processingTimeMs}ms
+${warningsText}
+### Sources
+${sourcesText}`;
+
+    // Only include structured metadata JSON when DEBUG_RAG is set
+    if (process.env.DEBUG_RAG === 'true') {
+      const structuredMetadata = {
+        confidence: response.metadata.confidence,
+        retrievalQuality: response.metadata.retrievalQuality,
+        sourcesUsed: response.metadata.sourcesUsed,
+        queryType: response.metadata.queryType,
+        processingTimeMs: response.metadata.processingTimeMs,
+        suggestions: response.metadata.suggestions,
+        relatedQueries: response.metadata.relatedQueries,
+        warnings: response.metadata.warnings,
+        searchGuidance: response.metadata.searchGuidance,
+        // Include source identifiers (not content) for debugging
+        sourceIdentifiers: response.sources.map(s => ({
+          index: s.index,
+          title: s.title,
+          url: s.url,
+          relevance: s.relevance
+        })),
+        webSourceIdentifiers: this.webSources.map((s, i) => ({
+          index: i + 1,
+          title: s.title,
+          url: s.url
+        }))
+      };
+
+      formattedAnswer += `
 
 <response_metadata>
 \`\`\`json
-${JSON.stringify(response.metadata, null, 2)}
+${JSON.stringify(structuredMetadata, null, 2)}
 \`\`\`
-</response_metadata>
-
-### Sources
-${sourcesText}`;
+</response_metadata>`;
+    }
 
     return {
       content: [{

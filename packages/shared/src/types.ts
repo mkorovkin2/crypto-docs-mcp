@@ -8,6 +8,10 @@ export interface DocumentChunk {
   content: string;
   contentType: 'prose' | 'code' | 'api-reference';
   project: string; // Project identifier (e.g., "mina", "solana", "cosmos")
+  // Ordering metadata for adjacent chunk retrieval
+  documentId?: string;     // Hash of URL - groups chunks from same source
+  chunkIndex?: number;     // 0-based position within document
+  totalChunks?: number;    // Total chunks in this document
   metadata: {
     headings: string[];
     codeLanguage?: string;

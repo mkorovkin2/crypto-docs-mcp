@@ -1,6 +1,7 @@
 import type { DocumentChunk } from '@mina-docs/shared';
 import { randomUUID } from 'crypto';
 import { chunkCodeWithAST, shouldUseASTChunking } from './ast-chunker.js';
+import { generateDocumentId } from './hash-utils.js';
 
 const MAX_CHUNK_TOKENS = 1500;
 const MIN_CHUNK_TOKENS = 100;
@@ -12,56 +13,100 @@ function estimateTokens(text: string): number {
   return Math.ceil(words.length * 1.3);
 }
 
-export function chunkContent(chunks: DocumentChunk[]): DocumentChunk[] {
+/**
+ * Process a single chunk (code or prose) and return resulting chunks
+ * without ordering metadata - that gets assigned later
+ */
+function processChunk(chunk: DocumentChunk): DocumentChunk[] {
   const result: DocumentChunk[] = [];
 
-  for (const chunk of chunks) {
-    // Code chunks: Use AST-based chunking for better semantic boundaries
-    if (chunk.contentType === 'code') {
-      // Try AST-based chunking for code
-      if (shouldUseASTChunking(chunk.content)) {
-        const astChunks = chunkCodeWithAST(chunk);
-        result.push(...astChunks);
-      } else {
-        // Fallback: keep code chunk as-is if it doesn't look like structured code
-        const tokens = estimateTokens(chunk.content);
-        if (tokens >= MIN_CHUNK_TOKENS || chunk.content.length > 100) {
-          result.push(chunk);
-        }
-      }
-      continue;
-    }
-
-    // Check if prose chunk needs splitting
-    const tokens = estimateTokens(chunk.content);
-
-    if (tokens <= MAX_CHUNK_TOKENS) {
-      if (tokens >= MIN_CHUNK_TOKENS) {
+  // Code chunks: Use AST-based chunking for better semantic boundaries
+  if (chunk.contentType === 'code') {
+    if (shouldUseASTChunking(chunk.content)) {
+      const astChunks = chunkCodeWithAST(chunk);
+      result.push(...astChunks);
+    } else {
+      // Fallback: keep code chunk as-is if it doesn't look like structured code
+      const tokens = estimateTokens(chunk.content);
+      if (tokens >= MIN_CHUNK_TOKENS || chunk.content.length > 100) {
         result.push(chunk);
       }
-      continue;
+    }
+    return result;
+  }
+
+  // Check if prose chunk needs splitting
+  const tokens = estimateTokens(chunk.content);
+
+  if (tokens <= MAX_CHUNK_TOKENS) {
+    if (tokens >= MIN_CHUNK_TOKENS) {
+      result.push(chunk);
+    }
+    return result;
+  }
+
+  // Split large prose chunks with overlap
+  const subChunks = splitWithOverlap(
+    chunk.content,
+    MAX_CHUNK_TOKENS,
+    OVERLAP_TOKENS
+  );
+
+  for (let i = 0; i < subChunks.length; i++) {
+    const subContent = subChunks[i];
+    if (estimateTokens(subContent) >= MIN_CHUNK_TOKENS) {
+      result.push({
+        ...chunk,
+        id: randomUUID(),
+        section: subChunks.length > 1
+          ? `${chunk.section} (Part ${i + 1}/${subChunks.length})`
+          : chunk.section,
+        content: subContent
+      });
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Chunk content and assign ordering metadata for adjacent chunk retrieval
+ * Groups chunks by URL, processes them, then assigns documentId, chunkIndex, totalChunks
+ */
+export function chunkContent(chunks: DocumentChunk[]): DocumentChunk[] {
+  // Group input chunks by URL
+  const byUrl = new Map<string, DocumentChunk[]>();
+
+  for (const chunk of chunks) {
+    const url = chunk.url;
+    if (!byUrl.has(url)) {
+      byUrl.set(url, []);
+    }
+    byUrl.get(url)!.push(chunk);
+  }
+
+  const result: DocumentChunk[] = [];
+
+  // Process each URL's chunks and assign ordering metadata
+  for (const [url, urlChunks] of byUrl) {
+    const documentId = generateDocumentId(url);
+    const processedChunks: DocumentChunk[] = [];
+
+    // Process all chunks for this URL
+    for (const chunk of urlChunks) {
+      const processed = processChunk(chunk);
+      processedChunks.push(...processed);
     }
 
-    // Split large prose chunks with overlap
-    const subChunks = splitWithOverlap(
-      chunk.content,
-      MAX_CHUNK_TOKENS,
-      OVERLAP_TOKENS
-    );
+    // Assign ordering metadata to all chunks from this URL
+    const totalChunks = processedChunks.length;
+    processedChunks.forEach((chunk, index) => {
+      chunk.documentId = documentId;
+      chunk.chunkIndex = index;
+      chunk.totalChunks = totalChunks;
+    });
 
-    for (let i = 0; i < subChunks.length; i++) {
-      const subContent = subChunks[i];
-      if (estimateTokens(subContent) >= MIN_CHUNK_TOKENS) {
-        result.push({
-          ...chunk,
-          id: randomUUID(),
-          section: subChunks.length > 1
-            ? `${chunk.section} (Part ${i + 1}/${subChunks.length})`
-            : chunk.section,
-          content: subContent
-        });
-      }
-    }
+    result.push(...processedChunks);
   }
 
   return result;

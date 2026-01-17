@@ -1,0 +1,138 @@
+[
+  {
+    "id": "o1js-zkapp-discovered-0",
+    "type": "blog",
+    "trustLevel": "community",
+    "url": "https://docs.minaprotocol.com/zkapps/tutorials",
+    "description": "# zkApp Developer Tutorials. zkApp developer tutorials are a hands-on walk-through of use cases that guide you to achieve a defined goal. To meet other developers building zkApps with o1js, participate in the #zkapps-developers channel on Mina Protocol Discord. o1js is automatically included when yo",
+    "relevanceScore": 95,
+    "relevanceReason": "Hands-on zkApp developer tutorials explicitly mentioning o1js integration with zkApp CLI, including installation guides.",
+    "project": "zkApp CLI",
+    "addedAt": "2026-01-14T00:59:51.696Z"
+  },
+  {
+    "id": "o1js-zkapp-discovered-1",
+    "type": "blog",
+    "trustLevel": "community",
+    "url": "https://www.o1labs.org/blog/mastermind-zkapp-example-series",
+    "description": "* Level 2: Storing the game history state using packing techniques. * Level 3: Storing the game history state using the Indexed Merkle Map API. * Level 4: Storing the game history state using the Offchain Storage API. Level 1 shows the most basic version of the game, and all subsequent levels build ",
+    "relevanceScore": 95,
+    "relevanceReason": "Detailed zkApp example series tutorial with code implementations for Mastermind game using o1js, including packing, Merkle Maps, and off-chain storage.",
+    "project": "Mastermind zkApp",
+    "addedAt": "2026-01-14T00:59:52.637Z"
+  },
+  {
+    "id": "o1js-zkapp-discovered-2",
+    "type": "blog",
+    "trustLevel": "community",
+    "url": "https://dev.to/uratmangun/step-by-step-guide-to-building-a-zkapp-with-o1js-321k",
+    "description": "This tutorial uses **O1js** (formerly SnarkyJS), a TypeScript library for building zk-SNARK circuits, to create a simple zkApp. import{SmartContract, State, state, method, PublicKey, PrivateKey,} from ' o1js '; export class NumberUpdate extends SmartContract{@ state(Field) number = State< Field>();/",
+    "relevanceScore": 95,
+    "relevanceReason": "Step-by-step tutorial with O1js code examples for building a zkApp, including SmartContract implementation",
+    "project": "NumberUpdate",
+    "addedAt": "2026-01-14T00:59:54.352Z"
+  },
+  {
+    "id": "o1js-zkapp-discovered-3",
+    "type": "blog",
+    "trustLevel": "community",
+    "url": "https://docs.minaprotocol.com/zkapps/o1js",
+    "description": "# Introduction to o1js. o1js is a TypeScript library for:. This is TypeScript code that you might write when using o1js:. o1js provides data types and methods that are *provable*: You can prove their execution. o1js is a general-purpose zk framework that gives you the tools to create zk proofs. Use ",
+    "relevanceScore": 95,
+    "relevanceReason": "Official o1js documentation with intro, code examples, provable types, zkApps guide, and CLI starter; highly practical tutorial resource",
+    "project": "o1js",
+    "addedAt": "2026-01-14T00:59:55.860Z"
+  },
+  {
+    "id": "o1js-zkapp-discovered-4",
+    "type": "blog",
+    "trustLevel": "community",
+    "url": "https://docs.minaprotocol.com/zkapps/tutorials/hello-world",
+    "description": "For this tutorial, you run commands from the root of the `01-hello-world` directory as you work in the `src` directory on files that contain the TypeScript code for the smart contract. *   This tutorial does not include writing tests, so you just use the `main.ts` file as a script to interact with t",
+    "relevanceScore": 90,
+    "relevanceReason": "Hands-on tutorial with zkApp smart contract code examples (Square contract) in o1js, high practical value",
+    "project": "01-hello-world",
+    "addedAt": "2026-01-14T00:59:53.578Z"
+  },
+  {
+    "id": "o1js-zkapp-discovered-5",
+    "type": "blog",
+    "trustLevel": "community",
+    "url": "https://dev.to/syedghufranhassan/implementing-a-private-voting-app-as-a-zkapp-2a1",
+    "description": "The zkApp (Zero-Knowledge Application) implements the logic for private voting where votes for Option A and Option B are cast and counted, but the vote itself is kept private using zero-knowledge proofs (ZKPs). I then updated index.ts which basically reflects the process of deploying a Private Votin",
+    "relevanceScore": 90,
+    "relevanceReason": "Detailed tutorial with code examples for building a private voting zkApp using o1js on Mina Protocol",
+    "project": "PrivateVoting",
+    "addedAt": "2026-01-14T00:59:56.674Z"
+  },
+  {
+    "id": "o1js-zkapp-discovered-6",
+    "type": "blog",
+    "trustLevel": "community",
+    "url": "https://medium.com/zknoid/building-our-first-mina-zkapp-game-chapter-1-de7880584aff",
+    "description": "@method async guessNumebr( number: Field, score: Field, scoreWitness: MerkleMapWitness ) { let curHiddenNumber = this.hiddenNumber.getAndRequireEquals(); curHiddenNumber.assertEquals( Poseidon.hash([number]), 'Other numbre was guessed' ); // Check witnessed value const [prevScoreRoot, key] = scoreWi",
+    "relevanceScore": 90,
+    "relevanceReason": "Provides code example of zkApp method using o1js (Field, Poseidon, MerkleMapWitness) in Mina zkApp tutorial",
+    "project": "mina-zkapp-game",
+    "addedAt": "2026-01-14T00:59:59.677Z"
+  },
+  {
+    "id": "o1js-zkapp-discovered-7",
+    "type": "blog",
+    "trustLevel": "community",
+    "url": "https://winifredjohnchidera123.medium.com/introduction-to-zkapps-development-in-mina-using-o1js-and-protokit-e7caeafc9466",
+    "description": "# Introduction to zkApps Development in Mina using o1js and Protokit. Developers can leverage these advantages by building smart contracts called zkApps. In this article, you’ll learn how to develop zkApps on the Mina Protocol using one of two popular frameworks: o1js or Protokit. o1js is a Typescri",
+    "relevanceScore": 85,
+    "relevanceReason": "Tutorial on zkApps development using o1js with zkApp CLI installation guide and steps; high practical value despite zkApp CLI already collected",
+    "project": "zkApp CLI",
+    "addedAt": "2026-01-14T00:59:57.628Z"
+  },
+  {
+    "id": "o1js-zkapp-discovered-8",
+    "type": "blog",
+    "trustLevel": "community",
+    "url": "https://www.o1labs.org/blog/the-many-saints-of-privacy-nullifiers-in-o1js",
+    "description": "zkApps transform privacy, but to fully harness their power, we need privacy-preserving primitives like nullifiers to ensure secure, anonymous functionality. Last but not least, **Verifiability and Privacy:** The verifier must be able to confirm the validity of the nullifier without accessing any of ",
+    "relevanceScore": 75,
+    "relevanceReason": "Provides useful technical information on nullifiers in o1js for zkApps, including privacy concepts, but no code examples or tutorials",
+    "project": "nullifiers-in-o1js",
+    "addedAt": "2026-01-14T01:00:00.701Z"
+  },
+  {
+    "id": "o1js-zkapp-discovered-9",
+    "type": "github",
+    "repoType": "example-repo",
+    "trustLevel": "community",
+    "repo": "o1-labs/o1js",
+    "branch": "main",
+    "scrapeStrategy": {
+      "exampleDirs": [
+        "examples",
+        "src",
+        "demo"
+      ],
+      "exclude": [
+        "**/*.test.ts",
+        "**/*.spec.ts",
+        "**/node_modules/**"
+      ],
+      "extensions": [
+        ".ts",
+        ".tsx",
+        ".js",
+        ".jsx"
+      ]
+    },
+    "qualityThresholds": {
+      "minDocumentationScore": 20,
+      "minLLMRelevanceScore": 40,
+      "requireReadme": true
+    },
+    "description": "## Navigation Menu. # Search code, repositories, users, issues, pull requests... You signed in with another tab or window. You signed out in another tab or window. You switched accounts on another tab or window. * Notifications  You must be signed in to change notification settings. 602 stars   170 ",
+    "relevanceScore": 60,
+    "relevanceReason": "Official o1js GitHub repo for zk-SNARKs and zkApps framework, provides core library but content snippet lacks specific examples; already collected",
+    "project": "o1js",
+    "addedAt": "2026-01-14T00:59:58.659Z",
+    "discoveredFrom": "https://github.com/o1-labs/o1js"
+  }
+]

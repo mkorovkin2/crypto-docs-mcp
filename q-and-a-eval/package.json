@@ -1,0 +1,31 @@
+{
+  "name": "idea-processor",
+  "version": "1.0.0",
+  "description": "Process IDEA_ files, extract questions, call MCP tools, and score answers",
+  "main": "dist/idea-processor.js",
+  "bin": {
+    "idea-db": "dist/idea-db.js"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/idea-processor.js",
+    "dev": "tsx idea-processor.ts",
+    "db": "node dist/idea-db.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.7.0",
+    "dotenv": "^16.4.7",
+    "uuid": "^11.0.5"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.10.5",
+    "@types/uuid": "^10.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

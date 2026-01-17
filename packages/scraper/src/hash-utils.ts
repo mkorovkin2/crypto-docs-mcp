@@ -7,3 +7,11 @@ import { createHash } from 'crypto';
 export function computeContentHash(content: string): string {
   return createHash('sha256').update(content).digest('hex');
 }
+
+/**
+ * Generate a stable document ID from a URL
+ * Used to group chunks from the same source document for adjacent chunk retrieval
+ */
+export function generateDocumentId(url: string): string {
+  return createHash('sha256').update(url).digest('hex').slice(0, 16);
+}

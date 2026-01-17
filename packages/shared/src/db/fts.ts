@@ -43,6 +43,15 @@ export class FullTextDB {
       this.db.exec(`ALTER TABLE chunks ADD COLUMN orphaned INTEGER DEFAULT 0`);
     }
 
+    // Add ordering columns for adjacent chunk retrieval (migration)
+    if (!columns.some(c => c.name === 'document_id')) {
+      this.db.exec(`ALTER TABLE chunks ADD COLUMN document_id TEXT`);
+      this.db.exec(`ALTER TABLE chunks ADD COLUMN chunk_index INTEGER`);
+      this.db.exec(`ALTER TABLE chunks ADD COLUMN total_chunks INTEGER`);
+      this.db.exec(`CREATE INDEX IF NOT EXISTS idx_chunks_document_id ON chunks(document_id)`);
+      this.db.exec(`CREATE INDEX IF NOT EXISTS idx_chunks_ordering ON chunks(document_id, chunk_index)`);
+    }
+
     // Create index for URL-based deletion
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_chunks_url ON chunks(url)
@@ -78,8 +87,8 @@ export class FullTextDB {
 
   async upsert(chunks: DocumentChunk[]): Promise<void> {
     const insertChunk = this.db.prepare(`
-      INSERT OR REPLACE INTO chunks (id, url, title, section, content, content_type, project, metadata, orphaned)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT OR REPLACE INTO chunks (id, url, title, section, content, content_type, project, metadata, orphaned, document_id, chunk_index, total_chunks)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const deleteFts = this.db.prepare(`
@@ -102,7 +111,10 @@ export class FullTextDB {
           chunk.contentType,
           chunk.project,
           JSON.stringify(chunk.metadata),
-          chunk.metadata.orphaned ? 1 : 0
+          chunk.metadata.orphaned ? 1 : 0,
+          chunk.documentId ?? null,
+          chunk.chunkIndex ?? null,
+          chunk.totalChunks ?? null
         );
 
         // Update FTS index
@@ -168,6 +180,9 @@ export class FullTextDB {
           content: row.content,
           contentType: row.content_type,
           project: row.project,
+          documentId: row.document_id ?? undefined,
+          chunkIndex: row.chunk_index ?? undefined,
+          totalChunks: row.total_chunks ?? undefined,
           metadata: {
             ...JSON.parse(row.metadata),
             orphaned: row.orphaned === 1
@@ -269,6 +284,45 @@ export class FullTextDB {
    */
   async deletePageHash(url: string): Promise<void> {
     this.db.prepare('DELETE FROM page_hashes WHERE url = ?').run(url);
+  }
+
+  /**
+   * Get adjacent chunks for a given chunk
+   * @param documentId - The document ID to query
+   * @param chunkIndex - The center chunk index
+   * @param windowSize - Number of chunks to fetch in each direction
+   * @returns Chunks ordered by index
+   */
+  async getAdjacentChunks(
+    documentId: string,
+    chunkIndex: number,
+    windowSize: number
+  ): Promise<DocumentChunk[]> {
+    const minIndex = Math.max(0, chunkIndex - windowSize);
+    const maxIndex = chunkIndex + windowSize;
+
+    const rows = this.db.prepare(`
+      SELECT * FROM chunks
+      WHERE document_id = ? AND chunk_index >= ? AND chunk_index <= ?
+      ORDER BY chunk_index
+    `).all(documentId, minIndex, maxIndex) as any[];
+
+    return rows.map(row => ({
+      id: row.id,
+      url: row.url,
+      title: row.title,
+      section: row.section,
+      content: row.content,
+      contentType: row.content_type as DocumentChunk['contentType'],
+      project: row.project,
+      documentId: row.document_id ?? undefined,
+      chunkIndex: row.chunk_index ?? undefined,
+      totalChunks: row.total_chunks ?? undefined,
+      metadata: {
+        ...JSON.parse(row.metadata),
+        orphaned: row.orphaned === 1
+      }
+    }));
   }
 
   async close(): Promise<void> {

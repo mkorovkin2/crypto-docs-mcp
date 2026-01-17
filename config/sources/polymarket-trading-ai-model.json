@@ -1,0 +1,20 @@
+{
+  "id": "polymarket-trading-ai-model",
+  "type": "github",
+  "repoType": "example-repo",
+  "trustLevel": "community",
+  "repo": "BlackSky-Jose/PolyMarket-trading-AI-model",
+  "branch": "main",
+  "description": "Community Polymarket trading AI with CLI for API interaction, news retrieval, and data queries",
+  "scrapeStrategy": {
+    "apiPaths": ["**/*.py"],
+    "exampleDirs": ["examples", "src", "demo"],
+    "exclude": ["**/*_test.py", "**/test_*.py", "**/__pycache__/**", "**/venv/**", "**/.venv/**"],
+    "extensions": [".py"]
+  },
+  "qualityThresholds": {
+    "minDocumentationScore": 20,
+    "minLLMRelevanceScore": 40,
+    "requireReadme": true
+  }
+}
