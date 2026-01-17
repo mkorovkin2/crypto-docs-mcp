@@ -167,6 +167,7 @@ node dist/idea-db.js tables
 node dist/idea-db.js schema tool_calls
 node dist/idea-db.js rows tool_calls 5
 node dist/idea-db.js search tool_calls tool_name "mcp"
+node dist/idea-db.js bottom 10
 node dist/idea-db.js agg tools
 node dist/idea-db.js agg scores
 node dist/idea-db.js agg quality

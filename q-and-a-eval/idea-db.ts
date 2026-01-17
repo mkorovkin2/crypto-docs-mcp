@@ -15,6 +15,7 @@ type Options = {
 const DEFAULT_DB = "idea_processor.db";
 const DEFAULT_LIMIT = 10;
 const MAX_CELL_WIDTH = 40;
+const DEFAULT_PREVIEW_CHARS = 240;
 
 const colors = {
   reset: "\x1b[0m",
@@ -39,6 +40,7 @@ Commands:
   schema <table>               Show CREATE TABLE and columns
   rows <table> [limit]         Preview rows (default limit ${DEFAULT_LIMIT})
   search <table> <column> <term>  Search rows by LIKE
+  bottom [limit]               Lowest-scoring prompts and responses
   stats                        Database summary
   agg <type>                   Aggregations: tools, scores, quality, files, errors, days
 
@@ -46,7 +48,7 @@ Options:
   -d, --db <path>              Path to sqlite db (default: ${DEFAULT_DB})
   -l, --limit <n>              Row limit for rows/search (default: ${DEFAULT_LIMIT})
   --latest-run                 Filter results to the most recent run
-  --full                       Do not truncate cell values
+  --full                       Do not truncate cell values or response previews
   --json                       Output JSON
   --no-color                   Disable ANSI colors
   -h, --help                   Show help
@@ -180,6 +182,19 @@ function truncateValue(value: string, maxWidth: number, truncate: boolean): stri
     return value.slice(0, maxWidth);
   }
   return `${value.slice(0, maxWidth - 3)}...`;
+}
+
+function normalizeWhitespace(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function formatResponsePreview(value: unknown, maxChars: number, truncate: boolean): string {
+  const text = stringifyValue(value);
+  if (!truncate) {
+    return text;
+  }
+  const normalized = normalizeWhitespace(text);
+  return truncateValue(normalized, maxChars, true);
 }
 
 function stringifyValue(value: unknown): string {
@@ -684,6 +699,140 @@ function main(): void {
       );
       const headerColumns = rows.length > 0 ? Object.keys(rows[0]) : fallbackColumns;
       printTable(headerColumns, rows, options, useColor);
+      return;
+    }
+
+    if (effectiveCommand === "bottom") {
+      if (!tableExists(db, "tool_calls") || !tableExists(db, "scores")) {
+        console.error(
+          colorize(
+            "Error: bottom requires both tool_calls and scores tables.",
+            colors.red,
+            useColor
+          )
+        );
+        process.exit(1);
+      }
+
+      const limitArg = params[0] ? Number(params[0]) : options.limit;
+      const limit = Number.isFinite(limitArg) && limitArg > 0 ? Math.floor(limitArg) : options.limit;
+      const runFilter = buildRunPredicate(latestRunId, "s");
+      const whereClause = buildWhereClause("s.overall_score != -2", runFilter.predicate);
+
+      const scoreSumExpression = [
+        "CASE WHEN s.comprehensive != -2 THEN s.comprehensive ELSE 0 END",
+        "CASE WHEN s.detailed != -2 THEN s.detailed ELSE 0 END",
+        "CASE WHEN s.confident != -2 THEN s.confident ELSE 0 END",
+        "CASE WHEN s.too_long != -2 THEN s.too_long ELSE 0 END",
+        "CASE WHEN s.too_short != -2 THEN s.too_short ELSE 0 END",
+        "CASE WHEN s.fully_answered != -2 THEN s.fully_answered ELSE 0 END",
+        "CASE WHEN s.overall_score != -2 THEN s.overall_score ELSE 0 END",
+      ].join(" + ");
+      const scoreCountExpression = [
+        "CASE WHEN s.comprehensive != -2 THEN 1 ELSE 0 END",
+        "CASE WHEN s.detailed != -2 THEN 1 ELSE 0 END",
+        "CASE WHEN s.confident != -2 THEN 1 ELSE 0 END",
+        "CASE WHEN s.too_long != -2 THEN 1 ELSE 0 END",
+        "CASE WHEN s.too_short != -2 THEN 1 ELSE 0 END",
+        "CASE WHEN s.fully_answered != -2 THEN 1 ELSE 0 END",
+        "CASE WHEN s.overall_score != -2 THEN 1 ELSE 0 END",
+      ].join(" + ");
+      const avgScoreExpression = `(1.0 * (${scoreSumExpression})) / NULLIF((${scoreCountExpression}), 0)`;
+
+      type BottomScoreRow = {
+        question_text: string;
+        tool_output: string | null;
+        tool_name: string;
+        source_file: string;
+        comprehensive: number;
+        detailed: number;
+        confident: number;
+        too_long: number;
+        too_short: number;
+        fully_answered: number;
+        overall_score: number;
+        avg_score: number | null;
+        scored_at: string;
+      };
+
+      const rows = db
+        .prepare(
+          `SELECT
+            tc.question_text AS question_text,
+            tc.tool_output AS tool_output,
+            tc.tool_name AS tool_name,
+            tc.source_file AS source_file,
+            s.comprehensive AS comprehensive,
+            s.detailed AS detailed,
+            s.confident AS confident,
+            s.too_long AS too_long,
+            s.too_short AS too_short,
+            s.fully_answered AS fully_answered,
+            s.overall_score AS overall_score,
+            ${avgScoreExpression} AS avg_score,
+            s.timestamp AS scored_at
+           FROM scores s
+           JOIN tool_calls tc ON tc.id = s.call_id
+           ${whereClause}
+           ORDER BY avg_score ASC,
+             s.overall_score ASC,
+             s.fully_answered ASC,
+             s.comprehensive ASC,
+             s.detailed ASC,
+             s.confident ASC,
+             s.too_long ASC,
+             s.too_short ASC,
+             s.timestamp ASC
+           LIMIT ?`
+        )
+        .all(...runFilter.params, limit) as BottomScoreRow[];
+
+      if (options.json) {
+        outputJson({ runId: latestRunId ?? undefined, limit, rows });
+        return;
+      }
+
+      console.log(
+        colorize(
+          `Lowest-scoring prompts (limit ${limit})${runLabel}`,
+          colors.bold + colors.cyan,
+          useColor
+        )
+      );
+
+      if (rows.length === 0) {
+        console.log(colorize("No rows found.", colors.yellow, useColor));
+        return;
+      }
+
+      rows.forEach((row, index) => {
+        const header = `#${index + 1} avg_score=${formatNumber(row.avg_score)} overall_score=${row.overall_score}`;
+        const scoreLine = [
+          `comprehensive=${row.comprehensive}`,
+          `detailed=${row.detailed}`,
+          `confident=${row.confident}`,
+          `too_long=${row.too_long}`,
+          `too_short=${row.too_short}`,
+          `fully_answered=${row.fully_answered}`,
+        ].join(" ");
+        const promptText = row.question_text.trim() || "(empty)";
+        const responseLabel = options.truncate ? "Response (preview):" : "Response (full):";
+        const responseText = formatResponsePreview(
+          row.tool_output,
+          DEFAULT_PREVIEW_CHARS,
+          options.truncate
+        );
+
+        console.log(colorize(header, colors.bold + colors.yellow, useColor));
+        console.log(`Scores: ${scoreLine}`);
+        console.log(colorize("Prompt:", colors.bold + colors.magenta, useColor));
+        console.log(promptText);
+        console.log(colorize(responseLabel, colors.bold + colors.magenta, useColor));
+        console.log(responseText);
+        if (index < rows.length - 1) {
+          console.log("");
+        }
+      });
       return;
     }
 
