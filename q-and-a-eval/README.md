@@ -176,7 +176,7 @@ node dist/idea-db.js agg days
 node dist/idea-db.js --db /path/to/idea_processor.db stats
 ```
 
-Use `--json` for machine output and `--full` to disable cell truncation.
+Use `--json` for machine output, `--full` to disable cell truncation, and `--latest-run` to filter to the most recent run. `agg quality` shows averages for all eval parameters by tool.
 Aggregations treat `-2` scores as missing and ignore them in averages/distributions.
 
 ## Scripts

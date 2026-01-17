@@ -9,6 +9,7 @@ type Options = {
   json: boolean;
   color: boolean;
   truncate: boolean;
+  latestRun: boolean;
 };
 
 const DEFAULT_DB = "idea_processor.db";
@@ -44,6 +45,7 @@ Commands:
 Options:
   -d, --db <path>              Path to sqlite db (default: ${DEFAULT_DB})
   -l, --limit <n>              Row limit for rows/search (default: ${DEFAULT_LIMIT})
+  --latest-run                 Filter results to the most recent run
   --full                       Do not truncate cell values
   --json                       Output JSON
   --no-color                   Disable ANSI colors
@@ -63,6 +65,7 @@ function parseArgs(argv: string[]): {
     json: false,
     color: true,
     truncate: true,
+    latestRun: false,
   };
   const params: string[] = [];
   const errors: string[] = [];
@@ -97,6 +100,10 @@ function parseArgs(argv: string[]): {
     }
     if (arg === "--json") {
       options.json = true;
+      continue;
+    }
+    if (arg === "--latest-run") {
+      options.latestRun = true;
       continue;
     }
     if (arg === "--no-color") {
@@ -214,7 +221,19 @@ function listTables(db: Database.Database): string[] {
   return rows.map((row) => row.name);
 }
 
-function getRowCount(db: Database.Database, table: string): number {
+function getRowCount(
+  db: Database.Database,
+  table: string,
+  runId?: string | null,
+  columns?: ColumnInfo[]
+): number {
+  const tableColumns = columns ?? getColumns(db, table);
+  if (runId && columnExists(tableColumns, "run_id")) {
+    const row = db
+      .prepare(`SELECT COUNT(*) AS count FROM ${quoteIdentifier(table)} WHERE run_id = ?`)
+      .get(runId) as { count: number };
+    return row.count;
+  }
   const row = db
     .prepare(`SELECT COUNT(*) AS count FROM ${quoteIdentifier(table)}`)
     .get() as { count: number };
@@ -245,6 +264,46 @@ function tableExists(db: Database.Database, table: string): boolean {
 
 function columnExists(columns: ColumnInfo[], column: string): boolean {
   return columns.some((col) => col.name === column);
+}
+
+type PredicateParts = {
+  predicate: string;
+  params: Array<string>;
+};
+
+function buildWhereClause(basePredicate: string, extraPredicate: string): string {
+  if (!basePredicate && !extraPredicate) {
+    return "";
+  }
+  if (!extraPredicate) {
+    return `WHERE ${basePredicate}`;
+  }
+  if (!basePredicate) {
+    return `WHERE ${extraPredicate}`;
+  }
+  return `WHERE ${basePredicate} AND ${extraPredicate}`;
+}
+
+function buildRunPredicate(runId: string | null, tableAlias?: string): PredicateParts {
+  if (!runId) {
+    return { predicate: "", params: [] };
+  }
+  const column = tableAlias ? `${tableAlias}.run_id` : "run_id";
+  return { predicate: `${column} = ?`, params: [runId] };
+}
+
+function getLatestRunId(db: Database.Database): string | null {
+  const row = db
+    .prepare(
+      `SELECT run_id, MAX(timestamp) AS latest_ts
+        FROM tool_calls
+        WHERE run_id IS NOT NULL
+        GROUP BY run_id
+        ORDER BY latest_ts DESC
+        LIMIT 1`
+    )
+    .get() as { run_id?: string | null } | undefined;
+  return row?.run_id ?? null;
 }
 
 function printTable(
@@ -355,6 +414,52 @@ function main(): void {
 
   try {
     const effectiveCommand = command ?? "overview";
+    let latestRunId: string | null = null;
+
+    if (options.latestRun) {
+      if (!tableExists(db, "tool_calls")) {
+        console.error(
+          colorize("Error: tool_calls table not found; --latest-run requires tool_calls.", colors.red, useColor)
+        );
+        process.exit(1);
+      }
+      const toolCallsColumns = getColumns(db, "tool_calls");
+      if (!columnExists(toolCallsColumns, "run_id")) {
+        console.error(
+          colorize(
+            "Error: --latest-run requires tool_calls.run_id. Run the processor to add it.",
+            colors.red,
+            useColor
+          )
+        );
+        process.exit(1);
+      }
+      if (tableExists(db, "scores")) {
+        const scoresColumns = getColumns(db, "scores");
+        if (!columnExists(scoresColumns, "run_id")) {
+          console.error(
+            colorize(
+              "Error: --latest-run requires scores.run_id. Run the processor to add it.",
+              colors.red,
+              useColor
+            )
+          );
+          process.exit(1);
+        }
+      }
+      latestRunId = getLatestRunId(db);
+      if (!latestRunId) {
+        console.error(
+          colorize(
+            "Error: no runs found with run_id. Run the processor to record a run.",
+            colors.red,
+            useColor
+          )
+        );
+        process.exit(1);
+      }
+    }
+    const runLabel = latestRunId ? ` (latest run ${latestRunId})` : "";
 
     if (effectiveCommand === "overview") {
       const tables = listTables(db);
@@ -362,11 +467,12 @@ function main(): void {
       const summary = {
         dbPath: resolvedDbPath,
         size: dbSize,
+        runId: latestRunId ?? undefined,
         tables: tables.map((name) => {
           const columns = getColumns(db, name);
           return {
             name,
-            rowCount: getRowCount(db, name),
+            rowCount: getRowCount(db, name, latestRunId, columns),
             columns: columns.map((col) => ({
               name: col.name,
               type: col.type,
@@ -390,6 +496,9 @@ function main(): void {
           useColor
         )}`
       );
+      if (latestRunId) {
+        console.log(colorize(`Latest run: ${latestRunId}`, colors.gray, useColor));
+      }
       console.log(
         `${colorize("Tables:", colors.bold + colors.cyan, useColor)} ${colorize(
           `${tables.length}`,
@@ -423,14 +532,17 @@ function main(): void {
     if (effectiveCommand === "tables") {
       const tables = listTables(db).map((name) => ({
         name,
-        rowCount: getRowCount(db, name),
+        rowCount: getRowCount(db, name, latestRunId),
       }));
 
       if (options.json) {
-        outputJson({ dbPath: resolvedDbPath, tables });
+        outputJson({ dbPath: resolvedDbPath, runId: latestRunId ?? undefined, tables });
         return;
       }
 
+      if (latestRunId) {
+        console.log(colorize(`Latest run: ${latestRunId}`, colors.gray, useColor));
+      }
       console.log(colorize("Tables", colors.bold + colors.cyan, useColor));
       for (const table of tables) {
         console.log(
@@ -486,23 +598,36 @@ function main(): void {
         console.error(colorize(`Error: table not found: ${table}`, colors.red, useColor));
         process.exit(1);
       }
+      const columns = getColumns(db, table);
+      if (latestRunId && !columnExists(columns, "run_id")) {
+        console.error(
+          colorize(
+            `Error: --latest-run requires ${table}.run_id. Run the processor to add it.`,
+            colors.red,
+            useColor
+          )
+        );
+        process.exit(1);
+      }
       const limitArg = params[1] ? Number(params[1]) : options.limit;
       const limit = Number.isFinite(limitArg) && limitArg > 0 ? Math.floor(limitArg) : options.limit;
+      const runFilter = buildRunPredicate(latestRunId);
+      const whereClause = buildWhereClause("", runFilter.predicate);
       const rows = db
-        .prepare(`SELECT * FROM ${quoteIdentifier(table)} LIMIT ?`)
-        .all(limit) as Array<Record<string, unknown>>;
-      const fallbackColumns = rows.length === 0 ? getColumns(db, table).map((col) => col.name) : [];
+        .prepare(`SELECT * FROM ${quoteIdentifier(table)} ${whereClause} LIMIT ?`)
+        .all(...runFilter.params, limit) as Array<Record<string, unknown>>;
+      const fallbackColumns = rows.length === 0 ? columns.map((col) => col.name) : [];
 
       if (options.json) {
-        outputJson({ table, limit, rows });
+        outputJson({ table, runId: latestRunId ?? undefined, limit, rows });
         return;
       }
 
       console.log(
-        colorize(`Rows from ${table} (limit ${limit})`, colors.bold + colors.cyan, useColor)
+        colorize(`Rows from ${table} (limit ${limit})${runLabel}`, colors.bold + colors.cyan, useColor)
       );
-      const columns = rows.length > 0 ? Object.keys(rows[0]) : fallbackColumns;
-      printTable(columns, rows, options, useColor);
+      const headerColumns = rows.length > 0 ? Object.keys(rows[0]) : fallbackColumns;
+      printTable(headerColumns, rows, options, useColor);
       return;
     }
 
@@ -525,22 +650,34 @@ function main(): void {
         );
         process.exit(1);
       }
+      if (latestRunId && !columnExists(columns, "run_id")) {
+        console.error(
+          colorize(
+            `Error: --latest-run requires ${table}.run_id. Run the processor to add it.`,
+            colors.red,
+            useColor
+          )
+        );
+        process.exit(1);
+      }
       const term = termParts.join(" ");
+      const runFilter = buildRunPredicate(latestRunId);
+      const whereClause = buildWhereClause(`${quoteIdentifier(column)} LIKE ?`, runFilter.predicate);
       const rows = db
         .prepare(
-          `SELECT * FROM ${quoteIdentifier(table)} WHERE ${quoteIdentifier(column)} LIKE ? LIMIT ?`
+          `SELECT * FROM ${quoteIdentifier(table)} ${whereClause} LIMIT ?`
         )
-        .all(`%${term}%`, options.limit) as Array<Record<string, unknown>>;
+        .all(`%${term}%`, ...runFilter.params, options.limit) as Array<Record<string, unknown>>;
       const fallbackColumns = rows.length === 0 ? columns.map((col) => col.name) : [];
 
       if (options.json) {
-        outputJson({ table, column, term, limit: options.limit, rows });
+        outputJson({ table, column, term, runId: latestRunId ?? undefined, limit: options.limit, rows });
         return;
       }
 
       console.log(
         colorize(
-          `Search ${table}.${column} for "${term}" (limit ${options.limit})`,
+          `Search ${table}.${column} for "${term}" (limit ${options.limit})${runLabel}`,
           colors.bold + colors.cyan,
           useColor
         )
@@ -554,7 +691,7 @@ function main(): void {
       const tables = listTables(db);
       const counts = tables.map((name) => ({
         name,
-        rowCount: getRowCount(db, name),
+        rowCount: getRowCount(db, name, latestRunId),
       }));
       const totalRows = counts.reduce((sum, table) => sum + table.rowCount, 0);
       const dbSize = fs.statSync(resolvedDbPath).size;
@@ -565,6 +702,7 @@ function main(): void {
           size: dbSize,
           tableCount: tables.length,
           totalRows,
+          runId: latestRunId ?? undefined,
           tables: counts,
         });
         return;
@@ -577,6 +715,9 @@ function main(): void {
           useColor
         )}`
       );
+      if (latestRunId) {
+        console.log(colorize(`Latest run: ${latestRunId}`, colors.gray, useColor));
+      }
       console.log(
         `${colorize("Tables:", colors.bold + colors.cyan, useColor)} ${colorize(
           `${tables.length}`,
@@ -615,17 +756,28 @@ function main(): void {
         );
         process.exit(1);
       }
+      if (latestRunId && !options.json) {
+        console.log(colorize(`Latest run: ${latestRunId}`, colors.gray, useColor));
+      }
 
       if (subcommand === "tools") {
-        const totalRow = db.prepare("SELECT COUNT(*) AS count FROM tool_calls").get() as {
+        const runFilter = buildRunPredicate(latestRunId);
+        const whereClause = buildWhereClause("", runFilter.predicate);
+        const totalRow = db
+          .prepare(`SELECT COUNT(*) AS count FROM tool_calls ${whereClause}`)
+          .get(...runFilter.params) as {
           count: number;
         };
         const totalCalls = totalRow.count;
         const rows = db
           .prepare(
-            "SELECT tool_name AS tool_name, COUNT(*) AS calls FROM tool_calls GROUP BY tool_name ORDER BY calls DESC"
+            `SELECT tool_name AS tool_name, COUNT(*) AS calls
+             FROM tool_calls
+             ${whereClause}
+             GROUP BY tool_name
+             ORDER BY calls DESC`
           )
-          .all() as Array<{ tool_name: string; calls: number }>;
+          .all(...runFilter.params) as Array<{ tool_name: string; calls: number }>;
         const displayRows = rows.map((row) => ({
           tool_name: row.tool_name,
           calls: row.calls,
@@ -633,7 +785,7 @@ function main(): void {
         }));
 
         if (options.json) {
-          outputJson({ totalCalls, tools: rows });
+          outputJson({ totalCalls, runId: latestRunId ?? undefined, tools: rows });
           return;
         }
 
@@ -643,22 +795,31 @@ function main(): void {
       }
 
       if (subcommand === "scores") {
+        const runFilter = buildRunPredicate(latestRunId);
+        const scorePredicate = "overall_score IN (-1, 0, 1)";
+        const distributionWhere = buildWhereClause(scorePredicate, runFilter.predicate);
         const distribution = db
           .prepare(
-            "SELECT overall_score AS score, COUNT(*) AS count FROM scores WHERE overall_score IN (-1, 0, 1) GROUP BY overall_score ORDER BY overall_score DESC"
+            `SELECT overall_score AS score, COUNT(*) AS count
+             FROM scores
+             ${distributionWhere}
+             GROUP BY overall_score
+             ORDER BY overall_score DESC`
           )
-          .all() as Array<{ score: number; count: number }>;
+          .all(...runFilter.params) as Array<{ score: number; count: number }>;
         const totalScores = distribution.reduce((sum, row) => sum + row.count, 0);
         const distributionDisplay = distribution.map((row) => ({
           score: row.score,
           count: row.count,
           percent: totalScores > 0 ? formatPercent((row.count / totalScores) * 100) : "0.0%",
         }));
+        const missingWhere = buildWhereClause("overall_score = -2", runFilter.predicate);
         const missingRow = db
-          .prepare("SELECT COUNT(*) AS count FROM scores WHERE overall_score = -2")
-          .get() as { count: number };
+          .prepare(`SELECT COUNT(*) AS count FROM scores ${missingWhere}`)
+          .get(...runFilter.params) as { count: number };
         const missingCount = missingRow.count;
 
+        const averagesWhere = buildWhereClause("", runFilter.predicate);
         const averages = db
           .prepare(
             `SELECT
@@ -669,9 +830,10 @@ function main(): void {
               AVG(CASE WHEN too_short != -2 THEN too_short END) AS too_short,
               AVG(CASE WHEN fully_answered != -2 THEN fully_answered END) AS fully_answered,
               AVG(CASE WHEN overall_score != -2 THEN overall_score END) AS overall_score
-            FROM scores`
+            FROM scores
+            ${averagesWhere}`
           )
-          .get() as {
+          .get(...runFilter.params) as {
           comprehensive: number | null;
           detailed: number | null;
           confident: number | null;
@@ -686,6 +848,7 @@ function main(): void {
             distribution,
             missingCount,
             averages,
+            runId: latestRunId ?? undefined,
           });
           return;
         }
@@ -732,27 +895,42 @@ function main(): void {
       }
 
       if (subcommand === "quality") {
+        const runFilter = buildRunPredicate(latestRunId, "tc");
+        const whereClause = buildWhereClause("", runFilter.predicate);
         const rows = db
           .prepare(
             `SELECT
               tc.tool_name AS tool_name,
               COUNT(*) AS calls,
               SUM(CASE WHEN s.overall_score != -2 THEN 1 ELSE 0 END) AS scored_calls,
+              AVG(CASE WHEN s.comprehensive != -2 THEN s.comprehensive END) AS avg_comprehensive,
+              AVG(CASE WHEN s.detailed != -2 THEN s.detailed END) AS avg_detailed,
+              AVG(CASE WHEN s.confident != -2 THEN s.confident END) AS avg_confident,
+              AVG(CASE WHEN s.too_long != -2 THEN s.too_long END) AS avg_too_long,
+              AVG(CASE WHEN s.too_short != -2 THEN s.too_short END) AS avg_too_short,
+              AVG(CASE WHEN s.fully_answered != -2 THEN s.fully_answered END) AS avg_fully_answered,
               AVG(CASE WHEN s.overall_score != -2 THEN s.overall_score END) AS avg_overall
             FROM tool_calls tc
             JOIN scores s ON tc.id = s.call_id
+            ${whereClause}
             GROUP BY tc.tool_name
             ORDER BY avg_overall IS NULL, avg_overall DESC`
           )
-          .all() as Array<{
+          .all(...runFilter.params) as Array<{
           tool_name: string;
           calls: number;
           scored_calls: number;
+          avg_comprehensive: number | null;
+          avg_detailed: number | null;
+          avg_confident: number | null;
+          avg_too_long: number | null;
+          avg_too_short: number | null;
+          avg_fully_answered: number | null;
           avg_overall: number | null;
         }>;
 
         if (options.json) {
-          outputJson({ tools: rows });
+          outputJson({ runId: latestRunId ?? undefined, tools: rows });
           return;
         }
 
@@ -760,14 +938,38 @@ function main(): void {
           tool_name: row.tool_name,
           calls: row.calls,
           scored_calls: row.scored_calls,
+          avg_comprehensive: formatNumber(row.avg_comprehensive),
+          avg_detailed: formatNumber(row.avg_detailed),
+          avg_confident: formatNumber(row.avg_confident),
+          avg_too_long: formatNumber(row.avg_too_long),
+          avg_too_short: formatNumber(row.avg_too_short),
+          avg_fully_answered: formatNumber(row.avg_fully_answered),
           avg_overall: formatNumber(row.avg_overall),
         }));
-        console.log(colorize("Average overall score by tool", colors.bold + colors.cyan, useColor));
-        printTable(["tool_name", "calls", "scored_calls", "avg_overall"], displayRows, options, useColor);
+        console.log(colorize("Average scores by tool", colors.bold + colors.cyan, useColor));
+        printTable(
+          [
+            "tool_name",
+            "calls",
+            "scored_calls",
+            "avg_comprehensive",
+            "avg_detailed",
+            "avg_confident",
+            "avg_too_long",
+            "avg_too_short",
+            "avg_fully_answered",
+            "avg_overall",
+          ],
+          displayRows,
+          options,
+          useColor
+        );
         return;
       }
 
       if (subcommand === "files") {
+        const runFilter = buildRunPredicate(latestRunId, "tc");
+        const whereClause = buildWhereClause("", runFilter.predicate);
         const rows = db
           .prepare(
             `SELECT
@@ -778,10 +980,11 @@ function main(): void {
               AVG(CASE WHEN s.overall_score != -2 THEN s.overall_score END) AS avg_overall
             FROM tool_calls tc
             LEFT JOIN scores s ON tc.id = s.call_id
+            ${whereClause}
             GROUP BY tc.source_file
             ORDER BY calls DESC`
           )
-          .all() as Array<{
+          .all(...runFilter.params) as Array<{
           source_file: string;
           calls: number;
           no_tool: number;
@@ -790,7 +993,7 @@ function main(): void {
         }>;
 
         if (options.json) {
-          outputJson({ files: rows });
+          outputJson({ runId: latestRunId ?? undefined, files: rows });
           return;
         }
 
@@ -813,6 +1016,8 @@ function main(): void {
       }
 
       if (subcommand === "errors") {
+        const runFilter = buildRunPredicate(latestRunId);
+        const whereClause = buildWhereClause("", runFilter.predicate);
         const rows = db
           .prepare(
             `SELECT
@@ -820,14 +1025,15 @@ function main(): void {
               COUNT(*) AS calls,
               SUM(CASE WHEN tool_output LIKE 'Error:%' THEN 1 ELSE 0 END) AS errors
             FROM tool_calls
+            ${whereClause}
             GROUP BY tool_name
             HAVING errors > 0
             ORDER BY errors DESC`
           )
-          .all() as Array<{ tool_name: string; calls: number; errors: number }>;
+          .all(...runFilter.params) as Array<{ tool_name: string; calls: number; errors: number }>;
 
         if (options.json) {
-          outputJson({ tools: rows });
+          outputJson({ runId: latestRunId ?? undefined, tools: rows });
           return;
         }
 
@@ -843,6 +1049,8 @@ function main(): void {
       }
 
       if (subcommand === "days") {
+        const runFilter = buildRunPredicate(latestRunId, "tc");
+        const whereClause = buildWhereClause("", runFilter.predicate);
         const rows = db
           .prepare(
             `SELECT
@@ -852,10 +1060,11 @@ function main(): void {
               AVG(CASE WHEN s.overall_score != -2 THEN s.overall_score END) AS avg_overall
             FROM tool_calls tc
             LEFT JOIN scores s ON tc.id = s.call_id
+            ${whereClause}
             GROUP BY day
             ORDER BY day`
           )
-          .all() as Array<{
+          .all(...runFilter.params) as Array<{
           day: string;
           calls: number;
           scored_calls: number;
@@ -863,7 +1072,7 @@ function main(): void {
         }>;
 
         if (options.json) {
-          outputJson({ days: rows });
+          outputJson({ runId: latestRunId ?? undefined, days: rows });
           return;
         }
 

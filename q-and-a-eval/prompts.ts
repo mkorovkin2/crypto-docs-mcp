@@ -17,7 +17,7 @@ Example output format:
 ["What is the best approach?", "How do we handle errors?", "Why was this decision made?"]`;
 
 export function getQuestionExtractionUserPrompt(content: string): string {
-  return `Extract all explicit questions from the following text:\n\n${content}`;
+  return `Extract all explicit questions from the following text:\n<content>\n${content}\n</content>`;
 }
 
 // ============================================================================
@@ -38,10 +38,12 @@ If and ONLY if there is truly NO tool that could possibly help answer the questi
 { "toolName": null, "params": {}, "reason": "brief explanation of why no tool matches" }`;
 
 export function getToolSelectionUserPrompt(question: string, toolDescriptions: string): string {
-  return `Question: ${question}
+  return `\n<question>\n${question}\n</question>
 
 Available tools:
+<tools>
 ${toolDescriptions}
+</tools>
 
 Select the best tool and parameters to answer this question.`;
 }
@@ -53,21 +55,30 @@ Select the best tool and parameters to answer this question.`;
 export const ANSWER_SCORING_SYSTEM_PROMPT = `You are an answer quality evaluator. Given a question and an answer, evaluate the answer quality on multiple dimensions.
 
 Score each dimension as -1, 0, or 1:
-- comprehensive: Does the answer cover all aspects of the question? (-1: misses key aspects, 0: partially covers, 1: fully comprehensive)
-- detailed: Is the answer appropriately detailed? (-1: lacks detail, 0: adequate detail, 1: well detailed)
-- confident: Does the answer seem confident and authoritative? (-1: uncertain/hedging, 0: neutral, 1: confident)
-- tooLong: Is the answer unnecessarily verbose? (-1: yes too long, 0: appropriate length, 1: concise and efficient)
-- tooShort: Is the answer too brief? (-1: yes too short, 0: appropriate length, 1: complete)
-- fullyAnswered: Was the question fully answered? (-1: not answered, 0: partially answered, 1: fully answered)
-- overallScore: Overall quality assessment (-1: poor, 0: acceptable, 1: good)
+- comprehensive: Coverage of all required aspects/parts of the question.
+  -1: misses one or more essential aspects or sub-questions; 0: covers some key aspects but leaves gaps; 1: covers all essential aspects with no material omissions.
+- detailed: Appropriateness of detail for the question's scope.
+  -1: too shallow, vague, or hand-wavy; 0: adequate but minimal detail; 1: includes concrete specifics, steps, or evidence where relevant without padding.
+- confident: Tone and certainty relative to available information.
+  -1: heavy hedging, uncertainty, or self-contradiction; 0: neutral/qualified appropriately; 1: confident and authoritative without overclaiming.
+- tooLong: Length efficiency relative to the question.
+  -1: verbose, repetitive, or includes substantial irrelevant content; 0: reasonable length with minor extra content; 1: concise and efficient, no fluff.
+- tooShort: Sufficiency of length to answer the question.
+  -1: clearly insufficient, missing necessary explanation; 0: sufficient but borderline; 1: complete and self-contained.
+- fullyAnswered: Whether the question is answered directly and completely.
+  -1: not answered or mostly off-topic; 0: partially answered; 1: directly and fully answered.
+- overallScore: Overall quality considering correctness, relevance, and usefulness.
+  -1: poor or misleading; 0: acceptable but limited; 1: good and reliable.
 
 Return ONLY a valid JSON object with these exact keys and integer values (-1, 0, or 1).`;
 
 export function getAnswerScoringUserPrompt(question: string, toolOutput: string): string {
-  return `Question: ${question}
+  return `\n<question>\n${question}\n</question>
 
 Answer/Tool Output:
+<tool_output>
 ${toolOutput}
+</tool_output>
 
 Evaluate the quality of this answer.`;
 }

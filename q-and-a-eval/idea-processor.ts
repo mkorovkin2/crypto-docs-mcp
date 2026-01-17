@@ -116,6 +116,8 @@ interface ToolCallRecord {
   toolOutput: string;
   sourceFile: string;
   timestamp: string;
+  runId: string;
+  runStartedAt: string;
 }
 
 interface ScoreRecord {
@@ -129,7 +131,14 @@ interface ScoreRecord {
   fullyAnswered: number;
   overallScore: number;
   timestamp: string;
+  runId: string;
+  runStartedAt: string;
 }
+
+type RunContext = {
+  runId: string;
+  runStartedAt: string;
+};
 
 type JsonRpcResponse<T> = {
   result?: T;
@@ -240,6 +249,28 @@ function logSuccess(message: string, data?: unknown): void {
 // DATABASE SETUP
 // ============================================================================
 
+type ColumnInfo = {
+  name: string;
+};
+
+function quoteIdentifier(value: string): string {
+  return `"${value.replace(/"/g, "\"\"")}"`;
+}
+
+function ensureColumn(
+  db: Database.Database,
+  table: string,
+  column: string,
+  type: string
+): void {
+  const columns = db.prepare(`PRAGMA table_info(${quoteIdentifier(table)})`).all() as ColumnInfo[];
+  if (columns.some((col) => col.name === column)) {
+    return;
+  }
+  db.exec(`ALTER TABLE ${quoteIdentifier(table)} ADD COLUMN ${quoteIdentifier(column)} ${type}`);
+  logInfo(`Added column ${table}.${column}`);
+}
+
 function initializeDatabase(dbPath: string): Database.Database {
   logInfo(`Initializing SQLite database at: ${dbPath}`);
 
@@ -255,7 +286,9 @@ function initializeDatabase(dbPath: string): Database.Database {
       tool_input TEXT,
       tool_output TEXT,
       source_file TEXT NOT NULL,
-      timestamp TEXT NOT NULL
+      timestamp TEXT NOT NULL,
+      run_id TEXT,
+      run_started_at TEXT
     )
   `);
 
@@ -272,9 +305,16 @@ function initializeDatabase(dbPath: string): Database.Database {
       fully_answered INTEGER NOT NULL,
       overall_score INTEGER NOT NULL,
       timestamp TEXT NOT NULL,
+      run_id TEXT,
+      run_started_at TEXT,
       FOREIGN KEY (call_id) REFERENCES tool_calls(id)
     )
   `);
+
+  ensureColumn(db, "tool_calls", "run_id", "TEXT");
+  ensureColumn(db, "tool_calls", "run_started_at", "TEXT");
+  ensureColumn(db, "scores", "run_id", "TEXT");
+  ensureColumn(db, "scores", "run_started_at", "TEXT");
 
   logInfo("Database tables initialized successfully");
   return db;
@@ -282,8 +322,19 @@ function initializeDatabase(dbPath: string): Database.Database {
 
 function insertToolCall(db: Database.Database, record: ToolCallRecord): void {
   const stmt = db.prepare(`
-    INSERT INTO tool_calls (id, question_text, tool_name, tool_params, tool_input, tool_output, source_file, timestamp)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO tool_calls (
+      id,
+      question_text,
+      tool_name,
+      tool_params,
+      tool_input,
+      tool_output,
+      source_file,
+      timestamp,
+      run_id,
+      run_started_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   stmt.run(
@@ -294,7 +345,9 @@ function insertToolCall(db: Database.Database, record: ToolCallRecord): void {
     record.toolInput,
     record.toolOutput,
     record.sourceFile,
-    record.timestamp
+    record.timestamp,
+    record.runId,
+    record.runStartedAt
   );
 
   logDebug(`Inserted tool call record with ID: ${record.id}`);
@@ -302,8 +355,21 @@ function insertToolCall(db: Database.Database, record: ToolCallRecord): void {
 
 function insertScore(db: Database.Database, record: ScoreRecord): void {
   const stmt = db.prepare(`
-    INSERT INTO scores (id, call_id, comprehensive, detailed, confident, too_long, too_short, fully_answered, overall_score, timestamp)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO scores (
+      id,
+      call_id,
+      comprehensive,
+      detailed,
+      confident,
+      too_long,
+      too_short,
+      fully_answered,
+      overall_score,
+      timestamp,
+      run_id,
+      run_started_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   stmt.run(
@@ -316,7 +382,9 @@ function insertScore(db: Database.Database, record: ScoreRecord): void {
     record.tooShort,
     record.fullyAnswered,
     record.overallScore,
-    record.timestamp
+    record.timestamp,
+    record.runId,
+    record.runStartedAt
   );
 
   logDebug(`Inserted score record with ID: ${record.id} for call: ${record.callId}`);
@@ -747,7 +815,8 @@ async function processQuestion(
   db: Database.Database,
   question: string,
   tools: MCPTool[],
-  sourceFile: string
+  sourceFile: string,
+  runContext: RunContext
 ): Promise<void> {
   logInfo("=".repeat(40));
   logInfo(`Processing question: "${question}"`);
@@ -772,6 +841,8 @@ async function processQuestion(
       toolOutput: toolSelection.noToolReason || "No matching tool found",
       sourceFile: sourceFile,
       timestamp: new Date().toISOString(),
+      runId: runContext.runId,
+      runStartedAt: runContext.runStartedAt,
     };
 
     insertToolCall(db, callRecord);
@@ -790,6 +861,8 @@ async function processQuestion(
       fullyAnswered: -2,
       overallScore: -2,
       timestamp: new Date().toISOString(),
+      runId: runContext.runId,
+      runStartedAt: runContext.runStartedAt,
     };
 
     insertScore(db, scoreRecord);
@@ -821,6 +894,8 @@ async function processQuestion(
     toolOutput: outputText,
     sourceFile: sourceFile,
     timestamp: new Date().toISOString(),
+    runId: runContext.runId,
+    runStartedAt: runContext.runStartedAt,
   };
 
   insertToolCall(db, callRecord);
@@ -842,6 +917,8 @@ async function processQuestion(
     fullyAnswered: scores.fullyAnswered,
     overallScore: scores.overallScore,
     timestamp: new Date().toISOString(),
+    runId: runContext.runId,
+    runStartedAt: runContext.runStartedAt,
   };
 
   insertScore(db, scoreRecord);
@@ -851,7 +928,8 @@ async function processQuestion(
 async function processFile(
   db: Database.Database,
   filePath: string,
-  tools: MCPTool[]
+  tools: MCPTool[],
+  runContext: RunContext
 ): Promise<void> {
   logInfo("*".repeat(60));
   logInfo(`PROCESSING FILE: ${filePath}`);
@@ -875,7 +953,7 @@ async function processFile(
   for (let i = 0; i < questions.length; i++) {
     logInfo(`Processing question ${i + 1} of ${questions.length}`);
     try {
-      await processQuestion(db, questions[i], tools, filePath);
+      await processQuestion(db, questions[i], tools, filePath, runContext);
       successCount++;
     } catch (error) {
       failCount++;
@@ -901,6 +979,11 @@ async function main(): Promise<void> {
 
   // Step 2: Initialize database
   const db = initializeDatabase(CONFIG.databasePath);
+  const runContext: RunContext = {
+    runId: uuidv4(),
+    runStartedAt: new Date().toISOString(),
+  };
+  logInfo(`Run ID: ${runContext.runId}`);
 
   try {
     // Step 3: Discover IDEA_ files
@@ -927,7 +1010,7 @@ async function main(): Promise<void> {
       const filePath = ideaFiles[i];
       logInfo(`Processing file ${i + 1} of ${ideaFiles.length}: ${filePath}`);
       try {
-        await processFile(db, filePath, tools);
+        await processFile(db, filePath, tools, runContext);
         fileSuccessCount++;
       } catch (error) {
         fileFailCount++;
