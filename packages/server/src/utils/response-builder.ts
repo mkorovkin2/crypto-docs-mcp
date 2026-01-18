@@ -166,6 +166,7 @@ export class ResponseBuilder {
    */
   buildMCPResponse(answer: string): { content: Array<{ type: string; text: string }> } {
     const response = this.build(answer);
+    const includeResponseMetadata = process.env.MCP_RESPONSE_METADATA !== 'false';
 
     // Format indexed sources for text display
     const indexedSourcesText = response.sources.length > 0
@@ -187,8 +188,9 @@ export class ResponseBuilder {
       ? response.metadata.warnings.map(w => `⚠️ ${w}`).join('\n') + '\n'
       : '';
 
-    // Build the complete formatted response
-    let formattedAnswer = `${response.answer}
+    let formattedAnswer = response.answer;
+    if (includeResponseMetadata) {
+      formattedAnswer = `${response.answer}
 
 ---
 Confidence: ${response.metadata.confidence}%
@@ -196,6 +198,7 @@ Latency: ${response.metadata.processingTimeMs}ms
 ${warningsText}
 ### Sources
 ${sourcesText}`;
+    }
 
     // Only include structured metadata JSON when DEBUG_RAG is set
     if (process.env.DEBUG_RAG === 'true') {

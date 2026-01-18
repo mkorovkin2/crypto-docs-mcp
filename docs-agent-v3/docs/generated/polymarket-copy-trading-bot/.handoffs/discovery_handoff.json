@@ -1,0 +1,175 @@
+{
+  "repository_path": "/Users/mkorovkin/Desktop/crypto-docs-mcp/Polymarket-Copy-Trading-Bot",
+  "total_files": 17,
+  "files": [
+    {
+      "path": "README.md",
+      "file_type": "documentation",
+      "language": null,
+      "importance": 6,
+      "description": ""
+    },
+    {
+      "path": "package.json",
+      "file_type": "config",
+      "language": null,
+      "importance": 7,
+      "description": ""
+    },
+    {
+      "path": "tsconfig.json",
+      "file_type": "config",
+      "language": null,
+      "importance": 7,
+      "description": ""
+    },
+    {
+      "path": "src/index.ts",
+      "file_type": "source_code",
+      "language": "typescript",
+      "importance": 9,
+      "description": ""
+    },
+    {
+      "path": "src/config/env.ts",
+      "file_type": "source_code",
+      "language": "typescript",
+      "importance": 5,
+      "description": ""
+    },
+    {
+      "path": "src/trader/riskManager.ts",
+      "file_type": "source_code",
+      "language": "typescript",
+      "importance": 5,
+      "description": ""
+    },
+    {
+      "path": "src/trader/positionManager.ts",
+      "file_type": "source_code",
+      "language": "typescript",
+      "importance": 5,
+      "description": ""
+    },
+    {
+      "path": "src/trader/orderManager.ts",
+      "file_type": "source_code",
+      "language": "typescript",
+      "importance": 5,
+      "description": ""
+    },
+    {
+      "path": "src/utils/math.ts",
+      "file_type": "source_code",
+      "language": "typescript",
+      "importance": 5,
+      "description": ""
+    },
+    {
+      "path": "src/utils/logger.ts",
+      "file_type": "source_code",
+      "language": "typescript",
+      "importance": 5,
+      "description": ""
+    },
+    {
+      "path": "src/api/websocket.ts",
+      "file_type": "source_code",
+      "language": "typescript",
+      "importance": 5,
+      "description": ""
+    },
+    {
+      "path": "src/api/polymarket.ts",
+      "file_type": "source_code",
+      "language": "typescript",
+      "importance": 5,
+      "description": ""
+    },
+    {
+      "path": "src/market/marketScanner.ts",
+      "file_type": "source_code",
+      "language": "typescript",
+      "importance": 5,
+      "description": ""
+    },
+    {
+      "path": "src/market/orderbook.ts",
+      "file_type": "source_code",
+      "language": "typescript",
+      "importance": 5,
+      "description": ""
+    },
+    {
+      "path": "src/strategy/baseStrategy.ts",
+      "file_type": "source_code",
+      "language": "typescript",
+      "importance": 5,
+      "description": ""
+    },
+    {
+      "path": "src/strategy/momentum.ts",
+      "file_type": "source_code",
+      "language": "typescript",
+      "importance": 5,
+      "description": ""
+    },
+    {
+      "path": "src/strategy/spreadArb.ts",
+      "file_type": "source_code",
+      "language": "typescript",
+      "importance": 5,
+      "description": ""
+    }
+  ],
+  "directory_structure": {
+    "README.md": 5457,
+    "package.json": 969,
+    "src/": {
+      "api/": {
+        "polymarket.ts": 6813,
+        "websocket.ts": 5471
+      },
+      "config/": {
+        "env.ts": 4530
+      },
+      "index.ts": 12949,
+      "market/": {
+        "marketScanner.ts": 6754,
+        "orderbook.ts": 8817
+      },
+      "strategy/": {
+        "baseStrategy.ts": 3495,
+        "momentum.ts": 12183,
+        "spreadArb.ts": 8319
+      },
+      "trader/": {
+        "orderManager.ts": 12491,
+        "positionManager.ts": 11766,
+        "riskManager.ts": 12316
+      },
+      "utils/": {
+        "logger.ts": 252,
+        "math.ts": 3916
+      }
+    },
+    "tsconfig.json": 556
+  },
+  "detected_languages": [
+    "typescript",
+    "javascript"
+  ],
+  "detected_frameworks": [
+    "Mvc Pattern",
+    "Service Pattern",
+    "Factory Pattern",
+    "Observer Pattern",
+    "Pattern Pattern",
+    "Repository Pattern"
+  ],
+  "entry_points": [
+    "dist/index.js",
+    "src/index.ts"
+  ],
+  "summary": "### 1. Summary of Repository Purpose\nThe Polymarket-Copy-Trading-Bot repository implements a production-ready automated trading bot for Polymarket's prediction markets on the Polygon blockchain, focusing on algorithmic strategies to exploit inefficiencies in binary YES/NO outcome tokens via the platform's Central Limit Order Book (CLOB) API and WebSocket for real-time data. It handles market discovery, strategy execution (such as spread arbitrage and momentum trading), order placement, and risk management to generate trading signals and manage positions. Despite the repository name suggesting copy trading functionality, no such implementation is present, indicating a potential mismatch between the title and actual codebase scope.\n\n### 2. Primary Programming Languages Used\nThe primary language is TypeScript, built on Node.js runtime, as confirmed by the presence of `.ts` files (e.g., `src/index.ts`, `src/config/env.ts`) and TypeScript tooling detected in `package.json`. While `tool_check_language_tools` initially flagged it as JavaScript, the codebase structure and imports clearly indicate TypeScript as the development language, with no other languages (e.g., Python or Solidity) present.\n\n### 3. Frameworks and Libraries Detected\n- **Node.js**: Core runtime for the event-driven application.\n- **Decimal.js**: Used for precise financial calculations in trading logic (e.g., handling spreads and positions in files like `src/strategy/spreadArb.ts` and `src/utils/math.ts`).\n- **Polymarket API Integrations**: Custom wrappers for REST (in `src/api/polymarket.ts`) and WebSocket (in `src/api/websocket.ts`) endpoints, without external SDKs mentioned.\nNo major frameworks like Express or NestJS are evident; the project relies on native Node.js modules for modularity. Dependencies in `package.json` likely include WebSocket clients and HTTP libraries (e.g., Axios or node-fetch, inferred from API usage), but no database libraries (e.g., MongoDB) are integrated despite README mentions.\n\n### 4. Key Entry Points\n- **Main Entry Point**: `src/index.ts` serves as the primary bootstrap file, initializing the application, loading configurations from `src/config/env.ts`, starting the market scanner (`src/market/marketScanner.ts`), and launching strategy execution loops.\n- **Configuration Entry**: `src/config/env.ts` acts as an indirect entry for environment setup, exporting variables for API keys, risk parameters, and strategy toggles.\n- No explicit CLI entry points (e.g., via Commander.js) are mentioned, but the bot appears designed for serverless or long-running Node.js execution, potentially invocable via `npm start` from `package.json` scripts.\n\n### 5. Overall Architecture Pattern\nThe architecture follows a **modular monolith** pattern with layered separation of concerns, incorporating design patterns such as MVC (Model-View-Controller, e.g., market models in `src/market/orderbook.ts`, controller-like logic in `src/trader/orderManager.ts`), Service (business logic services in strategies like `src/strategy/baseStrategy.ts`), Factory (for creating strategy instances), Observer (event-driven updates via WebSocket in `src/api/websocket.ts`), and Repository (data access abstractions for API calls in `src/api/polymarket.ts`). It is not microservices-based but a single cohesive Node.js application, emphasizing event-driven communication for real-time responsiveness rather than a strict microservices decomposition.\n\n### 6. Most Important Directories/Modules and Their Responsibilities\n- **src (Root Source Directory)**: Houses the entire business logic, responsible for API integrations, market analysis, strategy execution, and trading operations. It orchestrates the bot's core workflow, from data ingestion to order fulfillment, using modular subdirectories for separation.\n- **src/config**: Manages environment and configuration loading (e.g., `env.ts` exports API credentials, risk thresholds, and strategy parameters like position limits and daily loss caps).\n- **src/api**: Handles external integrations, including REST API calls for market data and orders (`polymarket.ts`) and real-time streaming via WebSocket (`websocket.ts`) for orderbook updates.\n- **src/market**: Focuses on discovery and analysis, with `marketScanner.ts` scanning active prediction markets for tradable opportunities (filtering by volume, liquidity, and resolution time) and `orderbook.ts` parsing real-time depth for spreads and momentum signals.\n- **src/strategy**: Implements trading algorithms, extending a base class (`baseStrategy.ts`) for pluggable strategies like spread arbitrage (`spreadArb.ts`, exploiting YES/NO mispricings) and momentum trading (`momentum.ts`, detecting price trends).\n- **src/trader**: Oversees execution and safeguards, with `orderManager.ts` placing limit orders, tracking fills/cancellations, and handling slippage, while `riskManager.ts` enforces controls like position limits, cooldowns, and circuit breakers.\n- **src/utils** (Inferred from imports): Provides supporting utilities, such as logging (`logger.ts`) for event tracking and mathematical precision (`math.ts` using Decimal.js).\n\nThe root directory contains high-level files like `README.md` (project overview) and `package.json` (dependencies and scripts), but no tests or deployment configs are deeply explored.\n\n### 7. How the Different Parts Connect and Interact\nThe components interact via an event-driven, import-based flow starting from `src/index.ts`, which initializes configurations (`src/config/env.ts`) and kicks off the market scanner (`src/market/marketScanner.ts`). The scanner fetches active markets via `src/api/polymarket.ts` and subscribes to real-time orderbooks through `src/api/websocket.ts`, emitting events (Observer pattern) to notify strategies in `src/strategy`. Strategies like `spreadArb.ts` or `momentum.ts` (extending `baseStrategy.ts`) analyze this data—e.g., calculating spreads using `src/utils/math.ts`—and generate signals, which are validated by `src/trader/riskManager.ts` before passing to `src/trader/orderManager.ts` for execution (e.g., placing limit orders via API calls). Feedback loops occur through WebSocket updates and logging (`src/utils/logger.ts`), with partial fills or cancellations triggering risk reassessments. This creates a responsive pipeline: data ingestion (API/Market) → analysis (Strategy) → validation/execution (Trader) → monitoring (Utils), all coordinated in a single process without inter-service calls.\n\n### 8. Notable Observations About Code Quality or Design\nThe codebase demonstrates strong modularity and production-readiness through clear separation of concerns (e.g., strategies as extensible classes in `src/strategy/baseStrategy.ts`), precise handling of financial edge cases with Decimal.js, and built-in safeguards like slippage protection in `src/trader/orderManager.ts`. Event-driven design via WebSocket ensures low-latency trading, aligning with real-time market needs. However, a notable discrepancy exists: the README.md implies copy trading features (e.g., mirroring user positions), but no such modules are implemented, suggesting incomplete or rebranded development. Code quality appears high with TypeScript for type safety, but lacks evident unit tests or error-handling comprehensiveness in explored files; inferred patterns (MVC, Service) promote maintainability, though the monolith could benefit from dependency injection for scalability. Overall, it's well-suited for algorithmic trading but may require expansions for full copy trading alignment."
+}

@@ -90,6 +90,9 @@
  *   QDRANT_COLLECTION   - Qdrant collection name (default: crypto_docs)
  *   SQLITE_PATH         - SQLite DB path (default: ./data/crypto_docs.db)
  *
+ * RESPONSE OUTPUT:
+ *   MCP_RESPONSE_METADATA   - Include response footer (confidence/latency/warnings/sources) (default: true)
+ *
  * ============================================================================
  */
 

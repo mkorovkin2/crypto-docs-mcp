@@ -1,0 +1,1294 @@
+[
+  {
+    "path": "src/index.ts",
+    "language": "typescript",
+    "purpose": "This file defines the `PolymarketTradingBot` class, which serves as the main entry point and orchestrator for an automated trading bot designed for Polymarket prediction markets. It integrates various",
+    "imports": [
+      {
+        "module": "events",
+        "names": [
+          "EventEmitter"
+        ],
+        "is_relative": false,
+        "is_external": true
+      },
+      {
+        "module": "./api/polymarket",
+        "names": [
+          "PolymarketAPI"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "./api/websocket",
+        "names": [
+          "PolymarketWebSocket"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "./market/marketScanner",
+        "names": [
+          "MarketScanner"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "./market/orderbook",
+        "names": [
+          "OrderbookEngine"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "./strategy/spreadArb",
+        "names": [
+          "SpreadArbitrageStrategy"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "./strategy/momentum",
+        "names": [
+          "MomentumStrategy"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "./trader/riskManager",
+        "names": [
+          "RiskManager"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "./trader/orderManager",
+        "names": [
+          "OrderManager"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "./trader/positionManager",
+        "names": [
+          "PositionManager"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "./config/env",
+        "names": [
+          "config"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "./utils/logger",
+        "names": [
+          "logger"
+        ],
+        "is_relative": true,
+        "is_external": false
+      }
+    ],
+    "exports": [],
+    "classes": [
+      {
+        "name": "PolymarketTradingBot",
+        "line_number": 31,
+        "base_classes": [
+          "EventEmitter"
+        ],
+        "docstring": null,
+        "description": "Class PolymarketTradingBot",
+        "methods": [],
+        "attributes": []
+      }
+    ],
+    "functions": [
+      {
+        "name": "main",
+        "line_number": 436,
+        "parameters": [],
+        "return_type": null,
+        "docstring": null,
+        "description": "Function main",
+        "complexity": "low",
+        "calls": []
+      }
+    ],
+    "constants": [],
+    "key_insights": [
+      "Design Patterns Used:**",
+      "Observer Pattern:** Heavily utilized through `EventEmitter`. Components emit events (e.g., `marketScanner.on('scanComplete')`, `orderManager.on('orderFill')`), and the `PolymarketTradingBot` (or other",
+      "Strategy Pattern:** Evident in how `SpreadArbitrageStrategy` and `MomentumStrategy` are managed. The `PolymarketTradingBot` can dynamically enable and execute different trading strategies without chan",
+      "Facade Pattern:** The `PolymarketTradingBot` itself acts as a facade, providing a simplified interface (`start()`, `stop()`, `getStatus()`) to a complex subsystem of trading components.",
+      "Dependency Injection (Implicit):** Components are instantiated in the constructor and passed their dependencies (e.g., `new OrderManager(this.api, this.riskManager)`), making the system more modular a",
+      "Notable Implementation Choices:**",
+      "Centralized Orchestration:** The `PolymarketTradingBot` class serves as the single point of control, which simplifies understanding the overall flow but also makes it a potentially large and complex c",
+      "Config-Driven Strategy Enablement:** Strategies are enabled based on `config` settings, allowing for easy toggling without code changes.",
+      "Dedicated Managers:** The clear separation of concerns into `RiskManager`, `OrderManager`, `PositionManager`, `MarketScanner`, and `OrderbookEngine` promotes modularity and maintainability.",
+      "Emergency Stop Mechanism:** The `emergencyStop()` method is a critical safety feature, demonstrating a focus on risk mitigation in automated trading.",
+      "Graceful Shutdown:** The `stop()` and `shutdown()` methods, along with the `SIGINT` handler, indicate an effort to ensure the bot can be terminated cleanly, minimizing potential issues like orphaned o",
+      "Logging:** Consistent use of a `logger` utility for informational, warning, and error messages is crucial for monitoring and debugging a complex system like a trading bot.",
+      "Potential Issues or Technical Debt:**",
+      "`any` Types:** The use of `any[]` in `handleMarketScanComplete` and `any` in `handleOrderFill` and `getStatus` return types indicates a lack of strict type definitions for market, fill, and status obj",
+      "Simplified Outcome Mapping:** In `handleOrderFill`, `order.tokenId` is used for `outcomeId`. While this might be a simplification for Polymarket, it's worth verifying if `tokenId` always directly maps",
+      "Hardcoded Values:** The `topMarkets.slice(0, 10"
+    ],
+    "dependencies": [
+      "events"
+    ],
+    "complexity_score": 5,
+    "raw_summary": "Here's a detailed analysis of the provided TypeScript file:\n\n---\n\n### 1. PURPOSE\n\nThis file defines the `PolymarketTradingBot` class, which serves as the main entry point and orchestrator for an automated trading bot designed for Polymarket prediction markets. It integrates various components for market data acquisition, orderbook management, strategy execution, risk management, and position tracking.\n\n---\n\n### 2. IMPORTS\n\n**External Libraries:**\n*   `events`: Provides the `EventEmitter` class, enabling event-driven communication within the bot. (Node.js built-in module)\n\n**Internal Modules (from this codebase):**\n*   `./api/polymarket`: `PolymarketAPI` - Likely handles direct HTTP/REST interactions with the Polymarket platform.\n*   `./api/websocket`: `PolymarketWebSocket` - Manages real-time data streaming from Polymarket via WebSocket.\n*   `./market/marketScanner`: `MarketScanner` - Discovers and filters markets based on predefined criteria.\n*   `./market/orderbook`: `OrderbookEngine` - Manages and processes real-time orderbook data for subscribed markets.\n*   `./strategy/spreadArb`: `SpreadArbitrageStrategy` - Implements a strategy to profit from price discrepancies.\n*   `./strategy/momentum`: `MomentumStrategy` - Implements a strategy based on price momentum.\n*   `./trader/riskManager`: `RiskManager` - Monitors and enforces trading risk limits.\n*   `./trader/orderManager`: `OrderManager` - Handles placing, canceling, and tracking orders.\n*   `./trader/positionManager`: `PositionManager` - Tracks and manages open trading positions.\n*   `./config/env`: `config` - Provides environment-specific configuration settings.\n*   `./utils/logger`: `logger` - A utility for logging messages throughout the application.\n\n**Standard Library:**\n*   `NodeJS.Timeout`: A type definition from Node.js for the return value of `setInterval`.\n\n---\n\n### 3. CLASSES\n\n#### Class: `PolymarketTradingBot`\n\n*   **Base Classes:** Extends `EventEmitter`.\n*   **Purpose/Responsibility:** This class "
+  },
+  {
+    "path": "src/config/env.ts",
+    "language": "typescript",
+    "purpose": "This file is primarily responsible for loading, parsing, and validating application configuration from environment variables. It defines the structure of the configuration and provides a single, stron",
+    "imports": [
+      {
+        "module": "dotenv",
+        "names": [
+          "dotenv"
+        ],
+        "is_relative": false,
+        "is_external": true
+      },
+      {
+        "module": "decimal.js",
+        "names": [
+          "Decimal"
+        ],
+        "is_relative": false,
+        "is_external": true
+      }
+    ],
+    "exports": [
+      "config"
+    ],
+    "classes": [],
+    "functions": [
+      {
+        "name": "getEnvVar",
+        "line_number": 44,
+        "parameters": [],
+        "return_type": null,
+        "docstring": null,
+        "description": "Function getEnvVar",
+        "complexity": "low",
+        "calls": []
+      },
+      {
+        "name": "getEnvDecimal",
+        "line_number": 52,
+        "parameters": [],
+        "return_type": null,
+        "docstring": null,
+        "description": "Function getEnvDecimal",
+        "complexity": "low",
+        "calls": []
+      },
+      {
+        "name": "getEnvBoolean",
+        "line_number": 57,
+        "parameters": [],
+        "return_type": null,
+        "docstring": null,
+        "description": "Function getEnvBoolean",
+        "complexity": "low",
+        "calls": []
+      },
+      {
+        "name": "getEnvNumber",
+        "line_number": 63,
+        "parameters": [],
+        "return_type": null,
+        "docstring": null,
+        "description": "Function getEnvNumber",
+        "complexity": "low",
+        "calls": []
+      },
+      {
+        "name": "validateConfig",
+        "line_number": 75,
+        "parameters": [],
+        "return_type": null,
+        "docstring": null,
+        "description": "Function validateConfig",
+        "complexity": "low",
+        "calls": []
+      }
+    ],
+    "constants": [],
+    "key_insights": [
+      "Design Patterns Used:**",
+      "Configuration Object Pattern:** The file centralizes all application settings into a single, well-defined `EnvConfig` interface and a `config` object. This makes configuration management consistent an",
+      "Factory/Utility Functions:** The `getEnvVar`, `getEnvDecimal`, `getEnvBoolean`, and `getEnvNumber` functions act as factories or utility functions for safely retrieving and parsing environment variabl",
+      "Fail-Fast Validation:** The `validateConfig` function implements a fail-fast approach, throwing an error immediately upon encountering an invalid configuration value, preventing the application from s",
+      "Notable Implementation Choices:**",
+      "Strong Typing:** The `EnvConfig` interface ensures that all configuration properties are strongly typed, improving code readability, maintainability, and catching potential errors at compile-time.",
+      "Arbitrary-Precision Decimals (`decimal.js`):** The use of `Decimal` for financial values (e.g., `maxPositionUsd`, `minSpread`) is a critical and excellent choice. It prevents common floating-point ina",
+      "Centralized Environment Variable Loading:** `dotenv.config()` is called once at the beginning, ensuring all environment variables are loaded before any configuration parsing begins.",
+      "Default Values:** Most configuration options have sensible default values, making the application easier to run out-of-the-box and reducing the number of mandatory environment variables.",
+      "Comprehensive Validation:** The `validateConfig` function covers a wide range of business logic and operational constraints, ensuring that the application runs with safe and expected parameters.",
+      "Potential Issues or Technical Debt:**",
+      "Error Message Granularity:** While errors are thrown, the messages are simple strings. For more robust error handling in a larger application, custom error classes (e.g., `ConfigValidationError`) coul",
+      "`getEnvVar` `defaultValue!` Assertion:** In `return value || defaultValue!;`, the non-null assertion operator `!` on `defaultValue` assumes it will always be defined if `value` is undefined. While the",
+      "`parseInt` for Numbers:** `getEnvNumber` uses `parseInt`. If any configuration value were expected to be a floating-point number (e.g., `0.5`), `parseFloat` would be necessary. Currently, all number-b",
+      "Partial Validation:** The `validateConfig` function takes `Partial<EnvConfig>`. While the entire `config` object is passed to it, using `Partial` means it only validates properties that are present. T",
+      "How it Connects to Other Parts of the System:**",
+      "This file serves as the **single source of truth for application configuration**.",
+      "API Clients:** `polymarketApiKey`, `polymarketApiSecret` will be used by a Polymarket API client module.",
+      "Wallet Management:** `privateKey` will be used by a wallet or signing module for transaction execution.",
+      "Risk Management Module:** `maxPositionUsd`, `maxDailyLossUsd` are crucial inputs for any risk management or position sizing logic.",
+      "Trading Engine/Strategy Modules:** `enablePaperTrading`, `maxOrdersPerMarket`, `orderTimeoutSeconds`, `minSpread`, `spreadArbEnabled`, `momentumEnabled`, `trailingStopPercent` will directly influence ",
+      "Market Data/Filtering:** `minVolumeUsd`, `minLiquidityUsd`, `maxTimeToResolutionHours` will be used to filter which markets the trading system considers.",
+      "WebSocket Client:** `wsReconnectInterval`, `wsHeartbeatInterval` configure the behavior of any WebSocket connections (e.g., for market data or order updates).",
+      "Logging System:** `logLevel`, `enableFileLogging` will configure the application's logging framework."
+    ],
+    "dependencies": [
+      "dotenv",
+      "decimal.js"
+    ],
+    "complexity_score": 5,
+    "raw_summary": "Here's a detailed analysis of the provided TypeScript file:\n\n---\n\n### 1. PURPOSE\n\nThis file is primarily responsible for loading, parsing, and validating application configuration from environment variables. It defines the structure of the configuration and provides a single, strongly-typed `config` object for the rest of the application to consume.\n\n### 2. IMPORTS\n\n*   **External libraries:**\n    *   `dotenv` from `'dotenv'`: Used to load environment variables from a `.env` file into `process.env`.\n    *   `Decimal` from `'decimal.js'`: A library for arbitrary-precision decimal arithmetic, crucial for handling financial values accurately.\n\n*   **Internal modules:** None.\n\n*   **Standard library:** None explicitly imported, but relies on built-in Node.js `process.env` and standard JavaScript types/functions.\n\n### 3. CLASSES\n\nThere are no classes defined in this file.\n\n### 4. FUNCTIONS\n\n*   **`getEnvVar(key: string, defaultValue?: string): string`**\n    *   **Parameters:**\n        *   `key`: The name of the environment variable to retrieve.\n        *   `defaultValue`: An optional default value to return if the environment variable is not set.\n    *   **What it does:** Attempts to retrieve the value of an environment variable specified by `key`. If the variable is not set and no `defaultValue` is provided, it throws an error. Otherwise, it returns the variable's value or the `defaultValue`.\n    *   **What it returns:** The string value of the environment variable or its default.\n    *   **Side effects:** Throws an `Error` if a required environment variable is missing.\n\n*   **`getEnvDecimal(key: string, defaultValue: string): Decimal`**\n    *   **Parameters:**\n        *   `key`: The name of the environment variable.\n        *   `defaultValue`: A string default value to use if the environment variable is not set.\n    *   **What it does:** Uses `getEnvVar` to retrieve the environment variable (or its default), then converts the resulting string into a `Decimal` object.\n "
+  },
+  {
+    "path": "src/trader/riskManager.ts",
+    "language": "typescript",
+    "purpose": "This file's primary responsibility is to manage and enforce risk parameters for a trading system, preventing excessive losses, controlling exposure, and tracking daily trading statistics. It acts as a",
+    "imports": [
+      {
+        "module": "events",
+        "names": [
+          "EventEmitter"
+        ],
+        "is_relative": false,
+        "is_external": true
+      },
+      {
+        "module": "decimal.js",
+        "names": [
+          "Decimal"
+        ],
+        "is_relative": false,
+        "is_external": true
+      },
+      {
+        "module": "../strategy/baseStrategy",
+        "names": [
+          "TradeSignal"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "../config/env",
+        "names": [
+          "config"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "../utils/logger",
+        "names": [
+          "logger"
+        ],
+        "is_relative": true,
+        "is_external": false
+      }
+    ],
+    "exports": [
+      "RiskManager"
+    ],
+    "classes": [
+      {
+        "name": "RiskManager",
+        "line_number": 33,
+        "base_classes": [
+          "EventEmitter"
+        ],
+        "docstring": null,
+        "description": "Class RiskManager",
+        "methods": [],
+        "attributes": []
+      }
+    ],
+    "functions": [],
+    "constants": [],
+    "key_insights": [
+      "Design Patterns Used:**",
+      "Observer Pattern:** Implemented through `EventEmitter`. The `RiskManager` emits events (`emergencyStopLoss`, `dailyStatsUpdate`, `circuitBreaker`) that other parts of the trading system can subscribe ",
+      "State Pattern (Implicit):** The `circuitBreaker` flag and `cooldownMarkets` set represent different states of the trading system or specific markets, influencing how trade signals are processed.",
+      "Strategy Pattern (Implicit):** While not a formal strategy pattern within this file, the `checkTradeSignal` method acts as a \"risk strategy\" that evaluates a `TradeSignal` from an external \"trading st",
+      "Notable Implementation Choices:**",
+      "`decimal.js` for Precision:** The use of `decimal.js` is an excellent and critical choice for financial applications, ensuring accurate calculations and preventing floating-point arithmetic errors tha",
+      "Layered Risk Checks:** The `checkTradeSignal` method implements a comprehensive set of risk checks, ranging from global circuit breakers to individual position limits and trade frequency, providing ro",
+      "Time-Based Risk Mitigation:** Cooldown periods for markets and a circuit breaker with an automatic reset mechanism demonstrate a practical approach to managing temporary adverse conditions.",
+      "Daily Performance Tracking:** The `dailyStats` and their scheduled reset provide essential metrics for evaluating the system's performance over time and enforcing daily limits.",
+      "Logging:** Extensive use of `logger.info`, `logger.warn`, and `logger.error` ensures good operational visibility and debugging capabilities.",
+      "Potential Issues or Technical Debt:**",
+      "Persistence:** The current implementation stores all state (`dailyStats`, `positions`, `tradeHistory`, `cooldownMarkets`) in memory. If the application restarts, all this state will be lost. For a pro",
+      "Time-Based Scheduling Robustness:** `setTimeout` and `setInterval` are sufficient for simple in-process scheduling. However, for critical daily resets, relying solely on these might be fragile. If the",
+      "Circuit Breaker Reset Logic:** The circuit breaker reset also calls `resetDailyStats()`. This implies the circuit breaker is primarily tied to daily loss limits. If the circuit breaker were to be acti",
+      "Trade History Management:** While `tradeHistory` is capped at 1000, for very high-frequency trading, even this could be a large array. If more extensive historical analysis is needed, a dedicated data",
+      "Error Handling Granularity:** The `checkTradeSignal` method has a generic `catch (error)` block. While it prevents crashes, more specific error types could provide better debugging information.",
+      "How it Connects to Other Parts of the System:**",
+      "Trading Strategies:** It directly consumes `TradeSignal` objects from trading strategies, acting as a gatekeeper before orders are placed.",
+      "Order Execution Service:** It would likely emit events (e.g., `emergencyStopLoss`) that an order execution service would listen to, triggering immediate actions like closing positions. Conversely, the",
+      "Configuration Service:** Relies on a `config` module for dynamic risk parameters, allowing easy adjustment of limits without code changes.",
+      "Monitoring/Dashboard:** The `getRiskMetrics()` method provides data that could be consumed by a monitoring dashboard to display real-time risk status and performance. The `dailyStatsUpdate` and `circu",
+      "Logging/Alerting System:** Integrates with a `logger` utility for operational insights and potential alerts on critical events."
+    ],
+    "dependencies": [
+      "events",
+      "decimal.js"
+    ],
+    "complexity_score": 5,
+    "raw_summary": "This TypeScript file defines a `RiskManager` class, a crucial component for any automated trading system, responsible for enforcing risk management rules and tracking trading performance.\n\n---\n\n### 1. PURPOSE\n\nThis file's primary responsibility is to manage and enforce risk parameters for a trading system, preventing excessive losses, controlling exposure, and tracking daily trading statistics. It acts as a gatekeeper for trade signals and a monitor for active positions.\n\n---\n\n### 2. IMPORTS\n\n*   **External libraries:**\n    *   `events` (from Node.js standard library, but often treated as an external dependency in application context): Provides the `EventEmitter` class for event-driven communication.\n    *   `decimal.js`: Provides the `Decimal` class for high-precision arithmetic, crucial for financial calculations to avoid floating-point errors.\n*   **Internal modules:**\n    *   `../strategy/baseStrategy`: Imports the `TradeSignal` interface, indicating that the risk manager processes signals generated by trading strategies.\n    *   `../config/env`: Imports the `config` object, which likely contains environment-specific risk parameters (e.g., `maxDailyLossUsd`, `maxPositionUsd`).\n    *   `../utils/logger`: Imports a `logger` utility for logging informational messages, warnings, and errors.\n\n---\n\n### 3. CLASSES\n\n#### Class: `RiskManager`\n\n*   **Base Class:** `EventEmitter`\n*   **Purpose/Responsibility:**\n    The `RiskManager` class is the central hub for all risk-related operations. It evaluates incoming trade signals against a set of predefined risk rules, manages active positions, tracks daily performance metrics, and implements circuit breakers and cooldown periods to mitigate risk. It emits events to notify other parts of the system about critical risk events like stop losses or circuit breaker activations.\n\n*   **Key Methods:**\n    *   `constructor()`:\n        *   **Role:** Initializes the risk manager, setting up initial daily statistics and scheduling a daily"
+  },
+  {
+    "path": "src/trader/positionManager.ts",
+    "language": "typescript",
+    "purpose": "This file's primary responsibility is to maintain an accurate, up-to-date representation of a trader's open positions, including their entry prices, sizes, current market values, and unrealized profit",
+    "imports": [
+      {
+        "module": "events",
+        "names": [
+          "EventEmitter"
+        ],
+        "is_relative": false,
+        "is_external": true
+      },
+      {
+        "module": "decimal.js",
+        "names": [
+          "Decimal"
+        ],
+        "is_relative": false,
+        "is_external": true
+      },
+      {
+        "module": "../market/orderbook",
+        "names": [
+          "OrderbookSnapshot"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "../utils/logger",
+        "names": [
+          "logger"
+        ],
+        "is_relative": true,
+        "is_external": false
+      }
+    ],
+    "exports": [
+      "PositionManager"
+    ],
+    "classes": [
+      {
+        "name": "PositionManager",
+        "line_number": 33,
+        "base_classes": [
+          "EventEmitter"
+        ],
+        "docstring": null,
+        "description": "Class PositionManager",
+        "methods": [],
+        "attributes": []
+      }
+    ],
+    "functions": [],
+    "constants": [],
+    "key_insights": [
+      "Design Patterns Used:**",
+      "Observer Pattern:** By extending `EventEmitter`, `PositionManager` allows other parts of the application to subscribe to and react to changes in positions (e.g., `positionsSynced`, `positionUpdated`, ",
+      "Dependency Injection:** The `PolymarketAPI` and `RiskManager` instances are injected through the constructor, promoting loose coupling and testability.",
+      "Strategy Pattern (Implicit):** The `RiskManager` can be seen as a strategy for handling risk calculations, allowing different risk management approaches to be plugged in.",
+      "Notable Implementation Choices:**",
+      "`Decimal.js` for Precision:** The use of `Decimal.js` is a critical and correct choice for financial applications to prevent floating-point errors that can lead to significant discrepancies in P&L cal",
+      "`Map` for Positions:** Using a `Map` for `positions` (keyed by `marketId:tokenId`) provides efficient O(1) lookup, addition, and deletion of positions.",
+      "Periodic Sync:** The `startPositionUpdates` method ensures that the internal state eventually reflects the actual positions on the exchange, though the current implementation only checks for sync ever",
+      "Separation of Concerns:** The `PositionManager` focuses on position data and P&L, delegating specific risk calculations to the `RiskManager`.",
+      "Event-Driven Updates:** Emitting events allows for a reactive architecture where UI components, other services, or logging systems can easily respond to position changes without tight coupling.",
+      "Potential Issues or Technical Debt:**",
+      "\"Simplified\" Calculations/Placeholders:**",
+      "`syncPositions` uses `apiPos.avgPrice` as `currentPrice`, which is incorrect for a real-time current market price. It should ideally fetch this from an orderbook or a dedicated price feed.",
+      "`riskPercent: new Decimal(apiPos.size).div(100).mul(100)` simplifies to `apiPos.size`, which is likely not the intended risk percentage calculation. This needs to be properly defined.",
+      "`getPortfolioSummary`'s `maxDrawdown` is a placeholder (`riskMetrics.dailyPnL`), indicating that a proper drawdown calculation is missing.",
+      "`getPositionsNearResolution` is a stub and needs actual implementation, likely requiring additional market data (e.g., market resolution times).",
+      "Error Handling:** While `try-catch` blocks are present for `syncPositions`, the error handling is basic (logging). More robust error propagation or retry mechanisms might be needed in a production sys",
+      "Real-time Price Updates:** The `priceUpdateInterval` primarily handles API syncs. Real-time price updates from `updatePositionPrices` are expected to be pushed from an external source (e.g., a WebSock",
+      "Event Threshold:** The `pnlChange.abs().greaterThan(0.1)` threshold for emitting `positionUpdated` is a hardcoded magic number. It might be better as a configurable parameter.",
+      "How it Connects to Other Parts of the System:**",
+      "`PolymarketAPI`:** Directly consumes position data from the API.",
+      "`RiskManager`:** Collaborates closely, updating it with position changes and querying it for risk metrics.",
+      "`OrderbookSnapshot`:** Receives real-time market data to update position prices and P&L. This implies a separate \"Market Data\" or \"Orderbook Listener\" component that feeds snapshots to the `PositionMa",
+      "`logger`:** Utilizes the shared logging utility for operational insights and debugging.",
+      "UI/Reporting/Other Services:** As an `EventEmitter`, it serves as a data source for any component interested in portfolio positions, P&L, or summary statistics."
+    ],
+    "dependencies": [
+      "events",
+      "decimal.js"
+    ],
+    "complexity_score": 5,
+    "raw_summary": "This TypeScript file defines a `PositionManager` class responsible for managing a portfolio of trading positions, tracking their state, calculating P&L, and interacting with external APIs and a risk management system.\n\n---\n\n### 1. PURPOSE\n\nThis file's primary responsibility is to maintain an accurate, up-to-date representation of a trader's open positions, including their entry prices, sizes, current market values, and unrealized profit/loss. It acts as a central hub for all position-related data and operations within the trading system.\n\n---\n\n### 2. IMPORTS\n\n*   **External libraries:**\n    *   `EventEmitter` from `events`: A Node.js built-in module used for emitting and listening to custom events.\n    *   `Decimal` from `decimal.js`: A library for arbitrary-precision decimal arithmetic, crucial for financial calculations to avoid floating-point inaccuracies.\n*   **Internal modules:**\n    *   `OrderbookSnapshot` from `../market/orderbook`: An interface defining a snapshot of an order book, providing market price data.\n    *   `PolymarketAPI`, `Position` from `../api/polymarket`: An API client for Polymarket and an interface for position data retrieved from it.\n    *   `RiskManager`, `PositionRisk` from `./riskManager`: A class and interface for managing and assessing the risk associated with trading positions.\n    *   `logger` from `../utils/logger`: A utility for logging messages throughout the application.\n\n---\n\n### 3. CLASSES\n\n#### `PositionManager`\n\n*   **Base classes:** Extends `EventEmitter`.\n*   **Purpose/responsibility:** Manages the lifecycle and state of all trading positions in a portfolio. It handles syncing positions from an external API, updating prices from orderbook data, adding/updating/closing positions, and providing various portfolio summaries and statistics. It also delegates risk-related calculations to a `RiskManager`.\n*   **Key methods:**\n    *   `constructor(api: PolymarketAPI, riskManager: RiskManager)`: Initializes the manager with API and"
+  },
+  {
+    "path": "src/trader/orderManager.ts",
+    "language": "typescript",
+    "purpose": "This file's primary responsibility is to manage the creation, tracking, and lifecycle of trading orders. It integrates with a risk management system, interacts with the Polymarket API for real order e",
+    "imports": [
+      {
+        "module": "events",
+        "names": [
+          "EventEmitter"
+        ],
+        "is_relative": false,
+        "is_external": true
+      },
+      {
+        "module": "decimal.js",
+        "names": [
+          "Decimal"
+        ],
+        "is_relative": false,
+        "is_external": true
+      },
+      {
+        "module": "../strategy/baseStrategy",
+        "names": [
+          "TradeSignal"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "./riskManager",
+        "names": [
+          "RiskManager"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "../config/env",
+        "names": [
+          "config"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "../utils/logger",
+        "names": [
+          "logger"
+        ],
+        "is_relative": true,
+        "is_external": false
+      }
+    ],
+    "exports": [
+      "OrderManager"
+    ],
+    "classes": [
+      {
+        "name": "OrderManager",
+        "line_number": 34,
+        "base_classes": [
+          "EventEmitter"
+        ],
+        "docstring": null,
+        "description": "Class OrderManager",
+        "methods": [],
+        "attributes": []
+      }
+    ],
+    "functions": [],
+    "constants": [],
+    "key_insights": [
+      "Design Patterns Used:**",
+      "Observer Pattern:** `OrderManager` extends `EventEmitter`, allowing other parts of the system to subscribe to events like `orderFill`, `orderCancelled`, and `orderExpired`. This promotes loose couplin",
+      "Strategy Pattern (Implicit):** The `TradeSignal` acts as an input to the `executeSignal` method, representing a \"strategy's decision.\" The `RiskManager` also embodies a strategy for risk assessment.",
+      "State Pattern (Implicit):** Orders transition through various `status` states (`PENDING`, `OPEN`, `PARTIAL`, `FILLED`, `CANCELLED`, `EXPIRED`), and the logic often depends on the current state.",
+      "Notable Implementation Choices:**",
+      "Decimal.js for Precision:** The use of `Decimal` for all financial quantities (`size`, `price`, `filledSize`, `remainingSize`, `maxSlippage`) is a critical and excellent choice to prevent floating-poi",
+      "Paper Trading Mode:** The `config.enablePaperTrading` flag allows for comprehensive testing and simulation of trading logic without risking real capital, which is invaluable for development and strate",
+      "Order Expiration:** Implementing `expiresAt` and `setOrderTimeout` ensures that orders don't remain open indefinitely, mitigating risk from stale orders.",
+      "Centralized Order State:** The `this.orders` Map provides a single source of truth for all managed orders, simplifying retrieval and updates.",
+      "Risk Manager Integration:** Delegating risk checks to `RiskManager` before"
+    ],
+    "dependencies": [
+      "events",
+      "decimal.js"
+    ],
+    "complexity_score": 5,
+    "raw_summary": "This file, `src/trader/orderManager.ts`, is a core component responsible for managing the lifecycle of trading orders within an automated trading system. It acts as an intermediary between the trading strategy, the risk management system, and the external Polymarket API, handling order placement, cancellation, status tracking, and event emission.\n\n---\n\n### 1. PURPOSE\n\nThis file's primary responsibility is to manage the creation, tracking, and lifecycle of trading orders. It integrates with a risk management system, interacts with the Polymarket API for real order execution, and provides a robust paper trading simulation mode.\n\n---\n\n### 2. IMPORTS\n\n*   **External Libraries:**\n    *   `EventEmitter` from `events`: A Node.js built-in module used for emitting and listening to custom events, enabling loose coupling between components.\n    *   `Decimal` from `decimal.js`: A library for arbitrary-precision decimal arithmetic, crucial for financial calculations to avoid floating-point inaccuracies.\n*   **Internal Modules:**\n    *   `TradeSignal` from `../strategy/baseStrategy`: An interface defining the structure of a trade recommendation generated by a strategy.\n    *   `PolymarketAPI`, `Order` from `../api/polymarket`: The API client for interacting with the Polymarket exchange and its `Order` interface representing an order as returned by the API.\n    *   `RiskManager` from `./riskManager`: A module responsible for pre-trade risk checks and post-trade position recording.\n    *   `config` from `../config/env`: Application configuration settings, particularly used here for enabling paper trading and order timeouts.\n    *   `logger` from `../utils/logger`: A utility for structured logging of events and errors.\n\n---\n\n### 3. CLASSES\n\n#### `OrderManager`\n\n*   **Base Classes:** Extends `EventEmitter`.\n*   **Purpose/Responsibility:**\n    *   Manages the state and lifecycle of all orders placed by the trading system.\n    *   Executes trade signals by placing orders, either real o"
+  },
+  {
+    "path": "src/utils/math.ts",
+    "language": "typescript",
+    "purpose": "This file serves as a comprehensive utility module for performing various mathematical calculations, primarily focused on financial, statistical, and betting-related operations. It leverages the `deci",
+    "imports": [
+      {
+        "module": "decimal.js",
+        "names": [
+          "Decimal"
+        ],
+        "is_relative": false,
+        "is_external": true
+      }
+    ],
+    "exports": [
+      "MathUtils"
+    ],
+    "classes": [
+      {
+        "name": "MathUtils",
+        "line_number": 6,
+        "base_classes": [],
+        "docstring": null,
+        "description": "Class MathUtils",
+        "methods": [],
+        "attributes": []
+      }
+    ],
+    "functions": [],
+    "constants": [],
+    "key_insights": [
+      "Design patterns used:**",
+      "Utility Class:** `MathUtils` is a classic example of a utility class, providing a collection of static methods that perform operations without requiring an instance of the class. This promotes reusabi",
+      "Strategy Pattern (Implicit):** While not a formal implementation, each method can be seen as a \"strategy\" for a specific mathematical calculation, which could be swapped or extended if needed (though ",
+      "Notable implementation choices:**",
+      "High Precision with `decimal.js`:** The most significant choice is the exclusive use of `decimal.js` for all numerical operations. This ensures that financial and statistical calculations are performe",
+      "Static Methods:** All methods are static, making them directly accessible via `MathUtils.methodName()` without instantiation. This is appropriate for a utility class.",
+      "Domain-Specific Functions:** The inclusion of functions like `oddsToProbability`, `calculateSpread`, `calculateArbitrage`, and `calculatePositionSize` suggests this utility file is tailored for applic",
+      "Robustness for Edge Cases:** Basic checks for empty arrays or zero values (e.g., in `calculateEMA`, `calculateStdDev`, `calculatePercentChange`) are present, which improves the reliability of the func",
+      "Potential issues or technical debt:**",
+      "Global `Decimal.set` Configuration:** The global configuration of `decimal.js` (`Decimal.set({ precision: 50, rounding: 4 });`) is a potential source of technical debt. If other parts of the applicati",
+      "Limited Input Validation:** While some edge cases are handled (e.g., `oldValue.isZero()`), there's no explicit validation for invalid inputs like negative probabilities, non-positive periods for EMA, ",
+      "`toSignificantFigures` and `Math.log(10)`:** The use of `Math.log(10)` (which returns a standard JavaScript `number`) within `toSignificantFigures` is generally safe for the base of the logarithm, but",
+      "JSDoc Clarity:** While good, some JSDocs could be slightly more explicit about input ranges or potential return values for edge cases (e.g., what happens if `probability` is 1 in `probabilityToOdds`? ",
+      "How it connects to other parts of the system:**",
+      "This `MathUtils` file likely serves as a foundational layer for any part of the system that requires precise mathematical calculations, especially in financial or trading contexts.",
+      "Financial/Trading Modules:** Components dealing with order execution, portfolio management, risk assessment, or market analysis would heavily rely on these utilities for calculations like arbitrage de",
+      "Data Analysis/Reporting:** Modules generating reports, displaying charts, or performing statistical analysis would use `calculateEMA`, `calculateStdDev`, and `calculatePercentChange`.",
+      "UI/Presentation Layer:** Any user interface that displays calculated odds, probabilities, price changes, or financial metrics would consume these functions to ensure accurate data presentation.",
+      "Backend Services:** If the application has a backend performing calculations, these utilities could be shared or mirrored there to maintain consistency."
+    ],
+    "dependencies": [
+      "decimal.js"
+    ],
+    "complexity_score": 5,
+    "raw_summary": "Here's a detailed analysis of the provided TypeScript file:\n\n---\n\n### 1. PURPOSE\n\nThis file serves as a comprehensive utility module for performing various mathematical calculations, primarily focused on financial, statistical, and betting-related operations. It leverages the `decimal.js` library to ensure high precision in all calculations, mitigating floating-point inaccuracies inherent in standard JavaScript numbers.\n\n### 2. IMPORTS\n\n*   **External libraries:**\n    *   `Decimal` from `'decimal.js'`: A library for arbitrary-precision decimal arithmetic.\n\n*   **Internal modules:** None\n*   **Standard library:** None (though `Math.log` is used internally, it's not an explicit import).\n\n### 3. CLASSES\n\n#### Class: `MathUtils`\n\n*   **Name and base classes:** `MathUtils` (no explicit base classes, it's a standalone class).\n*   **Purpose/responsibility:** To encapsulate a collection of static utility methods for common and specialized mathematical computations, ensuring precision through `decimal.js`. It acts as a stateless helper class.\n*   **Key methods with their roles:**\n    *   `static oddsToProbability(odds: Decimal): Decimal`: Converts decimal odds (e.g., 2.5 for 2.5x return) into an implied probability (0-1).\n    *   `static probabilityToOdds(probability: Decimal): Decimal`: Converts a probability (0-1) into decimal odds.\n    *   `static calculateSpread(yesPrice: Decimal, noPrice: Decimal): Decimal`: Calculates the spread between the prices of \"YES\" and \"NO\" tokens, typically in a prediction market context.\n    *   `static calculateArbitrage(yesPrice: Decimal, noPrice: Decimal, fee: Decimal): Decimal`: Determines if an arbitrage opportunity exists given \"YES\" and \"NO\" token prices and a trading fee. A positive return indicates an opportunity.\n    *   `static calculatePositionSize(accountBalance: Decimal, riskPercent: Decimal, stopLoss: Decimal): Decimal`: Calculates the appropriate position size for a trade based on account balance, desired risk percentage, and "
+  },
+  {
+    "path": "src/utils/logger.ts",
+    "language": "typescript",
+    "purpose": "",
+    "imports": [
+      {
+        "module": "pino",
+        "names": [
+          "pino"
+        ],
+        "is_relative": false,
+        "is_external": true
+      }
+    ],
+    "exports": [
+      "logger"
+    ],
+    "classes": [],
+    "functions": [],
+    "constants": [],
+    "key_insights": [
+      "Design Patterns Used:**",
+      "Singleton Pattern (Implicit):** By exporting a single, pre-configured `logger` instance, this file effectively implements a singleton. Any module importing `logger` will receive the same instance, ens",
+      "Configuration Object Pattern:** The `pino` constructor takes a configuration object, which is a common and flexible way to set up libraries and components.",
+      "Dependency Injection (Implicit):** While not a formal DI framework, the `logger` instance can be thought of as a dependency that is \"injected\" (imported) into other parts of the application that requi",
+      "Notable Implementation Choices:**",
+      "`pino` Library:** The choice of `pino` indicates a preference for high-performance, structured logging, which is beneficial for production environments, especially when logs are consumed by log aggreg",
+      "Dynamic Log Level:** Using `process.env.LOG_LEVEL || 'info'` allows the log level to be easily configured via environment variables. This is crucial for managing verbosity in different environments (e",
+      "`formatters.level`:** The custom level formatter ensures that the log level is always presented under the key `level` in the JSON output. This consistency is valuable for parsing and querying logs.",
+      "`pino.stdTimeFunctions.isoTime`:** Using ISO 8601 format for timestamps is a best practice for logging, as it's unambiguous, globally recognized, and easily sortable.",
+      "Potential Issues or Technical Debt:**",
+      "Lack of Custom Transports:** For more advanced logging scenarios (e.g., sending logs to a specific file, a remote service, or a log aggregation platform), `pino` typically uses \"transports.\" This curr",
+      "No Error Handling for `pino` Initialization:** While `pino` initialization is generally robust, in extremely rare or misconfigured scenarios, there could be issues. However, for a logger, this is usua",
+      "Global Instance:** While a singleton logger is common and often desired, in very complex applications or microservice architectures, there might be a need for multiple logger instances with different ",
+      "How it Connects to Other Parts of the System:**",
+      "This `logger` instance is intended to be imported into virtually any other module within the application that needs to emit log messages.",
+      "Example usage: `import { logger } from '../utils/logger'; logger.info('User logged in', { userId: 123 });`",
+      "It forms a foundational utility, providing a consistent and configurable way for the entire application to communicate its operational status and events."
+    ],
+    "dependencies": [
+      "pino"
+    ],
+    "complexity_score": 4,
+    "raw_summary": "Here's a detailed analysis of the provided TypeScript file:\n\n---\n\n### Analysis of `src/utils/logger.ts`\n\n**1. PURPOSE:**\nThis file's primary responsibility is to initialize and configure a global logging instance using the `pino` library. It provides a standardized logger that can be imported and used throughout the application for structured logging.\n\n**2. IMPORTS:**\n*   **External libraries:**\n    *   `pino`: A very fast, low overhead Node.js logger.\n\n**3. CLASSES:**\nThere are no classes defined in this file.\n\n**4. FUNCTIONS:**\nThere are no standalone functions defined directly in this file. However, an anonymous function is used within the `pino` configuration:\n\n*   **Name:** Anonymous function assigned to `formatters.level`\n*   **Parameters:** `label` (string) - Represents the log level (e.g., 'info', 'warn', 'error').\n*   **What it does:** It takes the log level label and wraps it in an object with a key `level`. This is a common pattern in `pino` to ensure the log level appears under a specific key in the JSON output, rather than being the top-level key itself.\n*   **What it returns:** An object `{ level: label }`.\n*   **Side effects:** None.\n\n**5. EXPORTS:**\nThis file provides two exports:\n\n*   **Named Export:** `logger`\n    *   An instance of the `pino` logger, configured with a dynamic log level, custom level formatter, and ISO timestamp.\n*   **Default Export:** `logger`\n    *   The same `pino` logger instance is also exported as the default export, making it easy to import with a custom name in other modules.\n\n**6. COMPLEXITY:**\n**Rating: 1/10**\n\n**Justification:**\nThis file is extremely simple. It performs a single, straightforward task: initializing a logger with a basic configuration. There are no complex logic branches, loops, multiple data structures, or intricate algorithms. The configuration object for `pino` is minimal and easy to understand.\n\n**7. KEY INSIGHTS:**\n\n*   **Design Patterns Used:**\n    *   **Singleton Pattern (Implicit):** By exporting"
+  },
+  {
+    "path": "src/api/websocket.ts",
+    "language": "typescript",
+    "purpose": "This file's primary responsibility is to establish and maintain a WebSocket connection to Polymarket, manage subscriptions to market orderbooks, receive real-time orderbook updates, and propagate thes",
+    "imports": [
+      {
+        "module": "ws",
+        "names": [
+          "WebSocket"
+        ],
+        "is_relative": false,
+        "is_external": true
+      },
+      {
+        "module": "events",
+        "names": [
+          "EventEmitter"
+        ],
+        "is_relative": false,
+        "is_external": true
+      },
+      {
+        "module": "../utils/logger",
+        "names": [
+          "logger"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "./polymarket",
+        "names": [
+          "Orderbook",
+          "OrderbookLevel"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "decimal.js",
+        "names": [
+          "Decimal"
+        ],
+        "is_relative": false,
+        "is_external": true
+      }
+    ],
+    "exports": [
+      "PolymarketWebSocket"
+    ],
+    "classes": [
+      {
+        "name": "PolymarketWebSocket",
+        "line_number": 17,
+        "base_classes": [
+          "EventEmitter"
+        ],
+        "docstring": null,
+        "description": "Class PolymarketWebSocket",
+        "methods": [],
+        "attributes": []
+      }
+    ],
+    "functions": [],
+    "constants": [],
+    "key_insights": [
+      "Design Patterns Used:**",
+      "Observer Pattern:** `PolymarketWebSocket` acts as a subject, emitting `orderbook` events that other parts of the system can observe. It also acts as an observer, listening to `subscribe` and `unsubscr",
+      "State Pattern (Implicit):** The WebSocket connection's lifecycle (connecting, open, closed) is managed, and actions are taken based on its current state (e.g., only sending messages when `readyState =",
+      "Notable Implementation Choices:**",
+      "`decimal.js` for Precision:** The use of `Decimal` for `price` and `size` in orderbook levels is a critical choice for financial applications, preventing floating-point inaccuracies inherent in standa",
+      "Robust Reconnection:** The exponential backoff strategy for reconnection attempts is a standard and effective way to handle transient network issues without overwhelming the server.",
+      "Automatic Re-subscription:** On successful reconnection, the client automatically re-subscribes to all previously active markets, ensuring data continuity.",
+      "Ping/Pong for Liveness:** Sending periodic pings helps detect dead connections that haven't formally closed, preventing stale data or unresponsive clients.",
+      "Centralized Logging:** Integration with a `logger` utility ensures consistent and configurable logging for debugging and operational monitoring.",
+      "Potential Issues or Technical Debt:**",
+      "`any` Type Usage:** The `WSMessage.data` and `handleOrderbookUpdate`'s `data` parameter are typed as `any`. This bypasses TypeScript's type safety and could lead to runtime errors if the Polymarket AP",
+      "Missing `ws.send` Error Handling:** While `sendSubscriptionMessage` checks `readyState`, there's no explicit `try-catch` or callback handling for potential errors during `ws.send()` itself (e.g., if t",
+      "Generic `apiClient`:** The `apiClient` is typed as a generic `EventEmitter`. While flexible, it means the `subscribe` and `unsubscribe` event payloads (`sub: Subscription`) are not type-checked at com",
+      "`Date.now()` Fallback for Timestamp:** Using `Date.now()` as a fallback for `orderbook.timestamp` might mask issues if the server consistently fails to provide a timestamp, potentially leading to misl",
+      "No Explicit Pong Handling:** While `ws.ping()` is called, there's no explicit handler for `ws.on('pong')`. The `ws` library typically handles pong responses internally for liveness, but if specific ap",
+      "How It Connects to Other Parts of the System:**",
+      "API Client Integration:** It acts as a low-level WebSocket service for a higher-level `apiClient` (likely another `EventEmitter` instance, perhaps an `PolymarketAPI` class). This `apiClient` would emi",
+      "Data Models:** It relies on `Orderbook` and `OrderbookLevel` types defined in `./polymarket`, indicating a shared understanding of data structures across the Polymarket-related modules.",
+      "Logging Infrastructure:** Integrates with a global `logger` utility, centralizing log output.",
+      "Real-time Data Source:** It serves as the primary source for real-time Polymarket orderbook data, which would then be consumed by trading logic, UI components, or data storage services."
+    ],
+    "dependencies": [
+      "ws",
+      "events",
+      "decimal.js"
+    ],
+    "complexity_score": 5,
+    "raw_summary": "This TypeScript file, `src/api/websocket.ts`, defines a robust client for interacting with the Polymarket WebSocket API.\n\n---\n\n### 1. PURPOSE\n\nThis file's primary responsibility is to establish and maintain a WebSocket connection to Polymarket, manage subscriptions to market orderbooks, receive real-time orderbook updates, and propagate these updates as events to other parts of the application. It also handles connection stability through reconnection logic and ping/pong mechanisms.\n\n---\n\n### 2. IMPORTS\n\n*   **External libraries:**\n    *   `WebSocket from 'ws'`: A WebSocket client and server library for Node.js. Used here as a client to connect to Polymarket's WebSocket endpoint.\n    *   `Decimal from 'decimal.js'`: A JavaScript library for arbitrary-precision decimal arithmetic. Used to ensure accuracy when handling financial values like prices and sizes in orderbook data.\n*   **Internal modules:**\n    *   `logger from '../utils/logger'`: A custom logging utility for structured logging within the application.\n    *   `{ Orderbook, OrderbookLevel } from './polymarket'`: Type definitions for the `Orderbook` and `OrderbookLevel` data structures, likely defined in a separate module related to Polymarket data models.\n*   **Standard library (Node.js built-in):**\n    *   `EventEmitter from 'events'`: A core Node.js module providing an API for emitting and listening for events. Used as the base class for `PolymarketWebSocket` and for inter-component communication.\n\n---\n\n### 3. CLASSES\n\n#### `PolymarketWebSocket`\n\n*   **Name and base classes:** `PolymarketWebSocket` extends `EventEmitter`.\n*   **Purpose/responsibility:**\n    *   Manages the lifecycle of a WebSocket connection to `wss://ws.polymarket.com`.\n    *   Handles connection, disconnection, and automatic reconnection with exponential backoff.\n    *   Manages subscriptions to specific market orderbooks (identified by `marketId` and `tokenId`).\n    *   Sends ping messages to keep the connection alive.\n    *   Parses in"
+  },
+  {
+    "path": "src/api/polymarket.ts",
+    "language": "typescript",
+    "purpose": "This file defines a TypeScript class, `PolymarketAPI`, which serves as a client for interacting with the Polymarket REST API. It provides methods to fetch market data, place and cancel orders, retriev",
+    "imports": [
+      {
+        "module": "decimal.js",
+        "names": [
+          "Decimal"
+        ],
+        "is_relative": false,
+        "is_external": true
+      },
+      {
+        "module": "events",
+        "names": [
+          "EventEmitter"
+        ],
+        "is_relative": false,
+        "is_external": true
+      },
+      {
+        "module": "../utils/logger",
+        "names": [
+          "logger"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "../config/env",
+        "names": [
+          "config"
+        ],
+        "is_relative": true,
+        "is_external": false
+      }
+    ],
+    "exports": [
+      "PolymarketAPI"
+    ],
+    "classes": [
+      {
+        "name": "PolymarketAPI",
+        "line_number": 63,
+        "base_classes": [
+          "EventEmitter"
+        ],
+        "docstring": null,
+        "description": "Class PolymarketAPI",
+        "methods": [],
+        "attributes": []
+      }
+    ],
+    "functions": [],
+    "constants": [],
+    "key_insights": [
+      "Here's a detailed analysis of the provided TypeScript file:\n\n---\n\n### 1. PURPOSE\n\nThis file defines a TypeScript class, `PolymarketAPI`, which serves as a client for interacting with the Polymarket REST API. It provides methods to fetch market data, place and cancel orders, retrieve user positions, and manage orderbook subscriptions, while also defining the necessary data structures (interfaces) for Polymarket API responses.\n\n### 2. IMPORTS\n\n*   **External Libraries:**\n    *   `axios`, `AxiosIns"
+    ],
+    "dependencies": [
+      "decimal.js",
+      "events"
+    ],
+    "complexity_score": 5,
+    "raw_summary": "Here's a detailed analysis of the provided TypeScript file:\n\n---\n\n### 1. PURPOSE\n\nThis file defines a TypeScript class, `PolymarketAPI`, which serves as a client for interacting with the Polymarket REST API. It provides methods to fetch market data, place and cancel orders, retrieve user positions, and manage orderbook subscriptions, while also defining the necessary data structures (interfaces) for Polymarket API responses.\n\n### 2. IMPORTS\n\n*   **External Libraries:**\n    *   `axios`, `AxiosInstance` from `'axios'`: A popular promise-based HTTP client for making requests to the Polymarket REST API. `AxiosInstance` provides type safety for the created client.\n    *   `Decimal` from `'decimal.js'`: A library for arbitrary-precision decimal arithmetic. This is crucial for handling financial values (prices, volumes, sizes) accurately, avoiding floating-point precision issues inherent in standard JavaScript numbers.\n    *   `EventEmitter` from `'events'`: A Node.js built-in module (often treated as an external dependency in project contexts) used for implementing the observer pattern, specifically for managing WebSocket subscription requests.\n\n*   **Internal Modules:**\n    *   `logger` from `'../utils/logger'`: A utility module for logging messages, used here for error reporting during API interactions.\n    *   `config` from `'../config/env'`: A configuration module that provides environment-specific settings, including the Polymarket API keys required for authentication.\n\n*   **Standard Library:**\n    *   None explicitly listed as standard library in the typical sense, as `EventEmitter` is a Node.js core module.\n\n### 3. CLASSES\n\n#### Class: `PolymarketAPI`\n\n*   **Base Class:** `EventEmitter`\n*   **Purpose/Responsibility:**\n    *   To encapsulate all HTTP interactions with the Polymarket REST API.\n    *   To provide a structured, type-safe interface for consuming Polymarket data and performing actions (e.g., placing orders).\n    *   To handle API authentication using pr"
+  },
+  {
+    "path": "src/market/marketScanner.ts",
+    "language": "typescript",
+    "purpose": "This file's primary responsibility is to continuously monitor and evaluate markets from the Polymarket platform. It identifies \"tradable\" markets based on predefined criteria, assigns a composite scor",
+    "imports": [
+      {
+        "module": "events",
+        "names": [
+          "EventEmitter"
+        ],
+        "is_relative": false,
+        "is_external": true
+      },
+      {
+        "module": "decimal.js",
+        "names": [
+          "Decimal"
+        ],
+        "is_relative": false,
+        "is_external": true
+      },
+      {
+        "module": "../api/polymarket",
+        "names": [
+          "Market"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "../api/polymarket",
+        "names": [
+          "PolymarketAPI"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "../config/env",
+        "names": [
+          "config"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "../utils/logger",
+        "names": [
+          "logger"
+        ],
+        "is_relative": true,
+        "is_external": false
+      }
+    ],
+    "exports": [
+      "MarketScanner"
+    ],
+    "classes": [
+      {
+        "name": "MarketScanner",
+        "line_number": 22,
+        "base_classes": [
+          "EventEmitter"
+        ],
+        "docstring": null,
+        "description": "Class MarketScanner",
+        "methods": [],
+        "attributes": []
+      }
+    ],
+    "functions": [],
+    "constants": [],
+    "key_insights": [
+      "Design Patterns Used:**",
+      "Observer Pattern:** By extending `EventEmitter`, `MarketScanner` acts as a subject that emits a `scanComplete` event. Other parts of the application can subscribe to this event to react to new market ",
+      "Strategy Pattern (Implicit):** The `calculateMarketScore` method encapsulates a specific strategy for ranking markets. While not a formal separate class, it's a distinct piece of logic that could pote",
+      "Singleton-like (Potential):** While not enforced by the code, `MarketScanner` is likely intended to be instantiated as a single instance within an application to manage a global view of markets.",
+      "Notable Implementation Choices:**",
+      "`Decimal.js` for Precision:** The use of `Decimal` for `minVolume`, `minLiquidity`, `market.volume`, and `market.liquidity` is crucial for financial applications to avoid floating-point inaccuracies i",
+      "Periodic Scanning and Caching:** The scanner continuously fetches and updates a cache of markets. This reduces the load on the Polymarket API and provides quick access to processed data for consumers.",
+      "Composite Scoring System:** Markets are not just filtered but also assigned a numerical score based on multiple factors (volume, liquidity, time to resolution, recent activity). This allows for nuance",
+      "Externalized Configuration:** Using `config.maxTimeToResolutionHours`, `config.minVolumeUsd`, `config.minLiquidityUsd` makes the filtering thresholds easily configurable without modifying the core log",
+      "Robust Error Handling:** `try-catch` blocks around `scanMarkets` and individual `analyzeMarket` calls ensure that a single market failure or API issue doesn't bring down the entire scanning process.",
+      "Clear Separation of Concerns:** The class clearly separates API interaction (`api.getActiveMarkets`), market processing (`processMarkets`), individual market analysis (`analyzeMarket`), and data retri",
+      "Potential Issues or Technical Debt:**",
+      "API Call Limits/Pagination:** `this.api.getActiveMarkets(200, 0)` fetches only the first 200 markets. If there are more than 200 active markets, or if relevant markets are beyond the first page, they ",
+      "Scoring Algorithm Tuning:** The `calculateMarketScore` weights (e.g., volume max 40, liquidity max 30, time max 20, activity max 10) and specific thresholds (e.g., optimal time 24-72 hours) are hardco",
+      "No Market Update Mechanism:** The scanner performs full rescans. If a market's properties change rapidly (e.g., volume, liquidity), the cached data might be slightly stale until the next scan. There's",
+      "Race Conditions with `setInterval`:** While `clearInterval` helps, if `scanMarkets` consistently takes longer than `intervalMs`, it could lead to overlapping scans or a backlog. The current implementa",
+      "`MarketFilter` Interface Usage:** The `MarketFilter` interface is defined but not directly used as a parameter or object within the `MarketScanner` class. Its fields are instead accessed directly from",
+      "How it connects to other parts of the system:**",
+      "`PolymarketAPI`:** This is the primary dependency, providing the raw market data.",
+      "`config/env`:** Utilizes application-wide configuration for filtering thresholds, making the scanner adaptable to different operational parameters.",
+      "`utils/logger`:** Integrates with the application's logging infrastructure for operational insights and debugging.",
+      "Consumers (e.g., Trading Bots, UI):** Other modules would instantiate `MarketScanner`, call `startScanning()`, and then either listen for `scanComplete` events or periodically call methods like `getTr"
+    ],
+    "dependencies": [
+      "events",
+      "decimal.js"
+    ],
+    "complexity_score": 5,
+    "raw_summary": "This TypeScript file defines a `MarketScanner` class responsible for periodically fetching, filtering, analyzing, and scoring markets from the Polymarket API. It caches the processed markets and provides methods to retrieve them based on various criteria.\n\n---\n\n### 1. PURPOSE\n\nThis file's primary responsibility is to continuously monitor and evaluate markets from the Polymarket platform. It identifies \"tradable\" markets based on predefined criteria, assigns a composite score for ranking, and provides an interface for other parts of the application to access this curated list of markets.\n\n---\n\n### 2. IMPORTS\n\n*   **External libraries:**\n    *   `EventEmitter` from `events`: Standard Node.js module for event-driven programming.\n    *   `Decimal` from `decimal.js`: A JavaScript library for arbitrary-precision decimal arithmetic, used to handle financial values accurately.\n*   **Internal modules:**\n    *   `Market` from `../api/polymarket`: An interface or type definition for a market object, likely representing the structure of data received from the Polymarket API.\n    *   `PolymarketAPI` from `../api/polymarket`: A class or module that encapsulates interactions with the Polymarket API.\n    *   `config` from `../config/env`: An object containing environment-specific configuration values, such as filter thresholds.\n    *   `logger` from `../utils/logger`: A utility for logging messages within the application.\n*   **Standard library:**\n    *   `NodeJS.Timeout`: TypeScript type for the return value of `setInterval`.\n\n---\n\n### 3. CLASSES\n\n#### `MarketScanner`\n\n*   **Name and base classes:** `MarketScanner` extends `EventEmitter`.\n*   **Purpose/responsibility:**\n    *   Manages the lifecycle of market scanning (starting, stopping).\n    *   Interacts with the `PolymarketAPI` to fetch raw market data.\n    *   Processes raw market data, applying filters and calculating derived properties like `timeToResolution`.\n    *   Calculates a composite `score` for each market based on "
+  },
+  {
+    "path": "src/market/orderbook.ts",
+    "language": "typescript",
+    "purpose": "This file defines the `OrderbookEngine` class, which is responsible for processing real-time orderbook updates from a WebSocket, calculating various financial metrics and analytical signals, maintaini",
+    "imports": [
+      {
+        "module": "events",
+        "names": [
+          "EventEmitter"
+        ],
+        "is_relative": false,
+        "is_external": true
+      },
+      {
+        "module": "decimal.js",
+        "names": [
+          "Decimal"
+        ],
+        "is_relative": false,
+        "is_external": true
+      },
+      {
+        "module": "../api/polymarket",
+        "names": [
+          "Orderbook",
+          "OrderbookLevel"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "../api/polymarket",
+        "names": [
+          "PolymarketAPI"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "../api/websocket",
+        "names": [
+          "PolymarketWebSocket"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "../config/env",
+        "names": [
+          "config"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "../utils/logger",
+        "names": [
+          "logger"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "../utils/math",
+        "names": [
+          "MathUtils"
+        ],
+        "is_relative": true,
+        "is_external": false
+      }
+    ],
+    "exports": [
+      "OrderbookEngine"
+    ],
+    "classes": [
+      {
+        "name": "OrderbookEngine",
+        "line_number": 35,
+        "base_classes": [
+          "EventEmitter"
+        ],
+        "docstring": null,
+        "description": "Class OrderbookEngine",
+        "methods": [],
+        "attributes": []
+      }
+    ],
+    "functions": [],
+    "constants": [],
+    "key_insights": [
+      "Here's a detailed analysis of the provided TypeScript file:\n\n---\n\n### 1. PURPOSE\n\nThis file defines the `OrderbookEngine` class, which is responsible for processing real-time orderbook updates from a WebSocket, calculating various financial metrics and analytical signals, maintaining historical data, and emitting events to notify other parts of the system about market changes and insights. It acts as a central hub for orderbook data and derived analytics.\n\n---\n\n### 2. IMPORTS\n\n*   **External Lib"
+    ],
+    "dependencies": [
+      "events",
+      "decimal.js"
+    ],
+    "complexity_score": 5,
+    "raw_summary": "Here's a detailed analysis of the provided TypeScript file:\n\n---\n\n### 1. PURPOSE\n\nThis file defines the `OrderbookEngine` class, which is responsible for processing real-time orderbook updates from a WebSocket, calculating various financial metrics and analytical signals, maintaining historical data, and emitting events to notify other parts of the system about market changes and insights. It acts as a central hub for orderbook data and derived analytics.\n\n---\n\n### 2. IMPORTS\n\n*   **External Libraries:**\n    *   `Decimal` from `decimal.js`: Provides high-precision decimal arithmetic, crucial for accurate financial calculations to avoid floating-point errors.\n\n*   **Internal Modules:**\n    *   `Orderbook`, `OrderbookLevel` from `../api/polymarket`: Type definitions for the raw orderbook structure and individual price levels received from the Polymarket API.\n    *   `PolymarketAPI` from `../api/polymarket`: An API client class used to send subscription/unsubscription requests to the Polymarket backend.\n    *   `PolymarketWebSocket` from `../api/websocket`: A WebSocket client class used to receive real-time orderbook updates.\n    *   `config` from `../config/env`: Application-wide configuration settings, such as thresholds for analysis (e.g., `minSpread`).\n    *   `logger` from `../utils/logger`: A utility for logging informational messages and errors.\n    *   `MathUtils` from `../utils/math`: A utility class containing mathematical helper functions, specifically `calculateStdDev` for volatility.\n\n*   **Standard Library (Node.js Built-in):**\n    *   `EventEmitter` from `events`: Provides an event-driven architecture, allowing the `OrderbookEngine` to emit events that other parts of the application can listen to.\n\n---\n\n### 3. CLASSES\n\n**Class: `OrderbookEngine`**\n\n*   **Base Class:** `EventEmitter`\n*   **Purpose/Responsibility:**\n    The `OrderbookEngine` is the core component for managing and analyzing orderbook data. Its primary responsibilities include:\n    *   Subsc"
+  },
+  {
+    "path": "src/strategy/baseStrategy.ts",
+    "language": "typescript",
+    "purpose": "This file defines the abstract base class `BaseStrategy` which serves as a foundational blueprint for all trading strategies within the system. It establishes common interfaces, configuration manageme",
+    "imports": [
+      {
+        "module": "events",
+        "names": [
+          "EventEmitter"
+        ],
+        "is_relative": false,
+        "is_external": true
+      },
+      {
+        "module": "decimal.js",
+        "names": [
+          "Decimal"
+        ],
+        "is_relative": false,
+        "is_external": true
+      },
+      {
+        "module": "../market/marketScanner",
+        "names": [
+          "ScannedMarket"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "../market/orderbook",
+        "names": [
+          "OrderbookSnapshot"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "../utils/logger",
+        "names": [
+          "logger"
+        ],
+        "is_relative": true,
+        "is_external": false
+      }
+    ],
+    "exports": [],
+    "classes": [
+      {
+        "name": "BaseStrategy",
+        "line_number": 25,
+        "base_classes": [
+          "EventEmitter"
+        ],
+        "docstring": null,
+        "description": "Class BaseStrategy",
+        "methods": [],
+        "attributes": []
+      }
+    ],
+    "functions": [],
+    "constants": [],
+    "key_insights": [
+      "Design Patterns Used:**",
+      "Strategy Pattern (implied):** This `BaseStrategy` class is the abstract base for the Strategy pattern. Concrete strategy classes will extend `BaseStrategy` and implement the `evaluate` and `canTrade` ",
+      "Template Method Pattern (implied):** The abstract methods (`evaluate`, `canTrade`) serve as template methods that subclasses must fill in, while common steps (`validateSignal`, `emitSignal`, config ma",
+      "Observer Pattern (via EventEmitter):** By extending `EventEmitter`, `BaseStrategy` can emit events (like `'signal'`), allowing other parts of the system (e.g., an order execution manager) to subscribe",
+      "Notable Implementation Choices:**",
+      "`Decimal.js` for Precision:** The use of `Decimal` for `size` and `price` in `TradeSignal` and potentially in `getMarketFilter` is a critical choice for financial applications, preventing floating-poi",
+      "Abstract Class for Enforced Structure:** Using an `abstract class` ensures that all concrete strategies will adhere to a minimum set of required functionalities (`evaluate`, `canTrade`), promoting con",
+      "Event-Driven Communication:** Leveraging `EventEmitter` for `emitSignal` decouples signal generation from signal consumption, making the system more modular and flexible.",
+      "Centralized Configuration Management:** `StrategyConfig`, `getConfig`, `updateConfig`, `isEnabled`, `setEnabled` provide a standardized way to manage strategy settings.",
+      "`protected` Access Modifiers:** Using `protected` for `config`, `activePositions`, `validateSignal`, and `emitSignal` allows subclasses to access and potentially override these members while keeping t",
+      "Potential Issues or Technical Debt:**",
+      "`any` Types for Positions and Orders:** The `onPositionUpdate(position: any)` and `onOrderFill(order: any)` methods, along with `activePositions` storing `any`, are significant type safety gaps. Defin",
+      "`parameters: Record<string, any>` in `StrategyConfig`:** While flexible, using `any` for strategy-specific parameters can lead to a lack of type safety and make it harder to understand what parameters",
+      "Default `getMarketFilter`:** Returning an empty object by default means no filtering is applied unless overridden. While this is a reasonable default, it's important for implementers to remember to ov",
+      "Error Handling in `evaluate`:** The `evaluate` method returns a `Promise<TradeSignal[]>`. While it's asynchronous, there's no explicit error handling mechanism defined in the base class for potential ",
+      "How it Connects to Other Parts of the System:**",
+      "Market Data Providers:** It consumes `ScannedMarket` from `marketScanner` and `OrderbookSnapshot` from `orderbook`, indicating a dependency on modules responsible for gathering and processing market d",
+      "Logging System:** Integrates with `logger` for informational and warning messages, providing visibility into strategy operations and potential issues.",
+      "Order Execution System:** Emits `TradeSignal` events, which would likely be consumed by an order management or execution component responsible for placing actual trades based on these signals.",
+      "Position Management System:** `onPositionUpdate` suggests an interaction with a system that tracks and reports current trading positions.",
+      "Concrete Strategies:** This class is designed to be extended by specific trading strategies (e.g., `MeanReversionStrategy`, `ArbitrageStrategy`), which will implement the abstract methods and define t"
+    ],
+    "dependencies": [
+      "events",
+      "decimal.js"
+    ],
+    "complexity_score": 5,
+    "raw_summary": "Here's a detailed analysis of the `baseStrategy.ts` file:\n\n---\n\n### 1. PURPOSE\n\nThis file defines the abstract base class `BaseStrategy` which serves as a foundational blueprint for all trading strategies within the system. It establishes common interfaces, configuration management, event handling, and core lifecycle methods that concrete strategies must implement or can override. It also defines key data structures like `TradeSignal` and `StrategyConfig`.\n\n---\n\n### 2. IMPORTS\n\n*   **External Libraries:**\n    *   `EventEmitter` from `events`: Provides event-driven programming capabilities, allowing strategies to emit signals or other events.\n    *   `Decimal` from `decimal.js`: A library for arbitrary-precision decimal arithmetic, crucial for financial calculations to avoid floating-point inaccuracies.\n*   **Internal Modules:**\n    *   `ScannedMarket` from `../market/marketScanner`: Represents a market discovered and processed by a market scanner.\n    *   `OrderbookSnapshot` from `../market/orderbook`: A snapshot of an order book for a specific market.\n    *   `logger` from `../utils/logger`: A utility for logging messages throughout the application.\n*   **Standard Library:**\n    *   None explicitly imported as standard library modules in TypeScript are often globally available or implicitly used (e.g., `Map`, `Array`).\n\n---\n\n### 3. CLASSES\n\n#### **`BaseStrategy`**\n\n*   **Name and Base Classes:** `BaseStrategy` is an `abstract` class that extends `EventEmitter`.\n*   **Purpose/Responsibility:**\n    *   To provide a common interface and shared functionality for all trading strategies.\n    *   Manage strategy configuration (enable/disable, parameters).\n    *   Handle active positions.\n    *   Define abstract methods that concrete strategies must implement (e.g., `evaluate`, `canTrade`).\n    *   Provide utility methods for signal validation and emission.\n    *   Act as an event emitter for trade signals.\n*   **Key Methods with their Roles:**\n    *   `constructor(config:"
+  },
+  {
+    "path": "src/strategy/momentum.ts",
+    "language": "typescript",
+    "purpose": "This file's primary responsibility is to implement the `MomentumStrategy` for identifying and executing trades based on price momentum and significant volume changes. It manages historical market data",
+    "imports": [
+      {
+        "module": "decimal.js",
+        "names": [
+          "Decimal"
+        ],
+        "is_relative": false,
+        "is_external": true
+      },
+      {
+        "module": "../market/marketScanner",
+        "names": [
+          "ScannedMarket"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "../market/orderbook",
+        "names": [
+          "OrderbookSnapshot"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "../utils/math",
+        "names": [
+          "MathUtils"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "../config/env",
+        "names": [
+          "config"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "../utils/logger",
+        "names": [
+          "logger"
+        ],
+        "is_relative": true,
+        "is_external": false
+      }
+    ],
+    "exports": [
+      "MomentumStrategy"
+    ],
+    "classes": [
+      {
+        "name": "MomentumStrategy",
+        "line_number": 21,
+        "base_classes": [
+          "BaseStrategy"
+        ],
+        "docstring": null,
+        "description": "Class MomentumStrategy",
+        "methods": [],
+        "attributes": []
+      }
+    ],
+    "functions": [],
+    "constants": [],
+    "key_insights": [
+      "Design Patterns Used**:",
+      "Strategy Pattern**: `MomentumStrategy` is a concrete implementation of the `BaseStrategy` interface, allowing different trading strategies to be interchangeable.",
+      "Observer Pattern (Implicit)**: The `onOrderFill` method suggests that the strategy acts as an observer, reacting to order fill events from an external order execution system.",
+      "Notable Implementation Choices**:",
+      "`Decimal.js` for Precision**: The consistent use of `Decimal.js` throughout for all financial calculations is a robust choice to prevent common floating-point errors, which are critical in trading app",
+      "Combined Signal Generation**: Requiring both momentum and a volume spike for an entry signal is a good practice to filter out false signals and confirm the strength of a potential move.",
+      "Comprehensive Exit Conditions**: Implementing multiple exit conditions (trailing stop, max hold time, profit target) demonstrates a well-thought-out risk management approach, aiming to protect capital",
+      "Historical Data Management**: The `updateHistory` method efficiently manages rolling historical data, ensuring that calculations are always based on the most relevant recent data without excessive mem",
+      "EMA for Momentum**: Using Exponential Moving Averages for momentum calculation provides a smoother, more reactive indicator compared to Simple Moving Averages.",
+      "Potential Issues or Technical Debt**:",
+      "Simplified Token Selection**: The line `const token = market.tokens[0];` is a significant simplification. In a real-world scenario, a strategy would need a more sophisticated mechanism to select which",
+      "Volume Proxy**: Using `orderbook.bidDepth.plus(orderbook.askDepth)` as a proxy for volume is a simplification. Actual traded volume data (e.g., from historical trades) would be more accurate for volum",
+      "Fixed Trade Size**: `const size = new Decimal(10);` indicates a fixed trade size. A more advanced strategy would dynamically calculate position size based on risk parameters, account balance, or marke",
+      "`any` Type Usage**: The `token: any` parameter in `createMomentumSignal` and `position: any` in `createExitSignal` and `onOrderFill` suggest a lack of specific type definitions for these objects, whic",
+      "Truncated `onOrderFill`**: The `onOrderFill` method is truncated, indicating incomplete logic, especially for profit/loss calculation and logging.",
+      "`minBreakoutStrength` Interpretation**: The `minBreakoutStrength` is added/subtracted directly from `recentHigh`/`recentLow`. If `minBreakoutStrength` is intended as a percentage, it should be multipl",
+      "How it Connects to Other Parts of the System**:",
+      "Strategy Runner**: This `MomentumStrategy` instance would be managed by a higher-level \"strategy runner\" or \"bot\" component that periodically calls its `evaluate` method for various markets.",
+      "Market Scanner**: It receives `ScannedMarket` objects from a `marketScanner`, indicating which markets are eligible for evaluation.",
+      "Orderbook Service**: It relies on `OrderbookSnapshot` data, which would be provided by an orderbook aggregation or streaming service.",
+      "Order Execution System**: The `TradeSignal` objects generated by this strategy would be sent to an order execution system responsible for placing actual orders on an exchange. The `onOrderFill` method",
+      "Configuration and Logging**: It integrates with the global `config` for its parameters and uses the `logger` for operational insights and debugging.",
+      "Utility Functions**: It leverages `MathUtils` for common mathematical operations like EMA calculation."
+    ],
+    "dependencies": [
+      "decimal.js"
+    ],
+    "complexity_score": 5,
+    "raw_summary": "This TypeScript file defines a trading strategy focused on momentum and volume spikes.\n\n---\n\n### 1. PURPOSE\n\nThis file's primary responsibility is to implement the `MomentumStrategy` for identifying and executing trades based on price momentum and significant volume changes. It manages historical market data, generates entry and exit signals, and tracks open positions.\n\n---\n\n### 2. IMPORTS\n\n*   **External libraries**:\n    *   `Decimal` from `'decimal.js'`: Provides arbitrary-precision decimal arithmetic, crucial for financial calculations to avoid floating-point inaccuracies.\n*   **Internal modules**:\n    *   `ScannedMarket` from `'../market/marketScanner'`: Represents a market scanned for trading opportunities, likely containing market metadata and token information.\n    *   `OrderbookSnapshot` from `'../market/orderbook'`: Provides a snapshot of a market's order book, including bid/ask prices and depths.\n    *   `BaseStrategy, { TradeSignal, StrategyConfig }` from `'./baseStrategy'`: The abstract base class for all trading strategies, defining common interfaces and properties. `TradeSignal` and `StrategyConfig` are types/interfaces used by the base strategy.\n    *   `MathUtils` from `'../utils/math'`: A utility module likely containing mathematical helper functions, such as EMA calculation.\n    *   `config` from `'../config/env'`: Global configuration settings for the application, including strategy-specific parameters.\n    *   `logger` from `'../utils/logger'`: A utility for logging messages, used for debugging and operational insights.\n\n---\n\n### 3. CLASSES\n\n#### `MomentumStrategy`\n\n*   **Base classes**: Extends `BaseStrategy`.\n*   **Purpose/responsibility**: Implements a specific trading strategy that identifies potential trade entries when there's a significant price momentum combined with a volume spike. It also manages open positions, applying trailing stops, time limits, and profit targets for exits.\n*   **Key methods**:\n    *   `constructor()`:\n        *   "
+  },
+  {
+    "path": "src/strategy/spreadArb.ts",
+    "language": "typescript",
+    "purpose": "This file's primary responsibility is to implement a trading strategy that exploits price discrepancies between complementary \"YES\" and \"NO\" tokens in a market. It aims to buy an undervalued token and",
+    "imports": [
+      {
+        "module": "decimal.js",
+        "names": [
+          "Decimal"
+        ],
+        "is_relative": false,
+        "is_external": true
+      },
+      {
+        "module": "../market/marketScanner",
+        "names": [
+          "ScannedMarket"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "../market/orderbook",
+        "names": [
+          "OrderbookSnapshot"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "../utils/math",
+        "names": [
+          "MathUtils"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "../config/env",
+        "names": [
+          "config"
+        ],
+        "is_relative": true,
+        "is_external": false
+      },
+      {
+        "module": "../utils/logger",
+        "names": [
+          "logger"
+        ],
+        "is_relative": true,
+        "is_external": false
+      }
+    ],
+    "exports": [
+      "SpreadArbitrageStrategy"
+    ],
+    "classes": [
+      {
+        "name": "SpreadArbitrageStrategy",
+        "line_number": 19,
+        "base_classes": [
+          "BaseStrategy"
+        ],
+        "docstring": null,
+        "description": "Class SpreadArbitrageStrategy",
+        "methods": [],
+        "attributes": []
+      }
+    ],
+    "functions": [],
+    "constants": [],
+    "key_insights": [
+      "Design Patterns Used:**",
+      "Strategy Pattern:** The `SpreadArbitrageStrategy` extends `BaseStrategy`, adhering to a common interface for trading strategies. This allows the system to manage and execute different strategies unifo",
+      "Notable Implementation Choices:**",
+      "`decimal.js` for Precision:** The use of `Decimal` for all financial calculations is a critical and excellent choice to prevent floating-point arithmetic errors, which are unacceptable in trading syst",
+      "Position Tracking:** The `positions` `Map` provides an efficient way to store and retrieve active positions using a composite key (`marketId:tokenId`).",
+      "Configurable Parameters:** The strategy's behavior is largely driven by parameters defined in `SpreadArbConfig` and pulled from `config/env`, promoting flexibility and easy tuning.",
+      "Clear Separation of Concerns:** Methods are well-defined for specific tasks (calculating arbitrage, creating signals, checking exits, handling fills).",
+      "Potential Issues or Technical Debt:**",
+      "Orderbook Ambiguity/Error:** The most significant issue is within `evaluate`: `const yesOrderbook = orderbook;` and `const noOrderbook = orderbook;`. This implies that the single `OrderbookSnapshot` p",
+      "Discrepancy in Configured Parameters vs. Implementation:** The `SpreadArbConfig` defines `minSpread` and `maxSpread`, but these parameters are *not actually used* in the `calculateArbitrageOpportunity",
+      "Inefficient Exit Condition Check:** In `checkExitConditions`, the loop"
+    ],
+    "dependencies": [
+      "decimal.js"
+    ],
+    "complexity_score": 5,
+    "raw_summary": "This TypeScript file defines a `SpreadArbitrageStrategy` designed to identify and act on arbitrage opportunities between \"YES\" and \"NO\" tokens within a prediction market context.\n\n---\n\n### 1. PURPOSE\n\nThis file's primary responsibility is to implement a trading strategy that exploits price discrepancies between complementary \"YES\" and \"NO\" tokens in a market. It aims to buy an undervalued token and implicitly sell the overvalued one (or vice-versa) to capture a risk-free profit, while also managing existing positions with time limits, profit targets, and stop losses.\n\n---\n\n### 2. IMPORTS\n\n*   **External libraries:**\n    *   `decimal.js`: Provides arbitrary-precision decimal arithmetic, crucial for financial calculations to avoid floating-point inaccuracies.\n*   **Internal modules:**\n    *   `../market/marketScanner`: Likely defines `ScannedMarket`, a data structure representing a market identified by a scanner.\n    *   `../market/orderbook`: Defines `OrderbookSnapshot`, a snapshot of a market's order book (best bid/ask, etc.).\n    *   `./baseStrategy`: Defines `BaseStrategy`, `TradeSignal`, and `StrategyConfig`, providing a common interface and base functionality for all trading strategies.\n    *   `../utils/math`: A utility module for mathematical operations (though not directly used in the provided snippet, it's imported).\n    *   `../config/env`: Configuration settings for the application, likely environment-specific.\n    *   `../utils/logger`: A logging utility for outputting information, warnings, and errors.\n*   **Standard library:**\n    *   None explicitly imported, as `Decimal` is an external library and basic types are built-in.\n\n---\n\n### 3. CLASSES\n\n#### `SpreadArbitrageStrategy`\n\n*   **Base Class:** `BaseStrategy`\n*   **Purpose/Responsibility:**\n    *   Initializes the strategy with specific parameters for spread arbitrage.\n    *   Evaluates incoming market and orderbook data to identify arbitrage opportunities between YES and NO tokens.\n    *   Generates"
+  }
+]

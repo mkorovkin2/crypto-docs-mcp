@@ -2,6 +2,13 @@
 import * as fs from "fs";
 import * as path from "path";
 import Database from "better-sqlite3";
+import dotenv from "dotenv";
+import {
+  BOTTOM_ANALYSIS_SYSTEM_PROMPT,
+  getBottomAnalysisUserPrompt,
+  BOTTOM_ANALYSIS_SYNTHESIS_SYSTEM_PROMPT,
+  getBottomAnalysisSynthesisUserPrompt,
+} from "./prompts.js";
 
 type Options = {
   dbPath: string;
@@ -10,12 +17,21 @@ type Options = {
   color: boolean;
   truncate: boolean;
   latestRun: boolean;
+  analyze: boolean;
+  analysisModel: string;
+  debug: boolean;
 };
+
+dotenv.config();
 
 const DEFAULT_DB = "idea_processor.db";
 const DEFAULT_LIMIT = 10;
 const MAX_CELL_WIDTH = 40;
 const DEFAULT_PREVIEW_CHARS = 240;
+const DEFAULT_ANALYSIS_MODEL = process.env.OPENAI_MODEL ?? "gpt-5";
+const DEFAULT_ANALYSIS_CHUNK_SIZE = 5;
+const OPENAI_API_ENDPOINT =
+  process.env.OPENAI_API_ENDPOINT ?? "https://api.openai.com/v1/chat/completions";
 
 const colors = {
   reset: "\x1b[0m",
@@ -49,6 +65,9 @@ Options:
   -l, --limit <n>              Row limit for rows/search (default: ${DEFAULT_LIMIT})
   --latest-run                 Filter results to the most recent run
   --full                       Do not truncate cell values or response previews
+  --no-analyze                 Skip LLM analysis for bottom command
+  --analysis-model <id>        Override analysis model (default: ${DEFAULT_ANALYSIS_MODEL})
+  --debug                      Enable debug logging
   --json                       Output JSON
   --no-color                   Disable ANSI colors
   -h, --help                   Show help
@@ -68,6 +87,9 @@ function parseArgs(argv: string[]): {
     color: true,
     truncate: true,
     latestRun: false,
+    analyze: true,
+    analysisModel: DEFAULT_ANALYSIS_MODEL,
+    debug: false,
   };
   const params: string[] = [];
   const errors: string[] = [];
@@ -102,6 +124,24 @@ function parseArgs(argv: string[]): {
     }
     if (arg === "--json") {
       options.json = true;
+      continue;
+    }
+    if (arg === "--no-analyze") {
+      options.analyze = false;
+      continue;
+    }
+    if (arg === "--analysis-model") {
+      const next = argv[i + 1];
+      if (!next) {
+        errors.push("Missing value for --analysis-model");
+      } else {
+        options.analysisModel = next;
+        i += 1;
+      }
+      continue;
+    }
+    if (arg === "--debug") {
+      options.debug = true;
       continue;
     }
     if (arg === "--latest-run") {
@@ -142,6 +182,38 @@ function colorize(text: string, color: string, useColor: boolean): string {
     return text;
   }
   return `${color}${text}${colors.reset}`;
+}
+
+type Logger = {
+  info: (message: string) => void;
+  debug: (message: string) => void;
+};
+
+function createLogger(options: Options): Logger {
+  if (options.json) {
+    return {
+      info: () => {},
+      debug: () => {},
+    };
+  }
+
+  const useColor = options.color && process.stderr.isTTY;
+  const write = (label: string, color: string, message: string): void => {
+    const prefix = colorize(`[${label}]`, color, useColor);
+    console.error(`${prefix} ${message}`);
+  };
+
+  return {
+    info: (message: string) => {
+      write("INFO", colors.cyan, message);
+    },
+    debug: (message: string) => {
+      if (!options.debug) {
+        return;
+      }
+      write("DEBUG", colors.gray, message);
+    },
+  };
 }
 
 function quoteIdentifier(value: string): string {
@@ -220,11 +292,172 @@ function stringifyValue(value: unknown): string {
   }
 }
 
+type ChatMessage = {
+  role: "system" | "user";
+  content: string;
+};
+
+type ChatCompletionResponse = {
+  choices?: Array<{
+    message?: {
+      content?: string;
+    };
+  }>;
+};
+
 function padRight(value: string, width: number): string {
   if (value.length >= width) {
     return value;
   }
   return value + " ".repeat(width - value.length);
+}
+
+type BottomScoreRow = {
+  question_text: string;
+  tool_output: string | null;
+  tool_name: string;
+  source_file: string;
+  comprehensive: number;
+  detailed: number;
+  confident: number;
+  too_long: number;
+  too_short: number;
+  fully_answered: number;
+  overall_score: number;
+  avg_score: number | null;
+  scored_at: string;
+};
+
+type BottomAnalysisEntry = {
+  id: number;
+  prompt: string;
+  response: string;
+  tool: string;
+  source_file: string;
+  scores: {
+    avg_score: string;
+    overall_score: number;
+    comprehensive: number;
+    detailed: number;
+    confident: number;
+    too_long: number;
+    too_short: number;
+    fully_answered: number;
+  };
+};
+
+type BottomAnalysisResult = {
+  model: string;
+  summary: string;
+  chunks: string[];
+};
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+  if (size <= 0) {
+    return [items];
+  }
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
+
+async function callOpenAIChat(
+  apiKey: string,
+  model: string,
+  messages: ChatMessage[],
+  logger: Logger
+): Promise<string> {
+  const promptChars = messages.reduce((sum, message) => sum + message.content.length, 0);
+  logger.debug(`OpenAI request model=${model} messages=${messages.length} chars=${promptChars}`);
+  const response = await fetch(OPENAI_API_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      // Note: GPT-5 only supports temperature=1 (default), so we omit it
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenAI API error ${response.status}: ${errorText}`);
+  }
+
+  const data = (await response.json()) as ChatCompletionResponse;
+  const content = data.choices?.[0]?.message?.content?.trim() ?? "";
+  logger.debug(`OpenAI response chars=${content.length}`);
+  return content;
+}
+
+async function analyzeBottomRows(
+  rows: BottomScoreRow[],
+  model: string,
+  logger: Logger
+): Promise<BottomAnalysisResult> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY is not set. Set it or pass --no-analyze.");
+  }
+
+  const entries: BottomAnalysisEntry[] = rows.map((row, index) => ({
+    id: index + 1,
+    prompt: row.question_text.trim() || "(empty)",
+    response: stringifyValue(row.tool_output),
+    tool: row.tool_name,
+    source_file: row.source_file,
+    scores: {
+      avg_score: formatNumber(row.avg_score),
+      overall_score: row.overall_score,
+      comprehensive: row.comprehensive,
+      detailed: row.detailed,
+      confident: row.confident,
+      too_long: row.too_long,
+      too_short: row.too_short,
+      fully_answered: row.fully_answered,
+    },
+  }));
+
+  const chunks = chunkArray(entries, DEFAULT_ANALYSIS_CHUNK_SIZE);
+  logger.info(`Running LLM analysis on ${entries.length} items with ${model}.`);
+  logger.debug(
+    `Chunking into ${chunks.length} chunk(s) of up to ${DEFAULT_ANALYSIS_CHUNK_SIZE} items`
+  );
+  const chunkSummaries: string[] = [];
+
+  for (const [index, chunk] of chunks.entries()) {
+    logger.debug(`Analyzing chunk ${index + 1}/${chunks.length} (${chunk.length} items)`);
+    const userPrompt = getBottomAnalysisUserPrompt(JSON.stringify(chunk, null, 2));
+    const chunkSummary = await callOpenAIChat(
+      apiKey,
+      model,
+      [
+        { role: "system", content: BOTTOM_ANALYSIS_SYSTEM_PROMPT },
+        { role: "user", content: userPrompt },
+      ],
+      logger
+    );
+    chunkSummaries.push(chunkSummary);
+  }
+
+  const synthesisPrompt = getBottomAnalysisSynthesisUserPrompt(chunkSummaries);
+  const summary = await callOpenAIChat(
+    apiKey,
+    model,
+    [
+      { role: "system", content: BOTTOM_ANALYSIS_SYNTHESIS_SYSTEM_PROMPT },
+      { role: "user", content: synthesisPrompt },
+    ],
+    logger
+  );
+  logger.info("LLM analysis complete.");
+
+  return { model, summary, chunks: chunkSummaries };
 }
 
 function listTables(db: Database.Database): string[] {
@@ -401,9 +634,10 @@ function outputJson(payload: unknown): void {
   console.log(JSON.stringify(payload, null, 2));
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const { command, params, options, showHelp, errors } = parseArgs(process.argv.slice(2));
   const useColor = options.color && process.stdout.isTTY && !options.json;
+  const logger = createLogger(options);
 
   if (showHelp) {
     console.log(usage.trimEnd());
@@ -739,22 +973,6 @@ function main(): void {
       ].join(" + ");
       const avgScoreExpression = `(1.0 * (${scoreSumExpression})) / NULLIF((${scoreCountExpression}), 0)`;
 
-      type BottomScoreRow = {
-        question_text: string;
-        tool_output: string | null;
-        tool_name: string;
-        source_file: string;
-        comprehensive: number;
-        detailed: number;
-        confident: number;
-        too_long: number;
-        too_short: number;
-        fully_answered: number;
-        overall_score: number;
-        avg_score: number | null;
-        scored_at: string;
-      };
-
       const rows = db
         .prepare(
           `SELECT
@@ -787,8 +1005,28 @@ function main(): void {
         )
         .all(...runFilter.params, limit) as BottomScoreRow[];
 
+      let analysisResult: BottomAnalysisResult | null = null;
+      let analysisError: string | null = null;
+      if (options.analyze && rows.length > 0) {
+        try {
+          analysisResult = await analyzeBottomRows(rows, options.analysisModel, logger);
+        } catch (error) {
+          analysisError = error instanceof Error ? error.message : String(error);
+        }
+      } else if (!options.analyze) {
+        logger.info("Skipping LLM analysis (--no-analyze).");
+      } else if (rows.length === 0) {
+        logger.info("Skipping LLM analysis (no rows).");
+      }
+
       if (options.json) {
-        outputJson({ runId: latestRunId ?? undefined, limit, rows });
+        outputJson({
+          runId: latestRunId ?? undefined,
+          limit,
+          rows,
+          analysis: analysisResult ?? undefined,
+          analysis_error: analysisError ?? undefined,
+        });
         return;
       }
 
@@ -833,6 +1071,24 @@ function main(): void {
           console.log("");
         }
       });
+
+      if (analysisError) {
+        console.log("");
+        console.error(colorize(`LLM analysis failed: ${analysisError}`, colors.red, useColor));
+        return;
+      }
+
+      if (analysisResult?.summary) {
+        console.log("");
+        console.log(
+          colorize(
+            `LLM analysis (${analysisResult.model})`,
+            colors.bold + colors.cyan,
+            useColor
+          )
+        );
+        console.log(analysisResult.summary);
+      }
       return;
     }
 
@@ -1249,4 +1505,8 @@ function main(): void {
   }
 }
 
-main();
+main().catch((error) => {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(message);
+  process.exit(1);
+});

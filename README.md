@@ -71,6 +71,25 @@ How it works (quick version):
 Prereqs:
 - `OPENAI_API_KEY` plus running Qdrant/SQLite (same as the normal scraper).
 
+### Generate + Index docs-agent-v3 Output
+
+If you use `docs-agent-v3` to generate repo docs, this wrapper will generate docs, export a `RELATIONSHIPS.md` file from the handoff JSON, and index everything:
+
+```bash
+npm run generate-and-index-docs -- --project polymarket --repo /path/to/repo
+```
+
+Split the steps when needed:
+
+```bash
+npm run generate-and-index-docs -- --project polymarket --repo /path/to/repo --generate-only
+npm run generate-and-index-docs -- --project polymarket --output docs/generated/<custom> --index-only
+```
+
+Note: `docs-agent-v3` expects a local repo path (it does not clone). Clone the repo first if needed.
+More details in `DOC_INDEXING.md`.
+Note: the wrapper uses `ts-node` registration via `--import` to avoid Node 25 loader warnings.
+
 ### Discover Third-Party Sources
 
 Automatically discover third-party GitHub repos, tutorials, and blog posts for a project using an agentic search loop:

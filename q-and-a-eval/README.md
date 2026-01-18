@@ -180,6 +180,22 @@ node dist/idea-db.js --db /path/to/idea_processor.db stats
 Use `--json` for machine output, `--full` to disable cell truncation, and `--latest-run` to filter to the most recent run. `agg quality` shows averages for all eval parameters by tool.
 Aggregations treat `-2` scores as missing and ignore them in averages/distributions.
 
+`bottom` also runs an LLM analysis of the lowest-scoring prompts/responses to surface commonalities and RAG gaps.
+Set `OPENAI_API_KEY` in `.env` (or the environment) or use `--no-analyze` to skip, `--analysis-model` to override the model, and `--debug` for verbose logging.
+
+Example analysis usage:
+
+```bash
+# Analyze bottom 15 with the default model
+node dist/idea-db.js bottom 15
+
+# Skip analysis
+node dist/idea-db.js bottom 15 --no-analyze
+
+# Use a specific model with debug logging
+node dist/idea-db.js bottom 15 --analysis-model gpt-5 --debug
+```
+
 ## Scripts
 
 | Command | Description |

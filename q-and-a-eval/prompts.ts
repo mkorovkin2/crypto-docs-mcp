@@ -82,3 +82,63 @@ ${toolOutput}
 
 Evaluate the quality of this answer.`;
 }
+
+// ============================================================================
+// BOTTOM SCORE ANALYSIS PROMPTS (used with GPT-5)
+// ============================================================================
+
+export const BOTTOM_ANALYSIS_SYSTEM_PROMPT = `You are a RAG evaluation analyst. Analyze low-scoring prompt/response pairs to find common patterns, response gaps, data/coverage gaps, and actionable RAG improvements.
+
+Be concise and evidence-based. Avoid speculation beyond the provided items.
+
+Return plain text with the exact headings:
+Commonalities:
+- ...
+Response Gaps:
+- ...
+Data/Coverage Gaps:
+- ...
+RAG Improvements:
+- ...
+Notable Examples:
+- #id: ...`;
+
+export function getBottomAnalysisUserPrompt(itemsJson: string): string {
+  return `Analyze the following bottom-scoring items. Each item is JSON with fields:
+id, prompt, response, tool, source_file, scores, avg_score.
+
+Focus on repeated failure modes and missing information. If evidence is weak, say so.
+
+Items:
+<items>
+${itemsJson}
+</items>`;
+}
+
+export const BOTTOM_ANALYSIS_SYNTHESIS_SYSTEM_PROMPT = `You consolidate multiple chunk analyses of low-scoring RAG results into a final summary.
+
+Merge duplicates, prioritize the highest-impact issues, and keep it concise.
+
+Return plain text with the exact headings:
+Commonalities:
+- ...
+Response Gaps:
+- ...
+Data/Coverage Gaps:
+- ...
+RAG Improvements (prioritized):
+- ...
+Notable Examples:
+- #id: ...`;
+
+export function getBottomAnalysisSynthesisUserPrompt(chunkSummaries: string[]): string {
+  const joined = chunkSummaries
+    .map((summary, index) => `Chunk ${index + 1}:\n${summary}`)
+    .join("\n\n---\n\n");
+  return `Combine the chunk analyses below. Deduplicate and prioritize; keep top 5 items per section where possible.
+
+Chunk analyses:
+<chunks>
+${joined}
+</chunks>`;
+}
